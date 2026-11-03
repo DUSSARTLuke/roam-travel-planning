@@ -31,6 +31,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { TripConfirmation } from './TripConfirmation'
+import { TripProgram } from './components/program/TripProgram'
 import './App.css'
 
 type TabId = 'home' | 'program' | 'map' | 'budget' | 'more'
@@ -110,11 +111,12 @@ useEffect(() => {
   const savingRef = useRef(false)
   const [duplicatingTripId, setDuplicatingTripId] = useState<string | null>(null)
   const [duplicationError, setDuplicationError] = useState('')
-  const duplicationRef = useRef({
-    busy: false,
-    tripId: '',
-    completedAt: 0,
-  })
+  const duplicationRef = useRef(false)
+  const duplicationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => () => {
+    if (duplicationTimerRef.current !== null) clearTimeout(duplicationTimerRef.current)
+  }, [])
 
   const [formError, setFormError] = useState('')
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null)
@@ -131,18 +133,19 @@ useEffect(() => {
   } | null>(null)
   const writeBusy = isSaving || duplicatingTripId !== null || archivingTripId !== null || trashBusy
 
-  useEffect(() => {
-    if (trips?.some((trip) => trip.id === selectedTripId && (trip.archived === true || trip.deletedAt !== undefined))) {
-      setSelectedTripId(null)
-      setActiveTab('home')
-      setShowArchived(false)
-      setShowTrash(false)
-    }
-  }, [trips, selectedTripId])
-
 const selectedTrip = (trips ?? []).find(
     (item) => item.id === selectedTripId && item.archived !== true && item.deletedAt === undefined,
   ) ?? null
+
+  // Reconcile an invalid selection before rendering its navigation. This
+  // guarded adjustment also handles changes from another tab and terminates
+  // as soon as selectedTripId is cleared; no synchronization effect is needed.
+  if (trips !== undefined && selectedTripId !== null && selectedTrip === null) {
+    setSelectedTripId(null)
+    setActiveTab('home')
+    setShowArchived(false)
+    setShowTrash(false)
+  }
 
   const isTripOpen = selectedTrip !== null
 
@@ -239,16 +242,10 @@ function requestTrashAction(trip: Trip, action: 'trash' | 'delete') {
 }
 
 async function duplicateTrip(trip: Trip) {
-  const operation = duplicationRef.current
-  // Also ignore rapid repeat clicks after a very fast IndexedDB write.
-  if (writeLock.current || operation.busy ||
-      (operation.tripId === trip.id && Date.now() - operation.completedAt < 600)) {
-    return
-  }
+  if (writeLock.current || duplicationRef.current) return
 
   writeLock.current = true
-  operation.busy = true
-  operation.tripId = trip.id
+  duplicationRef.current = true
   setDuplicatingTripId(trip.id)
   setDuplicationError('')
 
@@ -273,9 +270,12 @@ async function duplicateTrip(trip: Trip) {
     setDuplicationError("Impossible de dupliquer ce voyage. Réessaie dans un instant.")
   } finally {
     writeLock.current = false
-    operation.busy = false
-    operation.completedAt = Date.now()
-    setDuplicatingTripId(null)
+    // Keep the duplication button locked briefly even after a fast write.
+    duplicationTimerRef.current = setTimeout(() => {
+      duplicationRef.current = false
+      duplicationTimerRef.current = null
+      setDuplicatingTripId(null)
+    }, 600)
   }
 }
 
@@ -687,6 +687,8 @@ if (!databaseReady || trips === undefined) {
               )}
             </section>
           </>
+        ) : activeTab === 'program' && selectedTrip ? (
+          <TripProgram key={`${selectedTrip.id}:${selectedTrip.startDate}:${selectedTrip.endDate}`} trip={selectedTrip} />
         ) : (
           <section className="placeholder-page">
             <div className="placeholder-icon">
