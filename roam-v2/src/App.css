@@ -199,6 +199,8 @@ button:disabled {
 
 .trip-footer {
   margin-top: 22px;
+  flex-wrap: wrap;
+  gap: 12px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -208,6 +210,7 @@ button:disabled {
 
 .trip-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }

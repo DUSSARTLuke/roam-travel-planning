@@ -11,6 +11,8 @@ import {
   Plus,
   Pencil,
   Copy,
+  Archive,
+  ArchiveRestore,
   Search,
   Settings2,
   MapPin,
@@ -44,7 +46,7 @@ const tabs: Tab[] = [
 ]
 
 
-const emptyTripForm: Omit<Trip, 'id'> = {
+const emptyTripForm: Omit<Trip, 'id' | 'archived'> = {
   destination: '',
   country: '',
   startDate: '',
@@ -112,9 +114,21 @@ useEffect(() => {
 
   const [formError, setFormError] = useState('')
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null)
+  const [showArchived, setShowArchived] = useState(false)
+  const [archiveError, setArchiveError] = useState('')
+  const [archivingTripId, setArchivingTripId] = useState<string | null>(null)
+  const archiveLock = useRef(false)
+
+  useEffect(() => {
+    if (trips?.some((trip) => trip.id === selectedTripId && trip.archived === true)) {
+      setSelectedTripId(null)
+      setActiveTab('home')
+      setShowArchived(false)
+    }
+  }, [trips, selectedTripId])
 
 const selectedTrip = (trips ?? []).find(
-    (item) => item.id === selectedTripId,
+    (item) => item.id === selectedTripId && item.archived !== true,
   ) ?? null
 
   const isTripOpen = selectedTrip !== null
@@ -126,6 +140,7 @@ const selectedTrip = (trips ?? []).find(
 
   function closeTrip() {
     setSelectedTripId(null)
+    setShowArchived(false)
     setActiveTab('home')
   }
 
@@ -153,6 +168,29 @@ function editTrip(trip: Trip) {
   setShowCreateTrip(true)
 }
 
+async function setTripArchived(trip: Trip, archived: boolean) {
+  if (archiveLock.current) return
+  archiveLock.current = true
+  setArchivingTripId(trip.id)
+  setArchiveError('')
+  try {
+    const updated = await db.trips.update(trip.id, { archived })
+    if (updated === 0) {
+      setArchiveError('Ce voyage est introuvable. Actualise la liste.')
+      return
+    }
+    if (archived && trip.id === selectedTripId) closeTrip()
+  } catch (error) {
+    console.error('Erreur d’archivage/restauration :', error)
+    setArchiveError(archived
+      ? "Impossible d'archiver ce voyage. Réessaie."
+      : 'Impossible de restaurer ce voyage. Réessaie.')
+  } finally {
+    archiveLock.current = false
+    setArchivingTripId(null)
+  }
+}
+
 async function duplicateTrip(trip: Trip) {
   const operation = duplicationRef.current
   // Also ignore rapid repeat clicks after a very fast IndexedDB write.
@@ -175,7 +213,12 @@ async function duplicateTrip(trip: Trip) {
       endDate: trip.endDate,
       travelers: trip.travelers,
       image: trip.image,
+      archived: false,
     })
+    if (showArchived) {
+      setShowArchived(false)
+      setSearch('')
+    }
   } catch (error) {
     console.error('Erreur de duplication :', error)
     setDuplicationError("Impossible de dupliquer ce voyage. Réessaie dans un instant.")
@@ -209,7 +252,7 @@ async function saveTrip(event: React.FormEvent<HTMLFormElement>) {
     return
   }
 
-  const fields: Omit<Trip, 'id'> = {
+  const fields: Omit<Trip, 'id' | 'archived'> = {
     destination,
     country,
     startDate: newTrip.startDate,
@@ -229,7 +272,11 @@ async function saveTrip(event: React.FormEvent<HTMLFormElement>) {
         return
       }
     } else {
-      await db.trips.add({ ...fields, id: crypto.randomUUID() })
+      await db.trips.add({ ...fields, id: crypto.randomUUID(), archived: false })
+      if (showArchived) {
+        setShowArchived(false)
+        setSearch('')
+      }
     }
   } catch (error) {
     console.error('Erreur de sauvegarde :', error)
@@ -254,7 +301,10 @@ function navigateToTab(tabId: TabId) {
 
 const [search, setSearch] = useState('')
 
-const filteredTrips = (trips ?? []).filter((item) =>  `${item.destination} ${item.country}`
+const archivedCount = (trips ?? []).filter((trip) => trip.archived === true).length
+const filteredTrips = (trips ?? [])
+  .filter((trip) => (trip.archived === true) === showArchived)
+  .filter((item) => `${item.destination} ${item.country}`
     .toLocaleLowerCase('fr-FR')
     .includes(search.trim().toLocaleLowerCase('fr-FR')),
 )
@@ -326,6 +376,7 @@ if (!databaseReady || trips === undefined) {
       </header>
 
       <main className="main-content">
+        {archiveError && <p className="form-error" role="alert">{archiveError}</p>}
         {activeTab === 'home' && selectedTrip ? (
   <section className="trip-dashboard">
     <button className="back-button" onClick={closeTrip}>
@@ -349,6 +400,19 @@ if (!databaseReady || trips === undefined) {
         <p>{formatTripDates(selectedTrip)} · {selectedTrip.travelers} voyageurs</p>
       </div>
     </div>
+
+    <button
+      type="button"
+      className="back-button"
+      disabled={archivingTripId !== null}
+      onClick={(event) => {
+        event.stopPropagation()
+        void setTripArchived(selectedTrip, true)
+      }}
+    >
+      <Archive size={18} />
+      {archivingTripId === selectedTrip.id ? 'Archivage…' : 'Archiver ce voyage'}
+    </button>
 
     <h2 className="dashboard-title">Organiser mon voyage</h2>
 
@@ -396,7 +460,7 @@ if (!databaseReady || trips === undefined) {
             <section className="page-heading">
               <div>
                 <p className="eyebrow">TES AVENTURES</p>
-                <h1>Mes voyages</h1>
+                <h1>{showArchived ? 'Voyages archivés' : 'Mes voyages'}</h1>
                 <p className="subtitle">
                   Organise tes découvertes, à ta façon.
                 </p>
@@ -407,6 +471,20 @@ if (!databaseReady || trips === undefined) {
                 Nouveau voyage
               </button>
             </section>
+
+            <button
+              type="button"
+              className="back-button"
+              onClick={() => {
+                setShowArchived(!showArchived)
+                setSearch('')
+                setArchiveError('')
+                setDuplicationError('')
+              }}
+            >
+              {showArchived ? <ArrowLeft size={18} /> : <Archive size={18} />}
+              {showArchived ? 'Mes voyages actifs' : `Voyages archivés (${archivedCount})`}
+            </button>
 
             <div className="search-box">
               <Search size={19} />
@@ -421,7 +499,7 @@ if (!databaseReady || trips === undefined) {
 
             <section className="trips-section">
               <div className="section-heading">
-                <h2>Mes destinations</h2>
+                <h2>{showArchived ? 'Mes archives' : 'Mes destinations'}</h2>
                 <span>{filteredTrips.length} voyage(s)</span>
               </div>
 
@@ -444,7 +522,7 @@ if (!databaseReady || trips === undefined) {
     <span>{item.destination}</span>
   </div>
 )}
-                      <span className="trip-badge">Voyage</span>
+                      <span className="trip-badge">{showArchived ? 'Archivé' : 'Voyage'}</span>
                     </div>
 
                     <div className="trip-info">
@@ -490,12 +568,26 @@ if (!databaseReady || trips === undefined) {
                             <Copy size={18} />
                           </button>
                           <button
+                            type="button"
+                            className="card-edit"
+                            aria-label={`${showArchived ? 'Restaurer' : 'Archiver'} le voyage ${item.destination}`}
+                            title={showArchived ? 'Restaurer le voyage' : 'Archiver le voyage'}
+                            disabled={archivingTripId !== null}
+                            aria-busy={archivingTripId === item.id}
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              void setTripArchived(item, !showArchived)
+                            }}
+                          >
+                            {showArchived ? <ArchiveRestore size={18} /> : <Archive size={18} />}
+                          </button>
+                          {!showArchived && <button
                             className="card-arrow"
                             aria-label={`Ouvrir le voyage ${item.destination}`}
                             onClick={() => openTrip(item.id)}
                           >
                             <ArrowRight size={20} />
-                          </button>
+                          </button>}
                         </div>
                       </div>
                     </div>
@@ -506,7 +598,9 @@ if (!databaseReady || trips === undefined) {
 
               {filteredTrips.length === 0 && (
                 <div className="empty-state">
-                  Aucun voyage ne correspond à ta recherche.
+                  {showArchived && archivedCount === 0
+                    ? "Aucun voyage archivé pour l'instant."
+                    : 'Aucun voyage ne correspond à ta recherche.'}
                 </div>
               )}
             </section>

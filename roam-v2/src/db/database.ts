@@ -9,6 +9,8 @@ export type Trip = {
   endDate: string
   travelers: number
   image: string
+  // Missing on legacy records: treated as false without rewriting user data.
+  archived?: boolean
 }
 
 type DatabaseMetadata = {
@@ -23,6 +25,7 @@ const initializationMarker: DatabaseMetadata = {
 
 const exampleTrip: Trip = {
   id: 'london-2026',
+  archived: false,
   destination: 'Londres',
   country: 'Royaume-Uni',
   startDate: '2026-12-28',
