@@ -206,6 +206,27 @@ button:disabled {
   font-size: 13px;
 }
 
+.trip-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-edit {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--accent);
+}
+
+.card-edit:hover {
+  border-color: var(--accent);
+}
+
 .card-arrow {
   display: grid;
   place-items: center;

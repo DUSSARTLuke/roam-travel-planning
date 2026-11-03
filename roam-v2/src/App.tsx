@@ -1,5 +1,5 @@
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   db,
@@ -9,6 +9,7 @@ import {
 import {
   Compass,
   Plus,
+  Pencil,
   Search,
   Settings2,
   MapPin,
@@ -41,6 +42,15 @@ const tabs: Tab[] = [
   { id: 'more', label: 'Plus', icon: Menu },
 ]
 
+
+const emptyTripForm: Omit<Trip, 'id'> = {
+  destination: '',
+  country: '',
+  startDate: '',
+  endDate: '',
+  travelers: 2,
+  image: '',
+}
 
 function formatTripDates(trip: Trip) {
   const formatter = new Intl.DateTimeFormat('fr-FR', {
@@ -87,14 +97,10 @@ useEffect(() => {
 }, [])
   const [showCreateTrip, setShowCreateTrip] = useState(false)
 
-  const [newTrip, setNewTrip] = useState({
-    destination: '',
-    country: '',
-    startDate: '',
-    endDate: '',
-    travelers: 2,
-    image: '',
-  })
+  const [newTrip, setNewTrip] = useState(emptyTripForm)
+  const [editingTripId, setEditingTripId] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const savingRef = useRef(false)
 
   const [formError, setFormError] = useState('')
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null)
@@ -117,11 +123,32 @@ const selectedTrip = (trips ?? []).find(
 
   
 function closeCreateTrip() {
+  if (savingRef.current) return
   setShowCreateTrip(false)
+  setEditingTripId(null)
+  setNewTrip({ ...emptyTripForm })
   setFormError('')
 }
 
-async function createTrip(event: React.FormEvent<HTMLFormElement>) {  event.preventDefault()
+function openCreateTrip() {
+  setEditingTripId(null)
+  setNewTrip({ ...emptyTripForm })
+  setFormError('')
+  setShowCreateTrip(true)
+}
+
+function editTrip(trip: Trip) {
+  const { id, ...fields } = trip
+  setEditingTripId(id)
+  setNewTrip(fields)
+  setFormError('')
+  setShowCreateTrip(true)
+}
+
+async function saveTrip(event: React.FormEvent<HTMLFormElement>) {
+  event.preventDefault()
+  if (savingRef.current) return
+  setFormError('')
 
   const destination = newTrip.destination.trim()
   const country = newTrip.country.trim()
@@ -141,8 +168,7 @@ async function createTrip(event: React.FormEvent<HTMLFormElement>) {  event.prev
     return
   }
 
-  const createdTrip: Trip = {
-    id: crypto.randomUUID(),
+  const fields: Omit<Trip, 'id'> = {
     destination,
     country,
     startDate: newTrip.startDate,
@@ -151,23 +177,27 @@ async function createTrip(event: React.FormEvent<HTMLFormElement>) {  event.prev
     image: newTrip.image.trim(),
   }
 
-try {
-  await db.trips.add(createdTrip)
-} catch (error) {
-  console.error('Erreur de sauvegarde :', error)
-  setFormError(
-    "Impossible d'enregistrer ce voyage. Réessaie.",
-  )
-  return
-}
-  setNewTrip({
-    destination: '',
-    country: '',
-    startDate: '',
-    endDate: '',
-    travelers: 2,
-    image: '',
-  })
+  savingRef.current = true
+  setIsSaving(true)
+
+  try {
+    if (editingTripId !== null) {
+      const updated = await db.trips.update(editingTripId, fields)
+      if (updated === 0) {
+        setFormError('Ce voyage est introuvable. Ferme le formulaire et actualise la liste.')
+        return
+      }
+    } else {
+      await db.trips.add({ ...fields, id: crypto.randomUUID() })
+    }
+  } catch (error) {
+    console.error('Erreur de sauvegarde :', error)
+    setFormError("Impossible d'enregistrer ce voyage. Réessaie.")
+    return
+  } finally {
+    savingRef.current = false
+    setIsSaving(false)
+  }
 
   closeCreateTrip()
 }
@@ -331,7 +361,7 @@ if (!databaseReady || trips === undefined) {
                 </p>
               </div>
 
-              <button className="primary-button" onClick={() => setShowCreateTrip(true)}>
+              <button className="primary-button" onClick={openCreateTrip}>
                 <Plus size={19} />
                 Nouveau voyage
               </button>
@@ -388,13 +418,27 @@ if (!databaseReady || trips === undefined) {
 
                       <div className="trip-footer">
                         <span>{item.travelers} voyageurs</span>
-                        <button
-                          className="card-arrow"
-                          aria-label={`Ouvrir le voyage ${item.destination}`}
-                          onClick={() => openTrip(item.id)}
-                        >
-                          <ArrowRight size={20} />
-                        </button>
+                        <div className="trip-actions">
+                          <button
+                            type="button"
+                            className="card-edit"
+                            aria-label={`Modifier le voyage ${item.destination}`}
+                            title="Modifier le voyage"
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              editTrip(item)
+                            }}
+                          >
+                            <Pencil size={18} />
+                          </button>
+                          <button
+                            className="card-arrow"
+                            aria-label={`Ouvrir le voyage ${item.destination}`}
+                            onClick={() => openTrip(item.id)}
+                          >
+                            <ArrowRight size={20} />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </article>
@@ -457,13 +501,14 @@ if (!databaseReady || trips === undefined) {
     >
       <div className="modal-header">
         <div>
-          <h2 id="create-trip-title">Nouveau voyage</h2>
-          <p>Prépare ta prochaine aventure.</p>
+          <h2 id="create-trip-title">{editingTripId !== null ? 'Modifier le voyage' : 'Nouveau voyage'}</h2>
+          <p>{editingTripId !== null ? 'Mets à jour les informations de ton voyage.' : 'Prépare ta prochaine aventure.'}</p>
         </div>
 
         <button
           type="button"
           className="modal-close"
+          disabled={isSaving}
           aria-label="Fermer"
           onClick={closeCreateTrip}
         >
@@ -471,7 +516,7 @@ if (!databaseReady || trips === undefined) {
         </button>
       </div>
 
-      <form className="trip-form" onSubmit={createTrip}>
+      <form className="trip-form" onSubmit={saveTrip} aria-busy={isSaving}>
         <label>
           Destination *
           <input
@@ -578,14 +623,15 @@ if (!databaseReady || trips === undefined) {
           <button
             type="button"
             className="secondary-button"
+            disabled={isSaving}
             onClick={closeCreateTrip}
           >
             Annuler
           </button>
 
-          <button type="submit" className="primary-button">
-            <Plus size={18} />
-            Créer le voyage
+          <button type="submit" className="primary-button" disabled={isSaving}>
+            {editingTripId !== null ? <Pencil size={18} /> : <Plus size={18} />}
+            {isSaving ? 'Enregistrement…' : editingTripId !== null ? 'Enregistrer les modifications' : 'Créer le voyage'}
           </button>
         </div>
       </form>
