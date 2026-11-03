@@ -606,3 +606,51 @@
     padding-right: max(20px, env(safe-area-inset-right));
   }
 }
+
+.activity-panel-form .activity-link-editor {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  margin: 18px 0;
+  gap: 12px;
+}
+
+.activity-link-editor legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.activity-link-editor label {
+  margin-top: 0;
+}
+
+.activity-link-add {
+  margin-top: 18px;
+}
+
+.activity-detail-links {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.activity-detail-links a {
+  display: block;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--accent);
+  overflow-wrap: anywhere;
+}
+
+.activity-detail-links a:hover {
+  background: var(--surface-hover);
+}
+
+.activity-detail-links .activity-meta {
+  display: block;
+  margin-top: 4px;
+  overflow-wrap: anywhere;
+}

@@ -1,4 +1,4 @@
-import type { ActivityCategory, ActivityPeriod, ActivitySchedule, TripActivity, TripActivityInput } from '../../db/activityModel'
+import type { ActivityCategory, ActivityLink, ReservationStatus, ActivityPeriod, ActivitySchedule, TripActivity, TripActivityInput } from '../../db/activityModel'
 
 export type ActivityFormValues = {
   title: string
@@ -11,6 +11,17 @@ export type ActivityFormValues = {
   period: ActivityPeriod
   location: string
   notes: string
+  reservationStatus: ReservationStatus | ''
+  reservationReference: string
+  reservationProvider: string
+  reservationPeople: string
+  reservationDeadline: string
+  reservationNotes: string
+  estimatedCost: string
+  paidAmount: string
+  currency: string
+  legacyUrl: string
+  links: ActivityLink[]
 }
 
 export function initialActivityValues(activity: TripActivity | null, date: string | null, fallback: string): ActivityFormValues {
@@ -20,12 +31,27 @@ export function initialActivityValues(activity: TripActivity | null, date: strin
     scheduleType: activity?.scheduleType ?? 'unscheduled', startTime: activity?.startTime ?? '',
     endTime: activity?.endTime ?? '', period: activity?.period ?? 'morning',
     location: activity?.location ?? '', notes: activity?.notes ?? '',
+    reservationStatus: activity?.reservationStatus ?? '',
+    reservationReference: activity?.reservationReference ?? '', reservationProvider: activity?.reservationProvider ?? '',
+    reservationPeople: activity?.reservationPeople === undefined ? '' : String(activity.reservationPeople),
+    reservationDeadline: activity?.reservationDeadline ?? '', reservationNotes: activity?.reservationNotes ?? '',
+    estimatedCost: activity?.estimatedCost === undefined ? '' : String(activity.estimatedCost),
+    paidAmount: activity?.paidAmount === undefined ? '' : String(activity.paidAmount),
+    currency: activity?.currency ?? '', legacyUrl: activity?.url ?? '',
+    links: activity?.links?.map((link) => ({ ...link })) ?? [],
   }
 }
 
 // A complete editable input, with hidden fields taken from the latest stored
 // activity. Schedule fields are rebuilt so obsolete times cannot leak across modes.
-export function activityFormInput(form: ActivityFormValues, existing: TripActivity | null): TripActivityInput {
+export function activityFormInput(form: ActivityFormValues, existing: TripActivity | null, initial?: ActivityFormValues): TripActivityInput {
+  if (initial && existing) {
+    const latest = initialActivityValues(existing, form.date, form.date)
+    form = { ...form }
+    for (const key of Object.keys(form) as (keyof ActivityFormValues)[]) {
+      if (JSON.stringify(form[key]) === JSON.stringify(initial[key])) form = { ...form, [key]: latest[key] }
+    }
+  }
   let schedule: ActivitySchedule
   if (form.scheduleType === 'exact') {
     schedule = { scheduleType: 'exact', startTime: form.startTime, endTime: form.endTime || undefined, period: null }
@@ -37,8 +63,13 @@ export function activityFormInput(form: ActivityFormValues, existing: TripActivi
   return {
     ...schedule, title: form.title, category: form.category, date: form.idea ? null : form.date,
     location: form.location, notes: form.notes, sortOrder: existing?.sortOrder ?? 0,
-    estimatedCost: existing?.estimatedCost, currency: existing?.currency,
-    reservationStatus: existing?.reservationStatus, url: existing?.url,
+    estimatedCost: form.estimatedCost.trim() === '' ? undefined : Number(form.estimatedCost),
+    paidAmount: form.paidAmount.trim() === '' ? undefined : Number(form.paidAmount),
+    currency: form.currency || undefined, reservationStatus: form.reservationStatus || undefined,
+    reservationReference: form.reservationReference || undefined, reservationProvider: form.reservationProvider || undefined,
+    reservationPeople: form.reservationPeople.trim() === '' ? undefined : Number(form.reservationPeople),
+    reservationDeadline: form.reservationDeadline || undefined, reservationNotes: form.reservationNotes || undefined,
+    url: form.legacyUrl || undefined, links: form.links,
   }
 }
 

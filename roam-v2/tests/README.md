@@ -28,8 +28,10 @@ transactionnelle avec rollback forcé ; absence d'orphelins lors d'écritures co
   modifier les dates du voyage ne déplace ni ne supprime ses activités.
 - Horaires : `HH:mm`. Fin facultative, supérieure ou égale au début, sur la même
   journée. Les activités traversant minuit ne sont pas gérées à cette étape.
-- Devise : code de trois lettres, normalisé en majuscules ; aucun calcul de change
-  ni vérification de l'existence du code auprès d'une source externe.
+- Devise : code ISO reconnu par `Intl.supportedValuesOf('currency')`, normalisé en
+  majuscules. Un ancien code inchangé reste conservé ; aucun calcul de change.
+- Les champs avancés omis dans une modification sont conservés. Pour les effacer,
+  fournir explicitement `undefined` ; pour retirer tous les liens, fournir `[]`.
 - Tri : date (idées en dernier), mode (`exact`, `period`, `unscheduled`),
   `sortOrder`, horaire/créneau, `createdAt`, puis `id`. L'ordre manuel est prioritaire
   à l'intérieur d'un mode ; les critères de départage rendent le résultat stable.
@@ -82,3 +84,29 @@ Dans l'application, avec des voyages de test, vérifier manuellement :
 10. Simuler une erreur de stockage et cliquer rapidement sur Enregistrer : aucun
     doublon, erreur visible et saisies conservées. Depuis un autre onglet, mettre
     le voyage à la corbeille : aucune écriture ne doit contourner la règle du parent.
+
+
+## Étape 2.4.2 : réservations, prix et liens
+
+La suite `/tests/activities.html` appelle aussi `activityAdvanced.browser.ts` :
+création rapide sans champs avancés, anciens statut `pending` et `url`, prix zéro
+et absents, devises EUR/GBP/USD, références conservées après changement de statut,
+liens ajoutés/modifiés/retirés avec ordre stable, invalidations des montants,
+personnes, dates et URL dangereuses, conservation après modification simple.
+Ces tests utilisent toujours exclusivement la base temporaire isolée.
+
+À vérifier manuellement dans le Programme :
+
+1. Refermer/réouvrir les trois sections sans perte de saisie, et changer le statut
+   sans perdre référence, prestataire, personnes ni notes de réservation.
+2. Enregistrer prix estimé/payé à zéro puis les vider : la fiche doit distinguer
+   les deux cas. Tester EUR, GBP et USD, puis rejeter ZZZ et les montants négatifs.
+3. Ajouter deux liens, modifier l'un et retirer l'autre : aucun changement des
+   autres identifiants/titres/URL. Tester également un ancien champ `url`.
+4. Vérifier l'ouverture des liens en nouvel onglet et le refus des URL javascript,
+   data, file, relatives ou mal formées. Une ancienne URL dangereuse n'est jamais
+   transformée en lien cliquable dans la fiche.
+5. Modifier seulement le nom ou le lieu, puis recharger : toutes les informations
+   avancées doivent être conservées, y compris les valeurs historiques.
+6. Vérifier la mise à jour de la fiche, les erreurs de saisie dans une section
+   refermée, le clavier mobile et l'isolation entre deux voyages.

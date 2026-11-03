@@ -1,5 +1,5 @@
 import { db, type RoamDatabase } from './database'
-import { compareActivities, isActivityDate, validateActivity, type TripActivity, type TripActivityInput } from './activityModel'
+import { advancedActivityKeys, compareActivities, isActivityDate, validateActivity, type TripActivity, type TripActivityInput } from './activityModel'
 
 // All operations verify the parent within the same transaction as their read
 // or write. Including trips serializes writes against permanent trip deletion.
@@ -50,13 +50,16 @@ export function createActivityRepository(database: RoamDatabase = db) {
       })
     },
 
-    // Replace editable fields as a complete coherent input, not a partial patch
-    // that could leave obsolete times when switching schedule modes.
+    // Replace the quick fields as a coherent input to remove obsolete times.
+    // Omitted optional advanced fields are retained; explicit undefined clears them.
     async updateActivity(tripId: string, id: string, input: TripActivityInput): Promise<TripActivity> {
-      const fields = validateActivity(input)
       return database.transaction('rw', database.trips, database.activities, async () => {
         await requireParent(tripId, true)
         const existing = await requireActivity(tripId, id)
+        // Omitted advanced fields survive partial callers; explicit undefined clears them.
+        const preserved = Object.fromEntries(advancedActivityKeys
+          .filter((key) => !Object.hasOwn(input, key)).map((key) => [key, existing[key]]))
+        const fields = validateActivity({ ...preserved, ...input }, existing)
         const activity: TripActivity = { ...fields, id: existing.id, tripId: existing.tripId,
           createdAt: existing.createdAt, updatedAt: new Date().toISOString() }
         await database.activities.put(activity)

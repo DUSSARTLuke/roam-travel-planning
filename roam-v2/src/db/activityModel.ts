@@ -2,6 +2,17 @@ export type ActivityCategory = 'visit' | 'meal' | 'transport' | 'outing' | 'rest
 export type ActivityPeriod = 'morning' | 'afternoon' | 'evening'
 export type ReservationStatus = 'not_required' | 'to_book' | 'pending' | 'confirmed' | 'cancelled'
 
+export type ActivityLink = { id: string; title: string; url: string }
+
+export const advancedActivityKeys = [
+  'estimatedCost', 'paidAmount', 'currency', 'reservationStatus', 'reservationReference',
+  'reservationProvider', 'reservationPeople', 'reservationDeadline', 'reservationNotes', 'url', 'links',
+] as const
+
+export function isSafeActivityUrl(value: string): boolean {
+  try { return ['http:', 'https:'].includes(new URL(value).protocol) } catch { return false }
+}
+
 export type ActivitySchedule =
   | { scheduleType: 'exact'; startTime: string; endTime?: string; period: null }
   | { scheduleType: 'period'; period: ActivityPeriod; startTime?: never; endTime?: never }
@@ -14,6 +25,13 @@ export type TripActivityInput = ActivitySchedule & {
   date: string | null
   location?: string
   notes?: string
+  paidAmount?: number
+  reservationReference?: string
+  reservationProvider?: string
+  reservationPeople?: number
+  reservationDeadline?: string
+  reservationNotes?: string
+  links?: ActivityLink[]
   estimatedCost?: number
   currency?: string
   reservationStatus?: ReservationStatus
@@ -45,7 +63,7 @@ function optionalText(value: unknown, label: string): string | undefined {
 }
 
 // Rebuild an allowlisted object: callers cannot overwrite identity or timestamps.
-export function validateActivity(input: TripActivityInput): TripActivityInput {
+export function validateActivity(input: TripActivityInput, existing?: TripActivity): TripActivityInput {
   if (!input || typeof input !== 'object') throw new Error('Activité invalide.')
   const title = optionalText(input.title, 'Le titre')
   if (!title) throw new Error("Le titre de l'activité est obligatoire.")
@@ -62,17 +80,46 @@ export function validateActivity(input: TripActivityInput): TripActivityInput {
       (typeof input.estimatedCost !== 'number' || !Number.isFinite(input.estimatedCost) || input.estimatedCost < 0)) {
     throw new Error('Le coût estimé doit être un montant non négatif.')
   }
+  if (input.paidAmount !== undefined && (typeof input.paidAmount !== 'number' || !Number.isFinite(input.paidAmount) || input.paidAmount < 0)) {
+    throw new Error('Le montant payé doit être non négatif.')
+  }
   const currency = optionalText(input.currency, 'La devise')?.toUpperCase()
-  if (currency !== undefined && !/^[A-Z]{3}$/.test(currency)) throw new Error('La devise doit comporter trois lettres (ex. EUR).')
+  if (currency !== undefined && input.currency !== existing?.currency &&
+      !Intl.supportedValuesOf('currency').includes(currency)) {
+    throw new Error('Utilise un code devise ISO reconnu, comme EUR, GBP ou USD.')
+  }
+  if (input.reservationPeople !== undefined && (!Number.isSafeInteger(input.reservationPeople) || input.reservationPeople <= 0)) {
+    throw new Error('Le nombre de personnes doit être un entier strictement positif.')
+  }
+  if (input.reservationDeadline !== undefined && !isActivityDate(input.reservationDeadline)) {
+    throw new Error('La date limite de réservation doit être une date valide au format YYYY-MM-DD.')
+  }
+  const reservationReference = optionalText(input.reservationReference, 'La référence')
+  const reservationProvider = optionalText(input.reservationProvider, 'Le prestataire')
+  const reservationNotes = optionalText(input.reservationNotes, 'Les notes de réservation')
+  let links: ActivityLink[] | undefined
+  if (input.links !== undefined) {
+    if (!Array.isArray(input.links)) throw new Error('La liste des liens est invalide.')
+    const ids = new Set<string>()
+    links = input.links.map((link) => {
+      if (!link || typeof link !== 'object') throw new Error('Lien invalide.')
+      const id = optionalText(link.id, 'L’identifiant du lien')
+      const title = optionalText(link.title, 'Le titre du lien')
+      const url = optionalText(link.url, 'L’URL du lien')
+      if (!id || ids.has(id) || !title || !url || !isSafeActivityUrl(url)) {
+        throw new Error('Chaque lien doit avoir un identifiant unique, un titre et une URL HTTP/HTTPS valide.')
+      }
+      ids.add(id)
+      return { id, title, url }
+    })
+  }
   if (input.reservationStatus !== undefined &&
       !['not_required', 'to_book', 'pending', 'confirmed', 'cancelled'].includes(input.reservationStatus)) {
     throw new Error('Le statut de réservation est invalide.')
   }
   const url = optionalText(input.url, 'Le lien')
-  if (url !== undefined) {
-    let parsed: URL
-    try { parsed = new URL(url) } catch { throw new Error('Le lien doit être une URL HTTP ou HTTPS valide.') }
-    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error('Le lien doit utiliser HTTP ou HTTPS.')
+  if (url !== undefined && !isSafeActivityUrl(url)) {
+    throw new Error('Le lien doit être une URL HTTP ou HTTPS valide.')
   }
 
   let schedule: ActivitySchedule
@@ -102,7 +149,9 @@ export function validateActivity(input: TripActivityInput): TripActivityInput {
   return {
     ...schedule, title, category: input.category, date: input.date, sortOrder: input.sortOrder,
     location: optionalText(input.location, 'Le lieu'), notes: optionalText(input.notes, 'Les notes'),
-    estimatedCost: input.estimatedCost, currency, reservationStatus: input.reservationStatus, url,
+    estimatedCost: input.estimatedCost, paidAmount: input.paidAmount, currency, reservationStatus: input.reservationStatus, url,
+    reservationReference, reservationProvider, reservationPeople: input.reservationPeople,
+    reservationDeadline: input.reservationDeadline, reservationNotes, links,
   }
 }
 

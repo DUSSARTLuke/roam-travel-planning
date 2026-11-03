@@ -15,3 +15,8 @@ export function activityScheduleLabel(activity: TripActivity): string {
   }
   return activity.scheduleType === 'period' ? periodLabels[activity.period] : 'Sans horaire'
 }
+
+export const reservationLabels = {
+  to_book: 'À réserver', confirmed: 'Réservée', not_required: 'Non nécessaire', cancelled: 'Annulée',
+  pending: 'En attente (ancien statut)',
+} satisfies Record<import('../../db/activityModel').ReservationStatus, string>

@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 import { createActivity, getActivity, updateActivity } from '../../db/activities'
 import type { ActivityCategory, ActivityPeriod, TripActivity } from '../../db/activityModel'
 import { activityFormInput, initialActivityValues, type ActivityFormValues } from './activityFormModel'
+import { ActivityAdvancedFields } from './ActivityAdvancedFields'
 import { categoryLabels, periodLabels } from './activityPresentation'
 
 type Props = {
@@ -93,7 +94,7 @@ export function ActivityFormPanel({ tripId, initialDate, fallbackDate, activity,
     try {
       if (activity && activity.tripId !== tripId) throw new Error('Cette activité appartient à un autre voyage.')
       const latest = activity ? await getActivity(tripId, activity.id) : null
-      const input = activityFormInput(form, latest)
+      const input = activityFormInput(form, latest, initial)
       const saved = latest ? await updateActivity(tripId, latest.id, input) : await createActivity(tripId, input)
       onSaved(saved)
     } catch (caught) {
@@ -116,7 +117,9 @@ export function ActivityFormPanel({ tripId, initialDate, fallbackDate, activity,
         <div><p className="eyebrow">PROGRAMME</p><h2 id="activity-panel-title">{activity ? 'Modifier l’activité' : 'Nouvelle activité'}</h2></div>
         <button type="button" className="modal-close" aria-label="Fermer le formulaire" disabled={busy || discard} onClick={requestClose}><X size={20} /></button>
       </header>
-      <form onSubmit={save} className="activity-panel-form" inert={discard}>
+      <form onSubmit={save} onInvalidCapture={(event) => {
+        if (event.target instanceof HTMLElement) event.target.closest('details')?.setAttribute('open', '')
+      }} className="activity-panel-form" inert={discard}>
         <fieldset disabled={busy || discard}>
           <label>Nom de l’activité *<input autoFocus required value={form.title} onChange={(event) => setField('title', event.target.value)} /></label>
           <label>Catégorie<select value={form.category} onChange={(event) => setField('category', event.target.value as ActivityCategory)}>
@@ -139,6 +142,7 @@ export function ActivityFormPanel({ tripId, initialDate, fallbackDate, activity,
             <label>Lieu<input value={form.location} onChange={(event) => setField('location', event.target.value)} /></label>
             <label>Notes<textarea rows={4} value={form.notes} onChange={(event) => setField('notes', event.target.value)} /></label>
           </details>
+          <ActivityAdvancedFields form={form} onChange={setForm} />
         </fieldset>
         {error && <p className="form-error" role="alert">{error}</p>}
         <footer className="activity-panel-footer">

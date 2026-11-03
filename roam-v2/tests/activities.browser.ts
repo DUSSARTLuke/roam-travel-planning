@@ -1,4 +1,5 @@
 import Dexie from 'dexie'
+import { testAdvancedActivities } from './activityAdvanced.browser'
 import { activityFormInput, initialActivityValues } from '../src/components/program/activityFormModel'
 import { RoamDatabase, updateTripTrash, type Trip } from '../src/db/database'
 import { createActivityRepository } from '../src/db/activities'
@@ -40,6 +41,8 @@ async function run(report: (message: string) => void) {
     report('Migration V2 → V3 : voyages et métadonnées conservés, activités vides.')
 
     const repo = createActivityRepository(database)
+    await testAdvancedActivities(repo, 'test-a')
+    report('Réservation, multidevise, liens : validations, compatibilité et préservation après écriture.')
     const a = await repo.createActivity('test-a', input)
     const period = await repo.createActivity('test-a', { ...input, scheduleType: 'period', period: 'afternoon', startTime: undefined, endTime: undefined })
     const unscheduled = await repo.createActivity('test-a', { title: 'Sans heure', category: 'rest', date: input.date,
