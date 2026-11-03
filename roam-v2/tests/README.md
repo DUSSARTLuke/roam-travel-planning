@@ -54,3 +54,31 @@ contrainte de clé étrangère pour des écritures directes hors de cette API.
 La suppression définitive via `updateTripTrash` vérifie le jeton `deletedAt` puis
 supprime les activités et le voyage dans **une seule transaction**. Un échec annule
 toutes les suppressions. Aucune purge automatique n'est ajoutée.
+
+## Étape 2.3 : Programme et formulaire
+
+La suite isolée teste aussi l'adaptateur du formulaire après persistance :
+changements des trois modes, suppression des horaires obsolètes, passage
+activité/idée, date décembre–janvier et conservation des champs avancés cachés.
+
+Dans l'application, avec des voyages de test, vérifier manuellement :
+
+1. Ajouter une activité dans chaque mode, recharger puis modifier ses champs.
+2. Changer de mode plusieurs fois : seuls les horaires pertinents sont enregistrés.
+3. Créer une idée sans date, la dater, puis la remettre dans les idées. Une activité
+   datée sans horaire doit rester dans la journée et ne pas devenir une idée.
+4. Vérifier les pastilles du calendrier, changer de mois entre décembre et janvier,
+   puis choisir une journée. Les idées ne comptent pas dans les pastilles.
+5. Modifier la date vers une autre journée ; vérifier le déplacement de la carte.
+   Une date hors du séjour reste accessible dans « Autres dates ».
+6. Changer de voyage : aucune activité ni saisie ne doit apparaître dans l'autre.
+7. Fermer un formulaire inchangé via le bouton, le fond ou Échap. Avec des saisies,
+   vérifier « Continuer la saisie » et « Abandonner », ainsi que l'avertissement
+   navigateur au rechargement.
+8. Parcourir au clavier : focus initial, Tab/Maj+Tab contenus dans le panneau,
+   focus sur la confirmation d'abandon et retour au bouton d'origine après fermeture.
+9. En mobile, vérifier le panneau du bas, le clavier virtuel et le défilement ;
+   en ordinateur, le panneau droit et le fond du Programme encore visible.
+10. Simuler une erreur de stockage et cliquer rapidement sur Enregistrer : aucun
+    doublon, erreur visible et saisies conservées. Depuis un autre onglet, mettre
+    le voyage à la corbeille : aucune écriture ne doit contourner la règle du parent.

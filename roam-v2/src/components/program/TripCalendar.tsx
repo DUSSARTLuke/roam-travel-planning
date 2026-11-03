@@ -7,11 +7,12 @@ type Props = {
   startDate: string
   endDate: string
   selectedDate: string
+  activityCounts: Record<string, number>
   onMonthChange: (month: string) => void
   onSelect: (date: string) => void
 }
 
-export function TripCalendar({ months, month, startDate, endDate, selectedDate, onMonthChange, onSelect }: Props) {
+export function TripCalendar({ months, month, startDate, endDate, selectedDate, activityCounts, onMonthChange, onSelect }: Props) {
   const monthIndex = months.indexOf(month)
   return (
     <section className="program-calendar" aria-label="Calendrier du séjour">
@@ -27,16 +28,20 @@ export function TripCalendar({ months, month, startDate, endDate, selectedDate, 
         {getMonthCells(month).map((date, index) => {
           if (!date) return <span key={`blank-${index}`} aria-hidden="true" />
           const inTrip = date >= startDate && date <= endDate
+          const activityCount = activityCounts[date] ?? 0
           return (
             <button type="button" key={date}
               className={`program-calendar-day ${inTrip ? 'in-trip' : ''} ${date === selectedDate ? 'selected' : ''}`}
               disabled={!inTrip} aria-pressed={date === selectedDate}
-              aria-label={formatDate(date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-              onClick={() => onSelect(date)}>{Number(date.slice(8))}</button>
+              aria-label={`${formatDate(date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}, ${activityCount} activité${activityCount > 1 ? 's' : ''}`}
+              onClick={() => onSelect(date)}>
+              {Number(date.slice(8))}
+              {activityCount > 0 && <span className="program-activity-count" aria-hidden="true">{activityCount}</span>}
+            </button>
           )
         })}
       </div>
-      <p className="program-legend"><span /> Dates du séjour · Choisis une date pour afficher sa journée.</p>
+      <p className="program-legend"><span /> Dates du séjour · Les pastilles indiquent les activités. Choisis une date pour afficher sa journée.</p>
     </section>
   )
 }

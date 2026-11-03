@@ -1,4 +1,5 @@
 import Dexie from 'dexie'
+import { activityFormInput, initialActivityValues } from '../src/components/program/activityFormModel'
 import { RoamDatabase, updateTripTrash, type Trip } from '../src/db/database'
 import { createActivityRepository } from '../src/db/activities'
 import { validateActivity, type TripActivityInput } from '../src/db/activityModel'
@@ -67,6 +68,33 @@ async function run(report: (message: string) => void) {
     await repo.deleteActivity('test-a', a.id)
     await rejects(() => repo.getActivity('test-a', a.id))
     report('Modification complète, préservation identité/création, suppression et refus inter-voyages.')
+
+    // Same input adapter as the UI: hidden advanced fields must survive every mode.
+    let formActivity = await repo.createActivity('test-a', { ...input, estimatedCost: 42, currency: 'EUR',
+      reservationStatus: 'confirmed', url: 'https://example.com/test', sortOrder: 7 })
+    for (const scheduleType of ['period', 'unscheduled', 'exact'] as const) {
+      const form = initialActivityValues(formActivity, input.date, '2026-12-31')
+      form.scheduleType = scheduleType
+      form.startTime = '11:00'
+      form.endTime = '12:00'
+      form.period = 'evening'
+      form.date = '2027-01-01'
+      const latest = await repo.getActivity('test-a', formActivity.id)
+      formActivity = await repo.updateActivity('test-a', latest.id, activityFormInput(form, latest))
+      assert(formActivity.scheduleType === scheduleType && formActivity.date === '2027-01-01', 'Mode/date du formulaire incorrect.')
+      assert(formActivity.estimatedCost === 42 && formActivity.currency === 'EUR' &&
+        formActivity.reservationStatus === 'confirmed' && formActivity.url === 'https://example.com/test' &&
+        formActivity.sortOrder === 7, 'Champ avancé perdu par le formulaire.')
+      if (scheduleType !== 'exact') assert(!('startTime' in formActivity) && !('endTime' in formActivity), 'Horaires cachés conservés.')
+    }
+    const ideaForm = initialActivityValues(formActivity, input.date, '2026-12-31')
+    ideaForm.idea = true
+    formActivity = await repo.updateActivity('test-a', formActivity.id, activityFormInput(ideaForm, formActivity))
+    assert(formActivity.date === null, 'Idée du formulaire datée par erreur.')
+    assert(initialActivityValues(null, '2026-12-31', '2026-12-28').date === '2026-12-31', 'Journée par défaut incorrecte.')
+    assert(initialActivityValues(null, null, '2026-12-28').idea, 'Création idée incorrecte.')
+    await repo.deleteActivity('test-a', formActivity.id)
+    report('Formulaire : trois modes, décembre/janvier, idées, champs avancés conservés après persistance.')
 
     const invalid = [
       { title: ' ' }, { category: 'invalid' }, { date: '2027-02-29' }, { date: '2028-02-30' },
