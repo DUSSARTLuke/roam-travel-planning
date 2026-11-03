@@ -10,6 +10,7 @@ import {
   Compass,
   Plus,
   Pencil,
+  Copy,
   Search,
   Settings2,
   MapPin,
@@ -101,6 +102,13 @@ useEffect(() => {
   const [editingTripId, setEditingTripId] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const savingRef = useRef(false)
+  const [duplicatingTripId, setDuplicatingTripId] = useState<string | null>(null)
+  const [duplicationError, setDuplicationError] = useState('')
+  const duplicationRef = useRef({
+    busy: false,
+    tripId: '',
+    completedAt: 0,
+  })
 
   const [formError, setFormError] = useState('')
   const [selectedTripId, setSelectedTripId] = useState<string | null>(null)
@@ -143,6 +151,39 @@ function editTrip(trip: Trip) {
   setNewTrip(fields)
   setFormError('')
   setShowCreateTrip(true)
+}
+
+async function duplicateTrip(trip: Trip) {
+  const operation = duplicationRef.current
+  // Also ignore rapid repeat clicks after a very fast IndexedDB write.
+  if (operation.busy ||
+      (operation.tripId === trip.id && Date.now() - operation.completedAt < 600)) {
+    return
+  }
+
+  operation.busy = true
+  operation.tripId = trip.id
+  setDuplicatingTripId(trip.id)
+  setDuplicationError('')
+
+  try {
+    await db.trips.add({
+      id: crypto.randomUUID(),
+      destination: `${trip.destination} (copie)`,
+      country: trip.country,
+      startDate: trip.startDate,
+      endDate: trip.endDate,
+      travelers: trip.travelers,
+      image: trip.image,
+    })
+  } catch (error) {
+    console.error('Erreur de duplication :', error)
+    setDuplicationError("Impossible de dupliquer ce voyage. Réessaie dans un instant.")
+  } finally {
+    operation.busy = false
+    operation.completedAt = Date.now()
+    setDuplicatingTripId(null)
+  }
 }
 
 async function saveTrip(event: React.FormEvent<HTMLFormElement>) {
@@ -384,7 +425,10 @@ if (!databaseReady || trips === undefined) {
                 <span>{filteredTrips.length} voyage(s)</span>
               </div>
 
-              
+              {duplicationError && (
+                <p className="form-error" role="alert">{duplicationError}</p>
+              )}
+
               <div className="trip-grid">
                 {filteredTrips.map((item) => (
                   <article className="trip-card" key={item.id}>
@@ -430,6 +474,20 @@ if (!databaseReady || trips === undefined) {
                             }}
                           >
                             <Pencil size={18} />
+                          </button>
+                          <button
+                            type="button"
+                            className="card-edit"
+                            aria-label={`Dupliquer le voyage ${item.destination}`}
+                            title={duplicatingTripId === item.id ? 'Duplication en cours…' : 'Dupliquer le voyage'}
+                            disabled={duplicatingTripId !== null}
+                            aria-busy={duplicatingTripId === item.id}
+                            onClick={(event) => {
+                              event.stopPropagation()
+                              void duplicateTrip(item)
+                            }}
+                          >
+                            <Copy size={18} />
                           </button>
                           <button
                             className="card-arrow"
