@@ -1,0 +1,56 @@
+# Activités : tests isolés dans le navigateur
+
+Depuis `roam-v2/`, lancer le serveur Vite avec `npm.cmd run dev` dans PowerShell,
+puis ouvrir `/tests/activities.html` sur l'adresse locale indiquée par Vite.
+Cliquer sur « Lancer les tests isolés » et attendre le résultat.
+Aucune dépendance supplémentaire n'est requise.
+
+Chaque exécution crée une base `roam-v2-test-activities-<UUID>`, puis la supprime
+dans un bloc `finally`. La base `roam-v2-db` n'est jamais ouverte par ces tests.
+Ne pas fermer la page pendant l'exécution : cela pourrait laisser la base de test,
+identifiable par son préfixe, sans affecter les voyages réels.
+
+Couverture : migration V2 → V3 sans changement des voyages/métadonnées ;
+création/lecture/modification/suppression ; trois modes ; idées sans date ;
+validation des entrées ; tri stable ; isolation de deux voyages ; conservation
+lors de l'archivage/corbeille ; refus de suppression après restauration ; cascade
+transactionnelle avec rollback forcé ; absence d'orphelins lors d'écritures concurrentes.
+
+## Contrat des données
+
+- `activityModel.ts` définit `TripActivity`, `TripActivityInput` et les validations.
+- Catégories : `visit` (visite), `meal` (restaurant/repas), `transport`,
+  `outing` (activité/sortie), `rest` (repos), `other`.
+- Réservation : `not_required`, `to_book`, `pending`, `confirmed`, `cancelled`.
+  Ces valeurs stockent uniquement un statut, sans gestion avancée des réservations.
+- Dates : chaîne locale `YYYY-MM-DD`, ou `null` pour les idées. Aucun changement
+  de fuseau horaire. Une date hors des bornes actuelles du voyage reste autorisée :
+  modifier les dates du voyage ne déplace ni ne supprime ses activités.
+- Horaires : `HH:mm`. Fin facultative, supérieure ou égale au début, sur la même
+  journée. Les activités traversant minuit ne sont pas gérées à cette étape.
+- Devise : code de trois lettres, normalisé en majuscules ; aucun calcul de change
+  ni vérification de l'existence du code auprès d'une source externe.
+- Tri : date (idées en dernier), mode (`exact`, `period`, `unscheduled`),
+  `sortOrder`, horaire/créneau, `createdAt`, puis `id`. L'ordre manuel est prioritaire
+  à l'intérieur d'un mode ; les critères de départage rendent le résultat stable.
+
+`activities.ts` expose `createActivity(tripId, input)`, `getActivity(tripId, id)`,
+`listActivities(tripId, date?)`, `updateActivity(tripId, id, input)` et
+`deleteActivity(tripId, id)`. Pour la liste : date omise = tout le voyage,
+`null` = idées uniquement, chaîne = journée uniquement. Ces lectures sont
+compatibles avec `useLiveQuery` ; elles ne sont pas encore intégrées à l'interface.
+
+La modification reçoit un **contenu éditable complet**, pas un patch partiel.
+Identifiants, voyage parent et date de création sont préservés ; `updatedAt` est
+régénéré. Les champs non autorisés ne sont pas repris depuis l'entrée.
+
+Toutes les opérations vérifient le voyage parent et l'appartenance de l'activité.
+La lecture est possible dans la corbeille, les écritures nécessitent la restauration.
+Archiver un voyage conserve ses activités. Les copies de voyages restent, à cette
+étape, des copies des informations du voyage uniquement.
+
+Utiliser ces fonctions pour manipuler les activités. IndexedDB ne fournit pas de
+contrainte de clé étrangère pour des écritures directes hors de cette API.
+La suppression définitive via `updateTripTrash` vérifie le jeton `deletedAt` puis
+supprime les activités et le voyage dans **une seule transaction**. Un échec annule
+toutes les suppressions. Aucune purge automatique n'est ajoutée.

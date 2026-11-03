@@ -1,5 +1,6 @@
 
 import Dexie, { type EntityTable } from 'dexie'
+import type { TripActivity } from './activityModel'
 
 export type Trip = {
   id: string
@@ -36,12 +37,13 @@ const exampleTrip: Trip = {
     'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=1200&auto=format&fit=crop',
 }
 
-class RoamDatabase extends Dexie {
+export class RoamDatabase extends Dexie {
   trips!: EntityTable<Trip, 'id'>
   metadata!: EntityTable<DatabaseMetadata, 'key'>
+  activities!: EntityTable<TripActivity, 'id'>
 
-  constructor() {
-    super('roam-v2-db')
+  constructor(name = 'roam-v2-db') {
+    super(name)
 
     this.version(1).stores({
       trips: 'id, destination, startDate, endDate',
@@ -57,6 +59,14 @@ class RoamDatabase extends Dexie {
         // Never seed or modify its trips during migration.
         await transaction.table('metadata').put(initializationMarker)
       })
+
+    // Adding a store preserves existing trips and initialization metadata.
+    // Null dates are not indexable in IndexedDB; ideas use the tripId index.
+    this.version(3).stores({
+      trips: 'id, destination, startDate, endDate',
+      metadata: 'key',
+      activities: 'id, tripId, [tripId+date]',
+    })
 
     // populate runs only for a brand-new database, in its exclusive creation
     // transaction. Both writes commit together or are rolled back together.
@@ -81,23 +91,25 @@ export async function updateTripTrash(
   id: string,
   action: 'trash' | 'restore' | 'delete',
   confirmedDeletedAt?: string,
+  database: RoamDatabase = db,
 ): Promise<void> {
-  await db.transaction('rw', db.trips, async () => {
-    const trip = await db.trips.get(id)
+  await database.transaction('rw', database.trips, database.activities, async () => {
+    const trip = await database.trips.get(id)
     if (!trip) throw new Error('Ce voyage est introuvable. Actualise la liste.')
 
     if (action === 'delete') {
       if (trip.deletedAt === undefined || trip.deletedAt !== confirmedDeletedAt) {
         throw new Error('Le voyage a changé ou a été restauré. Aucune suppression effectuée.')
       }
-      await db.trips.delete(id)
+      await database.activities.where('tripId').equals(id).delete()
+      await database.trips.delete(id)
     } else if (action === 'restore') {
       if (trip.deletedAt === undefined) return
       delete trip.deletedAt
-      await db.trips.put(trip)
+      await database.trips.put(trip)
     } else {
       if (trip.deletedAt !== undefined) return
-      await db.trips.update(id, { deletedAt: new Date().toISOString() })
+      await database.trips.update(id, { deletedAt: new Date().toISOString() })
     }
   })
 }
