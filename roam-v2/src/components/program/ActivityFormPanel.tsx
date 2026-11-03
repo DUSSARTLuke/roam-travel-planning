@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent, type RefObject } from 'react'
 import { X } from 'lucide-react'
-import { createActivity, getActivity, updateActivity } from '../../db/activities'
+import { getActivity } from '../../db/activities'
 import type { ActivityCategory, ActivityPeriod, TripActivity } from '../../db/activityModel'
 import { activityFormInput, initialActivityValues, type ActivityFormValues } from './activityFormModel'
+import { saveActivityWithDocuments } from '../../db/documents'
+import { prepareDocuments } from '../../db/documentModel'
+import { ActivityDocuments, type PendingDocument } from './ActivityDocuments'
 import { ActivityAdvancedFields } from './ActivityAdvancedFields'
 import { categoryLabels, periodLabels } from './activityPresentation'
 
@@ -36,6 +39,7 @@ function DiscardPrompt({ onContinue, onDiscard }: { onContinue: () => void; onDi
 export function ActivityFormPanel({ tripId, initialDate, fallbackDate, activity, fallbackFocusRef, onClose, onSaved }: Props) {
   const [initial] = useState(() => initialActivityValues(activity, initialDate, fallbackDate))
   const [form, setForm] = useState(initial)
+  const [pendingDocuments, setPendingDocuments] = useState<PendingDocument[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [discard, setDiscard] = useState(false)
@@ -43,7 +47,7 @@ export function ActivityFormPanel({ tripId, initialDate, fallbackDate, activity,
   const savingRef = useRef(false)
   const backdropRef = useRef(false)
   const discardFocusRef = useRef<HTMLElement | null>(null)
-  const dirty = JSON.stringify(form) !== JSON.stringify(initial)
+  const dirty = JSON.stringify(form) !== JSON.stringify(initial) || pendingDocuments.length > 0
 
   useEffect(() => {
     const dialog = dialogRef.current!
@@ -85,6 +89,23 @@ export function ActivityFormPanel({ tripId, initialDate, fallbackDate, activity,
     })
   }
 
+  async function selectDocuments(files: File[], storedCount: number) {
+    if (savingRef.current) return
+    savingRef.current = true
+    setBusy(true)
+    setError('')
+    try {
+      if (storedCount + pendingDocuments.length + files.length > 5) throw new Error('Maximum 5 documents par activité. Aucun fichier de cette sélection n’a été ajouté.')
+      const prepared = await prepareDocuments(files)
+      setPendingDocuments((previous) => [...previous, ...files.map((file, index) => ({ file, mime: prepared[index].mime }))])
+    } catch (caught) {
+      setError(caught instanceof Error && caught.name === 'Error' ? caught.message : 'Impossible de lire ces fichiers. Aucun fichier de cette sélection ajouté.')
+    } finally {
+      savingRef.current = false
+      setBusy(false)
+    }
+  }
+
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (savingRef.current || discard) return
@@ -95,10 +116,12 @@ export function ActivityFormPanel({ tripId, initialDate, fallbackDate, activity,
       if (activity && activity.tripId !== tripId) throw new Error('Cette activité appartient à un autre voyage.')
       const latest = activity ? await getActivity(tripId, activity.id) : null
       const input = activityFormInput(form, latest, initial)
-      const saved = latest ? await updateActivity(tripId, latest.id, input) : await createActivity(tripId, input)
+      const saved = await saveActivityWithDocuments(tripId, input, latest?.id ?? null, pendingDocuments.map(({ file }) => file))
       onSaved(saved)
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Impossible d’enregistrer cette activité. Réessaie.')
+      setError(caught instanceof Error && caught.name === 'QuotaExceededError'
+        ? 'Espace de stockage local insuffisant. Aucun changement enregistré ; tes saisies et fichiers restent en attente.'
+        : caught instanceof Error ? caught.message : 'Impossible d’enregistrer cette activité. Réessaie.')
     } finally {
       savingRef.current = false
       setBusy(false)
@@ -143,6 +166,8 @@ export function ActivityFormPanel({ tripId, initialDate, fallbackDate, activity,
             <label>Notes<textarea rows={4} value={form.notes} onChange={(event) => setField('notes', event.target.value)} /></label>
           </details>
           <ActivityAdvancedFields form={form} onChange={setForm} />
+          <ActivityDocuments tripId={tripId} activityId={activity?.id ?? null} pending={pendingDocuments}
+            onSelect={(files, count) => { void selectDocuments(files, count) }} />
         </fieldset>
         {error && <p className="form-error" role="alert">{error}</p>}
         <footer className="activity-panel-footer">

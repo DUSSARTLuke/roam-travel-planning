@@ -2,6 +2,7 @@ import { useEffect, useRef, type RefObject } from 'react'
 import { ArrowLeft, Pencil } from 'lucide-react'
 import type { TripActivity } from '../../db/activityModel'
 import { categoryLabels, periodLabels } from './activityPresentation'
+import { ActivityDocuments } from './ActivityDocuments'
 import { ActivityAdvancedDetails } from './ActivityAdvancedDetails'
 import { formatDate } from './dates'
 
@@ -70,6 +71,7 @@ export function ActivityDetailPanel({ activity, returnFocusRef, fallbackFocusRef
           <h3 id="activity-detail-notes">Notes</h3><p className="activity-detail-notes">{activity.notes}</p>
         </section>}
         <ActivityAdvancedDetails activity={activity} />
+        <ActivityDocuments tripId={activity.tripId} activityId={activity.id} />
       </div>
       <footer className="activity-detail-footer">
         <button type="button" className="primary-button" onClick={onEdit}><Pencil size={18} /> Modifier l’activité</button>

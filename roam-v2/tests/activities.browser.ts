@@ -1,4 +1,5 @@
 import Dexie from 'dexie'
+import { testDocuments } from './documents.browser'
 import { testAdvancedActivities } from './activityAdvanced.browser'
 import { activityFormInput, initialActivityValues } from '../src/components/program/activityFormModel'
 import { RoamDatabase, updateTripTrash, type Trip } from '../src/db/database'
@@ -161,6 +162,7 @@ button.addEventListener('click', async () => {
   results.textContent = ''
   try {
     await run((message) => { results.textContent += `✓ ${message}\n` })
+    await testDocuments((message) => { results.textContent += `✓ ${message}\n` })
     results.textContent += '\nTous les tests ont réussi. Base de test supprimée.'
   } catch (error) {
     results.textContent += `\nÉCHEC : ${String(error)}`

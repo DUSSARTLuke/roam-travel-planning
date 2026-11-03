@@ -1,5 +1,6 @@
 
 import Dexie, { type EntityTable } from 'dexie'
+import type { ActivityDocument, ActivityDocumentBlob } from './documentModel'
 import type { TripActivity } from './activityModel'
 
 export type Trip = {
@@ -41,6 +42,8 @@ export class RoamDatabase extends Dexie {
   trips!: EntityTable<Trip, 'id'>
   metadata!: EntityTable<DatabaseMetadata, 'key'>
   activities!: EntityTable<TripActivity, 'id'>
+  activityDocuments!: EntityTable<ActivityDocument, 'id'>
+  activityDocumentBlobs!: EntityTable<ActivityDocumentBlob, 'id'>
 
   constructor(name = 'roam-v2-db') {
     super(name)
@@ -68,6 +71,15 @@ export class RoamDatabase extends Dexie {
       activities: 'id, tripId, [tripId+date]',
     })
 
+    // Separate payloads keep metadata queries free of Blob reads.
+    this.version(4).stores({
+      trips: 'id, destination, startDate, endDate',
+      metadata: 'key',
+      activities: 'id, tripId, [tripId+date]',
+      activityDocuments: 'id, activityId',
+      activityDocumentBlobs: 'id',
+    })
+
     // populate runs only for a brand-new database, in its exclusive creation
     // transaction. Both writes commit together or are rolled back together.
     this.on('populate', async (transaction) => {
@@ -93,7 +105,7 @@ export async function updateTripTrash(
   confirmedDeletedAt?: string,
   database: RoamDatabase = db,
 ): Promise<void> {
-  await database.transaction('rw', database.trips, database.activities, async () => {
+  await database.transaction('rw', [database.trips, database.activities, database.activityDocuments, database.activityDocumentBlobs], async () => {
     const trip = await database.trips.get(id)
     if (!trip) throw new Error('Ce voyage est introuvable. Actualise la liste.')
 
@@ -101,6 +113,10 @@ export async function updateTripTrash(
       if (trip.deletedAt === undefined || trip.deletedAt !== confirmedDeletedAt) {
         throw new Error('Le voyage a changé ou a été restauré. Aucune suppression effectuée.')
       }
+      const activityIds = await database.activities.where('tripId').equals(id).primaryKeys()
+      const documentIds = await database.activityDocuments.where('activityId').anyOf(activityIds).primaryKeys()
+      await database.activityDocumentBlobs.bulkDelete(documentIds)
+      await database.activityDocuments.bulkDelete(documentIds)
       await database.activities.where('tripId').equals(id).delete()
       await database.trips.delete(id)
     } else if (action === 'restore') {

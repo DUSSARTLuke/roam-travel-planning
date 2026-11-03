@@ -654,3 +654,25 @@
   margin-top: 4px;
   overflow-wrap: anywhere;
 }
+
+.activity-document-list {
+  list-style: none;
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  margin: 16px 0 0;
+}
+
+.activity-document-list li {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px;
+  overflow-wrap: anywhere;
+}
+
+.activity-document-list span {
+  display: block;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 12px;
+}

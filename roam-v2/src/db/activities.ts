@@ -68,9 +68,12 @@ export function createActivityRepository(database: RoamDatabase = db) {
     },
 
     async deleteActivity(tripId: string, id: string): Promise<void> {
-      await database.transaction('rw', database.trips, database.activities, async () => {
+      await database.transaction('rw', [database.trips, database.activities, database.activityDocuments, database.activityDocumentBlobs], async () => {
         await requireParent(tripId, true)
         await requireActivity(tripId, id)
+        const documentIds = await database.activityDocuments.where('activityId').equals(id).primaryKeys()
+        await database.activityDocumentBlobs.bulkDelete(documentIds)
+        await database.activityDocuments.bulkDelete(documentIds)
         await database.activities.delete(id)
       })
     },

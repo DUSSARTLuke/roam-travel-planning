@@ -110,3 +110,46 @@ Ces tests utilisent toujours exclusivement la base temporaire isolée.
    avancées doivent être conservées, y compris les valeurs historiques.
 6. Vérifier la mise à jour de la fiche, les erreurs de saisie dans une section
    refermée, le clavier mobile et l'isolation entre deux voyages.
+
+## Étape 2.4.3 : import local de documents
+
+Le schéma V4 ajoute deux tables : `activityDocuments` (métadonnées, index activityId)
+et `activityDocumentBlobs` (Blob avec le même identifiant). Les requêtes de liste
+n'ouvrent pas la table des Blob. Les voyages, activités et métadonnées sont conservés.
+
+Politique des lots : chaque nouvelle sélection est entièrement validée, ou refusée
+sans ajouter aucun de ses fichiers. Les sélections précédentes en attente restent
+conservées. Les documents ne sont persistés qu'avec le bouton Enregistrer : activité,
+métadonnées et Blob forment une seule transaction. Annuler/abandonner n'importe rien.
+La limite de cinq est revérifiée dans la transaction, y compris entre onglets.
+
+Les en-têtes PDF/JPEG/PNG/WebP sont vérifiés et doivent correspondre au MIME déclaré
+lorsqu'il n'est pas vide. Un MIME vide est déduit de la signature. Cela n'est ni un
+parseur complet de fichiers ni un antivirus ; aucun fichier n'est exécuté ou affiché.
+Les fixtures de tests ne vérifient que cette validation d'en-têtes et le stockage.
+
+La suite `/tests/activities.html` lance aussi `documents.browser.ts`, dans une base
+`roam-v2-test-documents-<UUID>` supprimée en fin de test. Elle vérifie V3→V4 sans
+altération des données, quatre formats, fichiers vides, 15 Mo inclus et dépassement,
+MIME incohérent, lot partiellement invalide refusé en entier, limite de cinq,
+concurrence, persistance après réouverture, lectures sans Blob, quota/rollback,
+isolation et nettoyage transactionnel à la suppression de l'activité ou du voyage.
+Archivage et corbeille conservent les documents. Une confirmation périmée ne les
+supprime pas. La duplication existante copie uniquement les informations du voyage :
+aucune activité ni aucun document n'est dupliqué.
+
+Tests manuels avec de vrais fichiers et des voyages de test :
+
+1. Importer chacun des quatre formats depuis la section Documents, enregistrer,
+   rouvrir la fiche et recharger : nom/MIME/taille et compteur doivent persister.
+2. Sélectionner des fichiers plusieurs fois : cinq au maximum au total. Tester
+   un fichier vide, 15 Mo, plus de 15 Mo, un faux PDF et un lot valide + invalide.
+3. Vérifier qu'un lot refusé laisse les sélections précédentes intactes et que
+   fermer/abandonner le formulaire ne crée ni activité ni document.
+4. Tester une erreur de stockage et les clics rapides : pas de double sauvegarde,
+   aucune écriture partielle et saisies/fichiers toujours disponibles pour réessayer.
+5. Vérifier deux activités et deux voyages distincts, puis archive/corbeille et
+   restauration. Pour les suppressions définitives, utiliser exclusivement les bases
+   de test isolées. Ne pas supprimer de véritables données pour tester.
+6. Vérifier le panneau mobile et le clavier. Aucun bouton de consultation,
+   téléchargement ou suppression manuelle de document n'est présent à cette étape.
