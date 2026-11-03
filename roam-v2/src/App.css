@@ -1,0 +1,781 @@
+#root {
+  min-height: 100vh;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  height: 76px;
+  padding: 0 max(24px, calc((100vw - 1180px) / 2));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 23px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.brand-icon {
+  color: var(--accent);
+}
+
+.icon-button {
+  border: 0;
+  background: var(--surface);
+  color: var(--text);
+  padding: 11px;
+  border-radius: 12px;
+}
+
+.main-content {
+  width: min(1180px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 46px 0 80px;
+  flex: 1;
+}
+
+.page-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.eyebrow {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+h1 {
+  font-size: clamp(32px, 5vw, 46px);
+  margin: 8px 0 10px;
+  letter-spacing: -1.5px;
+}
+
+.subtitle {
+  color: var(--muted);
+  margin: 0;
+}
+
+.primary-button {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #111827;
+  padding: 14px 18px;
+  font-weight: 700;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.search-box {
+  max-width: 420px;
+  height: 48px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 15px;
+  color: var(--muted);
+}
+
+.search-box input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: var(--text);
+}
+
+.search-box input::placeholder {
+  color: var(--muted);
+}
+
+.trips-section {
+  margin-top: 40px;
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.section-heading h2 {
+  font-size: 21px;
+  margin: 0;
+}
+
+.section-heading span {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.trip-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 22px;
+}
+
+.trip-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+  transition: transform 0.2s, border-color 0.2s;
+}
+
+.trip-card:hover {
+  transform: translateY(-3px);
+  border-color: #53647b;
+}
+
+.trip-image {
+  position: relative;
+  height: 205px;
+  overflow: hidden;
+}
+
+.trip-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.trip-badge {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: rgba(11, 18, 32, 0.85);
+  color: #f8fafc;
+  border: 1px solid #475569;
+  border-radius: 20px;
+  padding: 7px 11px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.trip-info {
+  padding: 20px;
+}
+
+.trip-location,
+.trip-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.trip-info h3 {
+  font-size: 26px;
+  margin: 8px 0 16px;
+}
+
+.trip-footer {
+  margin-top: 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.card-arrow {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #111827;
+}
+
+.empty-state {
+  padding: 40px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.app-footer {
+  border-top: 1px solid var(--border);
+  padding: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    height: 66px;
+    padding: 0 20px;
+  }
+
+  .main-content {
+    width: calc(100% - 36px);
+    padding-top: 30px;
+  }
+
+  .page-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .primary-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .search-box {
+    max-width: none;
+  }
+
+  .trips-section {
+    margin-top: 30px;
+  }
+
+  .trip-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trip-card {
+    transition: none;
+  }
+}
+
+
+/* ROAM V2 — Navigation principale */
+
+.desktop-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 13px;
+  border: 0;
+  border-radius: 11px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  transition: background 0.2s, color 0.2s;
+}
+
+.nav-link:hover {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.nav-link.active {
+  background: var(--surface);
+  color: var(--accent);
+}
+
+.bottom-nav {
+  display: none;
+}
+
+.placeholder-page {
+  min-height: 55vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.placeholder-icon {
+  width: 76px;
+  height: 76px;
+  display: grid;
+  place-items: center;
+  border-radius: 22px;
+  background: var(--surface);
+  color: var(--accent);
+}
+
+.placeholder-page h1 {
+  margin: 0;
+}
+
+.placeholder-note {
+  max-width: 360px;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+@media (max-width: 850px) {
+  .desktop-nav {
+    display: none;
+  }
+
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: center;
+    padding: 10px 8px calc(10px + env(safe-area-inset-bottom));
+    background: #101b2d;
+    border-top: 1px solid var(--border);
+  }
+
+  .bottom-nav-item {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 6px 2px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 600;
+  }
+
+  .bottom-nav-item.active {
+    color: var(--accent);
+  }
+
+  .bottom-nav-item span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  .main-content {
+    padding-bottom: calc(110px + env(safe-area-inset-bottom));
+  }
+
+  .placeholder-page {
+    min-height: 55vh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-link {
+    transition: none;
+  }
+}
+
+/* ROAM V2 — Tableau de bord d'un voyage */
+
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 0;
+  margin-bottom: 18px;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.back-button:hover {
+  color: var(--accent);
+}
+
+.trip-hero {
+  position: relative;
+  min-height: 320px;
+  overflow: hidden;
+  border-radius: 22px;
+  background: var(--surface);
+}
+
+.trip-hero > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.trip-hero::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(11, 18, 32, 0.05) 10%,
+    rgba(11, 18, 32, 0.94) 100%
+  );
+}
+
+.trip-hero-content {
+  position: relative;
+  z-index: 1;
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 30px;
+}
+
+.trip-hero-content h1 {
+  margin: 6px 0;
+}
+
+.trip-hero-content > p:last-child {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 14px;
+}
+
+.dashboard-title {
+  margin: 32px 0 18px;
+  font-size: 21px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.dashboard-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 23px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 17px;
+  color: var(--text);
+  text-align: left;
+}
+
+.dashboard-tile svg {
+  color: var(--accent);
+}
+
+.dashboard-tile strong {
+  font-size: 16px;
+}
+
+.dashboard-tile span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.dashboard-tile:hover {
+  background: var(--surface-hover);
+  border-color: var(--accent);
+}
+
+@media (max-width: 640px) {
+  .trip-hero,
+  .trip-hero-content {
+    min-height: 260px;
+  }
+
+  .trip-hero-content {
+    padding: 22px;
+  }
+
+  .dashboard-tile {
+    padding: 17px;
+  }
+
+  .dashboard-tile strong {
+    font-size: 14px;
+  }
+}
+
+/* ROAM V2 — Navigation contextuelle */
+
+.brand-area {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+
+.active-trip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.active-trip svg:first-child {
+  color: var(--accent);
+}
+
+.active-trip:hover {
+  border-color: var(--accent);
+}
+
+.nav-link:disabled,
+.bottom-nav-item:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.nav-link:disabled:hover {
+  background: transparent;
+  color: var(--muted);
+}
+
+@media (max-width: 640px) {
+  .brand-area {
+    gap: 10px;
+  }
+
+  .brand {
+    font-size: 19px;
+    gap: 7px;
+  }
+
+  .active-trip {
+    padding: 7px 8px;
+    font-size: 11px;
+  }
+}
+
+/* ROAM V2 — Création de voyages */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(3, 7, 18, 0.78);
+  backdrop-filter: blur(6px);
+}
+
+.modal-content {
+  width: min(100%, 520px);
+  max-height: min(90dvh, 850px);
+  overflow-y: auto;
+  padding: 26px;
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  background: var(--bg);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.4);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 26px;
+}
+
+.modal-header h2 {
+  margin: 0 0 7px;
+  font-size: 24px;
+}
+
+.modal-header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.modal-close {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.trip-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.trip-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  color: #cbd5e1;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.trip-form input {
+  width: 100%;
+  min-width: 0;
+  height: 45px;
+  padding: 0 13px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  color-scheme: dark;
+  outline: none;
+}
+
+.trip-form input:focus {
+  border-color: var(--accent);
+}
+
+.trip-form input::placeholder {
+  color: var(--muted);
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.form-error {
+  margin: 0;
+  color: #fca5a5;
+  font-size: 13px;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.secondary-button {
+  padding: 13px 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.trip-image-fallback,
+.trip-hero-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: linear-gradient(135deg, #172338, #344a68);
+  color: var(--accent);
+}
+
+.trip-image-fallback span {
+  color: var(--text);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.trip-hero-fallback {
+  position: absolute;
+  inset: 0;
+}
+
+@media (max-width: 640px) {
+  .modal-overlay {
+    align-items: flex-end;
+    padding: 0;
+  }
+
+  .modal-content {
+    width: 100%;
+    max-height: 92dvh;
+    padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+    border-radius: 24px 24px 0 0;
+  }
+
+  .form-actions {
+    flex-direction: column-reverse;
+  }
+
+  .form-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ROAM V2 — Chargement IndexedDB */
+
+.database-status {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  text-align: center;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.database-status h1 {
+  margin: 0;
+  color: var(--accent);
+}
+
+.database-status p {
+  color: var(--muted);
+}
