@@ -6,12 +6,13 @@ import { formatDate } from './dates'
 type Props = {
   activities: TripActivity[]
   onEdit: (activity: TripActivity) => void
+  onOpen: (activity: TripActivity, trigger: HTMLButtonElement) => void
   onAdd?: () => void
   ideas?: boolean
   showDate?: boolean
 }
 
-export function ActivityList({ activities, onEdit, onAdd, ideas = false, showDate = false }: Props) {
+export function ActivityList({ activities, onEdit, onOpen, onAdd, ideas = false, showDate = false }: Props) {
   if (activities.length === 0) return (
     <div className="program-empty">
       <h3>{ideas ? 'Des envies pour ce voyage ?' : 'Une journée à imaginer'}</h3>
@@ -25,11 +26,12 @@ export function ActivityList({ activities, onEdit, onAdd, ideas = false, showDat
         <article className="activity-card" key={activity.id}>
           <div className="activity-card-content">
             <p className="activity-meta">{categoryLabels[activity.category]} · {activityScheduleLabel(activity)}</p>
-            <h3>{activity.title}</h3>
+            <h3><button type="button" className="activity-card-open" aria-haspopup="dialog" aria-label={`Consulter l’activité ${activity.title}`}
+              onClick={(event) => onOpen(activity, event.currentTarget)}>{activity.title}</button></h3>
             {showDate && activity.date && <p className="activity-meta">{formatDate(activity.date, { day: 'numeric', month: 'long', year: 'numeric' })}</p>}
             {activity.location && <p className="activity-location"><MapPin size={16} aria-hidden="true" />{activity.location}</p>}
           </div>
-          <button type="button" className="secondary-button activity-edit" aria-label={`Modifier l’activité ${activity.title}`} onClick={() => onEdit(activity)}>
+          <button type="button" className="secondary-button activity-edit" aria-haspopup="dialog" aria-label={`Modifier l’activité ${activity.title}`} onClick={(event) => { event.stopPropagation(); onEdit(activity) }}>
             <Pencil size={17} /> Modifier
           </button>
         </article>

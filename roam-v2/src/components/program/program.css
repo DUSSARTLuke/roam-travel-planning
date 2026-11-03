@@ -467,3 +467,142 @@
     animation: none;
   }
 }
+
+/* Read-only activity cards and detail panel */
+.activity-card {
+  position: relative;
+}
+
+.activity-card-open {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.activity-card-open::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  cursor: pointer;
+}
+
+.activity-card-open:focus-visible {
+  outline: none;
+}
+
+.activity-card-open:focus-visible::after {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.activity-card > .activity-edit {
+  position: relative;
+  z-index: 1;
+}
+
+.activity-card:hover {
+  border-color: var(--accent);
+}
+
+.activity-detail-panel {
+  display: none;
+}
+
+.activity-detail-panel[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.activity-detail-header {
+  align-items: center;
+  padding-top: max(24px, env(safe-area-inset-top));
+}
+
+.activity-detail-header .eyebrow {
+  margin: 0;
+}
+
+.activity-detail-content {
+  padding: 24px;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.activity-detail-category {
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  margin: 0 0 10px;
+}
+
+.activity-detail-content h2 {
+  margin: 0 0 30px;
+  font-size: clamp(24px, 4vw, 32px);
+}
+
+.activity-detail-content section + section {
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid var(--border);
+}
+
+.activity-detail-content h3 {
+  margin: 0 0 14px;
+  font-size: 16px;
+}
+
+.activity-detail-content p,
+.activity-detail-fields {
+  line-height: 1.7;
+}
+
+.activity-detail-fields {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+}
+
+.activity-detail-fields dt {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 4px;
+}
+
+.activity-detail-fields dd {
+  margin: 0;
+}
+
+.activity-detail-notes {
+  white-space: pre-wrap;
+}
+
+.activity-detail-footer {
+  padding: 20px 24px max(24px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+}
+
+.activity-detail-footer .primary-button {
+  width: 100%;
+  justify-content: center;
+}
+
+@media (max-width: 640px) {
+  .activity-detail-panel {
+    inset: 0;
+    height: 100dvh;
+    max-height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .activity-detail-header,
+  .activity-detail-content,
+  .activity-detail-footer {
+    padding-left: max(20px, env(safe-area-inset-left));
+    padding-right: max(20px, env(safe-area-inset-right));
+  }
+}
