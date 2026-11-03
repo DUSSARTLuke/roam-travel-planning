@@ -11,6 +11,7 @@ export type Trip = {
   image: string
   // Missing on legacy records: treated as false without rewriting user data.
   archived?: boolean
+  deletedAt?: string
 }
 
 type DatabaseMetadata = {
@@ -73,4 +74,30 @@ export async function initializeDatabase(): Promise<void> {
   // creation/upgrades across tabs. Awaiting open also awaits populate/migration.
   // Reopening an initialized database never runs populate again.
   await db.open()
+}
+
+// Recheck state and write in one transaction, including across browser tabs.
+export async function updateTripTrash(
+  id: string,
+  action: 'trash' | 'restore' | 'delete',
+  confirmedDeletedAt?: string,
+): Promise<void> {
+  await db.transaction('rw', db.trips, async () => {
+    const trip = await db.trips.get(id)
+    if (!trip) throw new Error('Ce voyage est introuvable. Actualise la liste.')
+
+    if (action === 'delete') {
+      if (trip.deletedAt === undefined || trip.deletedAt !== confirmedDeletedAt) {
+        throw new Error('Le voyage a changé ou a été restauré. Aucune suppression effectuée.')
+      }
+      await db.trips.delete(id)
+    } else if (action === 'restore') {
+      if (trip.deletedAt === undefined) return
+      delete trip.deletedAt
+      await db.trips.put(trip)
+    } else {
+      if (trip.deletedAt !== undefined) return
+      await db.trips.update(id, { deletedAt: new Date().toISOString() })
+    }
+  })
 }

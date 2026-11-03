@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import {
   db,
   initializeDatabase,
+  updateTripTrash,
   type Trip,
 } from './db/database'
 import {
@@ -13,6 +14,8 @@ import {
   Copy,
   Archive,
   ArchiveRestore,
+  Trash2,
+  RotateCcw,
   Search,
   Settings2,
   MapPin,
@@ -27,6 +30,7 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react'
+import { TripConfirmation } from './TripConfirmation'
 import './App.css'
 
 type TabId = 'home' | 'program' | 'map' | 'budget' | 'more'
@@ -46,7 +50,7 @@ const tabs: Tab[] = [
 ]
 
 
-const emptyTripForm: Omit<Trip, 'id' | 'archived'> = {
+const emptyTripForm: Omit<Trip, 'id' | 'archived' | 'deletedAt'> = {
   destination: '',
   country: '',
   startDate: '',
@@ -117,18 +121,27 @@ useEffect(() => {
   const [showArchived, setShowArchived] = useState(false)
   const [archiveError, setArchiveError] = useState('')
   const [archivingTripId, setArchivingTripId] = useState<string | null>(null)
-  const archiveLock = useRef(false)
+  const writeLock = useRef(false)
+  const [trashBusy, setTrashBusy] = useState(false)
+  const [trashError, setTrashError] = useState('')
+  const [showTrash, setShowTrash] = useState(false)
+  const [confirmation, setConfirmation] = useState<{
+    trip: Trip
+    action: 'trash' | 'delete'
+  } | null>(null)
+  const writeBusy = isSaving || duplicatingTripId !== null || archivingTripId !== null || trashBusy
 
   useEffect(() => {
-    if (trips?.some((trip) => trip.id === selectedTripId && trip.archived === true)) {
+    if (trips?.some((trip) => trip.id === selectedTripId && (trip.archived === true || trip.deletedAt !== undefined))) {
       setSelectedTripId(null)
       setActiveTab('home')
       setShowArchived(false)
+      setShowTrash(false)
     }
   }, [trips, selectedTripId])
 
 const selectedTrip = (trips ?? []).find(
-    (item) => item.id === selectedTripId && item.archived !== true,
+    (item) => item.id === selectedTripId && item.archived !== true && item.deletedAt === undefined,
   ) ?? null
 
   const isTripOpen = selectedTrip !== null
@@ -141,6 +154,7 @@ const selectedTrip = (trips ?? []).find(
   function closeTrip() {
     setSelectedTripId(null)
     setShowArchived(false)
+    setShowTrash(false)
     setActiveTab('home')
   }
 
@@ -154,6 +168,7 @@ function closeCreateTrip() {
 }
 
 function openCreateTrip() {
+  if (writeLock.current) return
   setEditingTripId(null)
   setNewTrip({ ...emptyTripForm })
   setFormError('')
@@ -161,6 +176,7 @@ function openCreateTrip() {
 }
 
 function editTrip(trip: Trip) {
+  if (writeLock.current) return
   const { id, ...fields } = trip
   setEditingTripId(id)
   setNewTrip(fields)
@@ -169,12 +185,16 @@ function editTrip(trip: Trip) {
 }
 
 async function setTripArchived(trip: Trip, archived: boolean) {
-  if (archiveLock.current) return
-  archiveLock.current = true
+  if (writeLock.current) return
+  writeLock.current = true
   setArchivingTripId(trip.id)
   setArchiveError('')
   try {
-    const updated = await db.trips.update(trip.id, { archived })
+    const updated = await db.transaction('rw', db.trips, async () => {
+      const current = await db.trips.get(trip.id)
+      if (!current || current.deletedAt !== undefined) return 0
+      return db.trips.update(trip.id, { archived })
+    })
     if (updated === 0) {
       setArchiveError('Ce voyage est introuvable. Actualise la liste.')
       return
@@ -186,19 +206,47 @@ async function setTripArchived(trip: Trip, archived: boolean) {
       ? "Impossible d'archiver ce voyage. Réessaie."
       : 'Impossible de restaurer ce voyage. Réessaie.')
   } finally {
-    archiveLock.current = false
+    writeLock.current = false
     setArchivingTripId(null)
   }
+}
+
+async function runTrashAction(trip: Trip, action: 'trash' | 'restore' | 'delete') {
+  if (writeLock.current) return
+  if (action !== 'restore' &&
+      (confirmation?.trip.id !== trip.id || confirmation.action !== action)) return
+  writeLock.current = true
+  setTrashBusy(true)
+  setTrashError('')
+  try {
+    await updateTripTrash(trip.id, action, trip.deletedAt)
+    if (action === 'trash' && trip.id === selectedTripId) closeTrip()
+    setConfirmation(null)
+  } catch (error) {
+    setTrashError(error instanceof Error && error.name === 'Error'
+      ? error.message
+      : "Impossible d'enregistrer cette opération. Réessaie. Tes données sont conservées.")
+  } finally {
+    writeLock.current = false
+    setTrashBusy(false)
+  }
+}
+
+function requestTrashAction(trip: Trip, action: 'trash' | 'delete') {
+  if (writeLock.current) return
+  setTrashError('')
+  setConfirmation({ trip, action })
 }
 
 async function duplicateTrip(trip: Trip) {
   const operation = duplicationRef.current
   // Also ignore rapid repeat clicks after a very fast IndexedDB write.
-  if (operation.busy ||
+  if (writeLock.current || operation.busy ||
       (operation.tripId === trip.id && Date.now() - operation.completedAt < 600)) {
     return
   }
 
+  writeLock.current = true
   operation.busy = true
   operation.tripId = trip.id
   setDuplicatingTripId(trip.id)
@@ -215,14 +263,16 @@ async function duplicateTrip(trip: Trip) {
       image: trip.image,
       archived: false,
     })
-    if (showArchived) {
+    if (showArchived || showTrash) {
       setShowArchived(false)
+      setShowTrash(false)
       setSearch('')
     }
   } catch (error) {
     console.error('Erreur de duplication :', error)
     setDuplicationError("Impossible de dupliquer ce voyage. Réessaie dans un instant.")
   } finally {
+    writeLock.current = false
     operation.busy = false
     operation.completedAt = Date.now()
     setDuplicatingTripId(null)
@@ -231,7 +281,7 @@ async function duplicateTrip(trip: Trip) {
 
 async function saveTrip(event: React.FormEvent<HTMLFormElement>) {
   event.preventDefault()
-  if (savingRef.current) return
+  if (writeLock.current) return
   setFormError('')
 
   const destination = newTrip.destination.trim()
@@ -252,7 +302,7 @@ async function saveTrip(event: React.FormEvent<HTMLFormElement>) {
     return
   }
 
-  const fields: Omit<Trip, 'id' | 'archived'> = {
+  const fields: Omit<Trip, 'id' | 'archived' | 'deletedAt'> = {
     destination,
     country,
     startDate: newTrip.startDate,
@@ -261,6 +311,7 @@ async function saveTrip(event: React.FormEvent<HTMLFormElement>) {
     image: newTrip.image.trim(),
   }
 
+  writeLock.current = true
   savingRef.current = true
   setIsSaving(true)
 
@@ -273,8 +324,9 @@ async function saveTrip(event: React.FormEvent<HTMLFormElement>) {
       }
     } else {
       await db.trips.add({ ...fields, id: crypto.randomUUID(), archived: false })
-      if (showArchived) {
+      if (showArchived || showTrash) {
         setShowArchived(false)
+        setShowTrash(false)
         setSearch('')
       }
     }
@@ -283,6 +335,7 @@ async function saveTrip(event: React.FormEvent<HTMLFormElement>) {
     setFormError("Impossible d'enregistrer ce voyage. Réessaie.")
     return
   } finally {
+    writeLock.current = false
     savingRef.current = false
     setIsSaving(false)
   }
@@ -301,9 +354,12 @@ function navigateToTab(tabId: TabId) {
 
 const [search, setSearch] = useState('')
 
-const archivedCount = (trips ?? []).filter((trip) => trip.archived === true).length
+const archivedCount = (trips ?? []).filter((trip) => trip.deletedAt === undefined && trip.archived === true).length
+const trashCount = (trips ?? []).filter((trip) => trip.deletedAt !== undefined).length
 const filteredTrips = (trips ?? [])
-  .filter((trip) => (trip.archived === true) === showArchived)
+  .filter((trip) => showTrash
+    ? trip.deletedAt !== undefined
+    : trip.deletedAt === undefined && (trip.archived === true) === showArchived)
   .filter((item) => `${item.destination} ${item.country}`
     .toLocaleLowerCase('fr-FR')
     .includes(search.trim().toLocaleLowerCase('fr-FR')),
@@ -376,6 +432,7 @@ if (!databaseReady || trips === undefined) {
       </header>
 
       <main className="main-content">
+        {!confirmation && trashError && <p className="form-error" role="alert">{trashError}</p>}
         {archiveError && <p className="form-error" role="alert">{archiveError}</p>}
         {activeTab === 'home' && selectedTrip ? (
   <section className="trip-dashboard">
@@ -404,7 +461,7 @@ if (!databaseReady || trips === undefined) {
     <button
       type="button"
       className="back-button"
-      disabled={archivingTripId !== null}
+      disabled={writeBusy}
       onClick={(event) => {
         event.stopPropagation()
         void setTripArchived(selectedTrip, true)
@@ -412,6 +469,11 @@ if (!databaseReady || trips === undefined) {
     >
       <Archive size={18} />
       {archivingTripId === selectedTrip.id ? 'Archivage…' : 'Archiver ce voyage'}
+    </button>
+
+    <button type="button" className="back-button danger-text" disabled={writeBusy}
+      onClick={(event) => { event.stopPropagation(); requestTrashAction(selectedTrip, 'trash') }}>
+      <Trash2 size={18} /> Mettre à la corbeille
     </button>
 
     <h2 className="dashboard-title">Organiser mon voyage</h2>
@@ -460,31 +522,35 @@ if (!databaseReady || trips === undefined) {
             <section className="page-heading">
               <div>
                 <p className="eyebrow">TES AVENTURES</p>
-                <h1>{showArchived ? 'Voyages archivés' : 'Mes voyages'}</h1>
+                <h1>{showTrash ? 'Corbeille' : showArchived ? 'Voyages archivés' : 'Mes voyages'}</h1>
                 <p className="subtitle">
                   Organise tes découvertes, à ta façon.
                 </p>
               </div>
 
-              <button className="primary-button" onClick={openCreateTrip}>
+              <button className="primary-button" disabled={writeBusy} onClick={openCreateTrip}>
                 <Plus size={19} />
                 Nouveau voyage
               </button>
             </section>
 
-            <button
-              type="button"
-              className="back-button"
-              onClick={() => {
-                setShowArchived(!showArchived)
-                setSearch('')
-                setArchiveError('')
-                setDuplicationError('')
-              }}
-            >
-              {showArchived ? <ArrowLeft size={18} /> : <Archive size={18} />}
-              {showArchived ? 'Mes voyages actifs' : `Voyages archivés (${archivedCount})`}
-            </button>
+            <nav className="trip-list-nav" aria-label="Listes de voyages">
+              {(['active', 'archived', 'trash'] as const).map((view) => (
+                <button key={view} type="button" className="back-button"
+                  aria-current={(view === 'trash' ? showTrash : view === 'archived' ? showArchived && !showTrash : !showArchived && !showTrash) ? 'page' : undefined}
+                  onClick={() => {
+                    setShowArchived(view === 'archived')
+                    setShowTrash(view === 'trash')
+                    setSearch('')
+                    setArchiveError('')
+                    setDuplicationError('')
+                    setTrashError('')
+                  }}>
+                  {view === 'trash' ? <Trash2 size={18} /> : view === 'archived' ? <Archive size={18} /> : <House size={18} />}
+                  {view === 'trash' ? `Corbeille (${trashCount})` : view === 'archived' ? `Voyages archivés (${archivedCount})` : 'Mes voyages actifs'}
+                </button>
+              ))}
+            </nav>
 
             <div className="search-box">
               <Search size={19} />
@@ -499,7 +565,7 @@ if (!databaseReady || trips === undefined) {
 
             <section className="trips-section">
               <div className="section-heading">
-                <h2>{showArchived ? 'Mes archives' : 'Mes destinations'}</h2>
+                <h2>{showTrash ? 'Corbeille' : showArchived ? 'Mes archives' : 'Mes destinations'}</h2>
                 <span>{filteredTrips.length} voyage(s)</span>
               </div>
 
@@ -522,7 +588,7 @@ if (!databaseReady || trips === undefined) {
     <span>{item.destination}</span>
   </div>
 )}
-                      <span className="trip-badge">{showArchived ? 'Archivé' : 'Voyage'}</span>
+                      <span className="trip-badge">{showTrash ? 'Corbeille' : showArchived ? 'Archivé' : 'Voyage'}</span>
                     </div>
 
                     <div className="trip-info">
@@ -541,11 +607,22 @@ if (!databaseReady || trips === undefined) {
                       <div className="trip-footer">
                         <span>{item.travelers} voyageurs</span>
                         <div className="trip-actions">
+                          {showTrash ? <>
+                            <button type="button" className="secondary-button trip-action-label" disabled={writeBusy}
+                              onClick={(event) => { event.stopPropagation(); void runTrashAction(item, 'restore') }}>
+                              <RotateCcw size={18} /> Restaurer
+                            </button>
+                            <button type="button" className="secondary-button danger-text trip-action-label" disabled={writeBusy}
+                              onClick={(event) => { event.stopPropagation(); requestTrashAction(item, 'delete') }}>
+                              <Trash2 size={18} /> Supprimer définitivement
+                            </button>
+                          </> : <>
                           <button
                             type="button"
                             className="card-edit"
                             aria-label={`Modifier le voyage ${item.destination}`}
                             title="Modifier le voyage"
+                            disabled={writeBusy}
                             onClick={(event) => {
                               event.stopPropagation()
                               editTrip(item)
@@ -558,7 +635,7 @@ if (!databaseReady || trips === undefined) {
                             className="card-edit"
                             aria-label={`Dupliquer le voyage ${item.destination}`}
                             title={duplicatingTripId === item.id ? 'Duplication en cours…' : 'Dupliquer le voyage'}
-                            disabled={duplicatingTripId !== null}
+                            disabled={writeBusy}
                             aria-busy={duplicatingTripId === item.id}
                             onClick={(event) => {
                               event.stopPropagation()
@@ -572,7 +649,7 @@ if (!databaseReady || trips === undefined) {
                             className="card-edit"
                             aria-label={`${showArchived ? 'Restaurer' : 'Archiver'} le voyage ${item.destination}`}
                             title={showArchived ? 'Restaurer le voyage' : 'Archiver le voyage'}
-                            disabled={archivingTripId !== null}
+                            disabled={writeBusy}
                             aria-busy={archivingTripId === item.id}
                             onClick={(event) => {
                               event.stopPropagation()
@@ -581,6 +658,10 @@ if (!databaseReady || trips === undefined) {
                           >
                             {showArchived ? <ArchiveRestore size={18} /> : <Archive size={18} />}
                           </button>
+                          <button type="button" className="secondary-button danger-text trip-action-label" disabled={writeBusy}
+                            onClick={(event) => { event.stopPropagation(); requestTrashAction(item, 'trash') }}>
+                            <Trash2 size={18} /> Mettre à la corbeille
+                          </button>
                           {!showArchived && <button
                             className="card-arrow"
                             aria-label={`Ouvrir le voyage ${item.destination}`}
@@ -588,6 +669,7 @@ if (!databaseReady || trips === undefined) {
                           >
                             <ArrowRight size={20} />
                           </button>}
+                          </>}
                         </div>
                       </div>
                     </div>
@@ -598,7 +680,7 @@ if (!databaseReady || trips === undefined) {
 
               {filteredTrips.length === 0 && (
                 <div className="empty-state">
-                  {showArchived && archivedCount === 0
+                  {showTrash && trashCount === 0 ? 'La corbeille est vide.' : showArchived && archivedCount === 0
                     ? "Aucun voyage archivé pour l'instant."
                     : 'Aucun voyage ne correspond à ta recherche.'}
                 </div>
@@ -642,7 +724,15 @@ if (!databaseReady || trips === undefined) {
         ))}
       </nav>
 
-      
+      {confirmation && <TripConfirmation
+        trip={confirmation.trip}
+        permanent={confirmation.action === 'delete'}
+        busy={trashBusy}
+        error={trashError}
+        onCancel={() => { if (!writeLock.current) { setConfirmation(null); setTrashError('') } }}
+        onConfirm={() => { void runTrashAction(confirmation.trip, confirmation.action) }}
+      />}
+
 {showCreateTrip && (
   <div className="modal-overlay">
     <div

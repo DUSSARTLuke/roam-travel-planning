@@ -803,3 +803,52 @@ button:disabled {
 .database-status p {
   color: var(--muted);
 }
+
+/* Corbeille et confirmations */
+.trip-list-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 24px;
+}
+
+.trip-list-nav [aria-current='page'] {
+  color: var(--accent);
+}
+
+.trip-action-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 12px;
+  max-width: 100%;
+}
+
+.trip-action-label svg {
+  flex-shrink: 0;
+}
+
+.danger-text {
+  color: #fca5a5;
+}
+
+.danger-button {
+  background: #b91c1c;
+  color: #fff;
+}
+
+.confirmation-dialog {
+  margin: auto;
+  color: var(--text);
+  max-width: calc(100% - 32px);
+}
+
+.confirmation-dialog::backdrop {
+  background: rgba(3, 7, 18, 0.78);
+  backdrop-filter: blur(6px);
+}
+
+.confirmation-dialog > p {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
