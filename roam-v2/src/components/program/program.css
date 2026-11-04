@@ -812,3 +812,16 @@
   .day-timeline-content .activity-card { padding: 12px; gap: 10px; }
   .day-timeline-content .activity-edit { min-height: 44px; flex-wrap: wrap; max-width: 100%; }
 }
+
+/* Quick actions remain above the card's open-detail hit area. */
+.activity-card-actions { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; flex: 0 1 310px; }
+.activity-organization { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.activity-organization button, .activity-organization-panel button { min-height: 44px; }
+.activity-organization button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.activity-organization-panel { max-height: 90dvh; }
+@media (max-width: 640px) {
+  .activity-card-actions { flex: auto; width: 100%; align-items: stretch; }
+  .activity-organization { justify-content: flex-start; }
+  .activity-organization button { flex: 1 1 110px; }
+  .activity-organization-panel { max-height: 100dvh; }
+}

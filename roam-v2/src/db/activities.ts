@@ -1,3 +1,4 @@
+import { reorderActivities, schedulingKey, type OrderDirection } from './activityOrganization'
 import { validateCoordinates } from './activityLocation'
 import { db, type RoamDatabase } from './database'
 import { advancedActivityKeys, compareActivities, isActivityDate, validateActivity, type TripActivity, type TripActivityInput } from './activityModel'
@@ -69,6 +70,46 @@ export function createActivityRepository(database: RoamDatabase = db) {
       })
     },
 
+    // Narrow updates read the latest record and retain every unrelated field.
+    async organizeActivity(tripId: string, id: string, change: { date: string | null } | { startTime: string; endTime?: string } | { unscheduled: true }, expected: string): Promise<TripActivity> {
+      return database.transaction('rw', database.trips, database.activities, async () => {
+        await requireParent(tripId, true)
+        const trip = await database.trips.get(tripId)
+        if (trip?.archived) throw new Error('Restaure le voyage avant de modifier ses activités.')
+        const existing = await requireActivity(tripId, id)
+        if (schedulingKey(existing) !== expected) throw new Error('La planification a changé dans un autre onglet. Ferme puis rouvre cette action.')
+        const candidate = { ...existing }
+        if ('date' in change) candidate.date = change.date
+        else {
+          delete candidate.startTime
+          delete candidate.endTime
+          Object.assign(candidate, 'unscheduled' in change
+            ? { scheduleType: 'unscheduled', period: null }
+            : { scheduleType: 'exact', period: null, startTime: change.startTime, ...(change.endTime ? { endTime: change.endTime } : {}) })
+        }
+        validateActivity(candidate, existing)
+        candidate.updatedAt = new Date().toISOString()
+        await database.activities.put(candidate)
+        return candidate
+      })
+    },
+
+    async reorderActivity(tripId: string, id: string, direction: OrderDirection): Promise<void> {
+      if (direction !== 'up' && direction !== 'down') throw new Error('Direction invalide.')
+      await database.transaction('rw', database.trips, database.activities, async () => {
+        await requireParent(tripId, true)
+        const trip = await database.trips.get(tripId)
+        if (trip?.archived) throw new Error('Restaure le voyage avant de modifier ses activités.')
+        const existing = await requireActivity(tripId, id)
+        if (existing.scheduleType === 'exact') throw new Error('Seules les activités sans heure précise peuvent être réordonnées.')
+        const group = (await database.activities.where('tripId').equals(tripId).toArray())
+          .filter((item) => item.date === existing.date && item.scheduleType !== 'exact')
+        const changes = reorderActivities(group, id, direction)
+        const updatedAt = new Date().toISOString()
+        for (const change of changes) await database.activities.update(change.id, { sortOrder: change.sortOrder, updatedAt })
+      })
+    },
+
     async deleteActivity(tripId: string, id: string): Promise<void> {
       await database.transaction('rw', [database.trips, database.activities, database.activityDocuments, database.activityDocumentBlobs], async () => {
         await requireParent(tripId, true)
@@ -82,4 +123,4 @@ export function createActivityRepository(database: RoamDatabase = db) {
   }
 }
 
-export const { createActivity, getActivity, listActivities, updateActivity, deleteActivity } = createActivityRepository()
+export const { createActivity, getActivity, listActivities, updateActivity, organizeActivity, reorderActivity, deleteActivity } = createActivityRepository()

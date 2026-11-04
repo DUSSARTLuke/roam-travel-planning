@@ -43,7 +43,7 @@ export type TripActivityInput = ActivitySchedule & {
   currency?: string
   reservationStatus?: ReservationStatus
   url?: string
-  sortOrder: number
+  sortOrder?: number
 }
 
 export type TripActivity = TripActivityInput & {
@@ -81,7 +81,7 @@ export function validateActivity(input: TripActivityInput, existing?: TripActivi
   if (input.date !== null && !isActivityDate(input.date)) {
     throw new Error('La date doit être une date valide au format YYYY-MM-DD, ou null.')
   }
-  if (typeof input.sortOrder !== 'number' || !Number.isFinite(input.sortOrder)) {
+  if (input.sortOrder !== undefined && (typeof input.sortOrder !== 'number' || !Number.isFinite(input.sortOrder))) {
     throw new Error("L'ordre de classement doit être un nombre fini.")
   }
   if (input.estimatedCost !== undefined &&
@@ -165,14 +165,16 @@ function compareText(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0
 }
 
-// Dated activities first, then ideas; within a day: mode, manual order,
-// time/period, creation and unique ID as deterministic tie breakers.
+// Dated activities first, then ideas; exact activities precede À organiser.
+// Manual order crosses non-exact modes; missing historical order means zero.
+// Time/period, creation and ID provide deterministic ties.
 export function compareActivities(a: TripActivity, b: TripActivity): number {
   const scheduleRank = { exact: 0, period: 1, unscheduled: 2 }
   const periodRank = { morning: 0, afternoon: 1, evening: 2 }
   return compareText(a.date ?? '\uffff', b.date ?? '\uffff') ||
+    Number(b.scheduleType === 'exact') - Number(a.scheduleType === 'exact') ||
+    (a.sortOrder ?? 0) - (b.sortOrder ?? 0) ||
     scheduleRank[a.scheduleType] - scheduleRank[b.scheduleType] ||
-    a.sortOrder - b.sortOrder ||
     compareText(a.startTime ?? '', b.startTime ?? '') ||
     (a.period === null ? 0 : periodRank[a.period]) - (b.period === null ? 0 : periodRank[b.period]) ||
     compareText(a.createdAt, b.createdAt) || compareText(a.id, b.id)

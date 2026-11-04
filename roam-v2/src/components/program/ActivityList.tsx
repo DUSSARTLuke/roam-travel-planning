@@ -1,3 +1,4 @@
+import { OrganizationActions } from './ActivityOrganization'
 import { MapPin, Pencil, Plus } from 'lucide-react'
 import type { TripActivity } from '../../db/activityModel'
 import { activityScheduleLabel, categoryLabels } from './activityPresentation'
@@ -24,9 +25,10 @@ export function ActivityCard({ activity, onEdit, onOpen, showDate = false, showS
         {showDate && activity.date && <p className="activity-meta">{formatDate(activity.date, { day: 'numeric', month: 'long', year: 'numeric' })}</p>}
         {activity.location && <p className="activity-location"><MapPin size={16} aria-hidden="true" />{activity.location}</p>}
       </div>
+      <div className="activity-card-actions"><OrganizationActions activity={activity} />
       <button type="button" className="secondary-button activity-edit" aria-haspopup="dialog" aria-label={`Modifier l’activité ${activity.title}`} onClick={(event) => { event.stopPropagation(); onEdit(activity) }}>
         <Pencil size={17} /> Modifier
-      </button>
+      </button></div>
     </article>
   )
 }

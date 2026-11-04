@@ -1,7 +1,11 @@
+import { OrganizationContext } from './organizationContext'
+import { useReloadBlocker } from '../../pwa/useReloadBlocker'
+import { ActivityOrganizationPanel } from './ActivityOrganization'
+import type { OrderDirection } from '../../db/activityOrganization'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { CalendarDays, Lightbulb, List, Plus } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { listActivities } from '../../db/activities'
+import { listActivities, reorderActivity } from '../../db/activities'
 import type { TripActivity } from '../../db/activityModel'
 import { ActivityDetailPanel } from './ActivityDetailPanel'
 import { tripReferenceCurrency } from '../../db/currency'
@@ -61,6 +65,10 @@ export function TripProgram({ trip }: { trip: Trip }) {
   const detailOriginRef = useRef<HTMLButtonElement>(null)
   const [detailId, setDetailId] = useState<string | null>(null)
   const [editor, setEditor] = useState<{ activity: TripActivity | null; date: string | null } | null>(null)
+  const [organization, setOrganization] = useState<{ activity: TripActivity; mode: 'date' | 'time'; trigger: HTMLButtonElement } | null>(null)
+  const [ordering, setOrdering] = useState(false)
+  const orderingLock = useRef(false)
+  const [organizationError, setOrganizationError] = useState('')
   const [reload, setReload] = useState(0)
   const result = useLiveQuery(() => listActivities(trip.id).then(
     (activities) => ({ activities, error: '' }),
@@ -75,12 +83,22 @@ export function TripProgram({ trip }: { trip: Trip }) {
     if (editor?.activity?.id === detailId) setEditor(null)
   }
   const ready = result !== undefined && !result.error && trip.archived !== true && trip.deletedAt === undefined
+  useReloadBlocker(ordering, 'Réorganisation des activités en cours')
+  if (organization && result !== undefined && (!ready || !activities.some((item) => item.id === organization.activity.id))) setOrganization(null)
   const dayActivities = activities.filter((activity) => activity.date === selectedDate)
   const ideas = activities.filter((activity) => activity.date === null)
   const outsideDays = activities.filter((activity) => activity.date !== null && (activity.date < trip.startDate || activity.date > trip.endDate))
   const counts: Record<string, number> = {}
   for (const activity of activities) {
     if (activity.date !== null) counts[activity.date] = (counts[activity.date] ?? 0) + 1
+  }
+
+  async function reorder(activity: TripActivity, direction: OrderDirection) {
+    if (!ready || orderingLock.current) return
+    orderingLock.current = true; setOrdering(true); setOrganizationError('')
+    try { await reorderActivity(trip.id, activity.id, direction) }
+    catch (error) { setOrganizationError(error instanceof Error ? error.message : 'Impossible de modifier l’ordre.') }
+    finally { orderingLock.current = false; setOrdering(false) }
   }
 
   function addActivity() {
@@ -113,7 +131,12 @@ export function TripProgram({ trip }: { trip: Trip }) {
   }
 
   return (
+    <OrganizationContext value={{ activities, busy: !ready || ordering, reorder, open: (activity, mode, trigger) => {
+      if (ready && !orderingLock.current) setOrganization({ activity, mode, trigger })
+    } }}>
     <section className="trip-program">
+      {organizationError && <p role="alert">{organizationError}</p>}
+      {ordering && <p role="status">Modification de l’ordre…</p>}
       <header className="program-heading">
         <p className="eyebrow">{trip.destination}</p>
         <h1>Programme</h1>
@@ -144,11 +167,13 @@ export function TripProgram({ trip }: { trip: Trip }) {
         <p className="subtitle">Ces activités sont en dehors des dates actuelles du séjour. Tu peux modifier leur date pour les replanifier.</p>
         <ActivityList activities={outsideDays} onEdit={editActivity} onOpen={openActivity} showDate />
       </section>}
-      {!editor && ready && detailActivity && <ActivityDetailPanel trip={trip} activity={detailActivity}
+      {organization && ready && activities.some((item) => item.id === organization.activity.id) && <ActivityOrganizationPanel
+        fallbackFocusRef={addButtonRef} activity={organization.activity} trip={trip} mode={organization.mode} trigger={organization.trigger} onClose={() => setOrganization(null)} />}
+      {!organization && !editor && ready && detailActivity && <ActivityDetailPanel trip={trip} activity={detailActivity}
         returnFocusRef={detailOriginRef} fallbackFocusRef={addButtonRef}
         onClose={() => setDetailId(null)} onEdit={() => editActivity(detailActivity)} />}
       {editor && <ActivityFormPanel referenceCurrency={tripReferenceCurrency(trip)} tripId={trip.id} activity={editor.activity} initialDate={editor.date}
         fallbackDate={selectedDate} fallbackFocusRef={addButtonRef} onClose={() => setEditor(null)} onSaved={activitySaved} />}
-    </section>
+    </section></OrganizationContext>
   )
 }
