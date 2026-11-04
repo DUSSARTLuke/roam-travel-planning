@@ -322,3 +322,27 @@ liste), lecture avec un lecteur d'écran, longue liste sur mobile et hors connex
 après un nouveau build précaché. Aucun appel réseau n'est nécessaire au catalogue.
 Les alias de pays sont une aide limitée aux principales devises, pas un annuaire
 exhaustif ; noms et symboles dépendent des données Intl du navigateur.
+
+## Moteur monétaire — 2.5.4b
+
+`money.browser.ts` est exécuté au début de `/tests/activities.html`. Il vérifie
+identité EUR, JPY/EUR, zéro/absence, codes/taux invalides, formats EUR/JPY/KWD,
+totaux estimés/payés distincts, exclusions, erreurs de résolveur, débordements,
+immutabilité et absence d'arrondi avant somme. Ces tests purs n'écrivent aucune
+donnée et ne font aucun appel réseau. Contrat et limites : `src/money/README.md`.
+
+## Taux manuels — 2.5.4c
+
+`manualRates.browser.ts` dans `/tests/activities.html` couvre validation, saisie
+française, précision, dates, direction, priorité et intégration au moteur, CRUD
+persisté, deux connexions Dexie, conflits, indépendance, rechargement et ZIP.
+Les bases de ces tests portent le préfixe `roam-v2-test-manual-rates-`.
+
+Manuellement : créer/modifier un voyage, ajouter deux paires avec virgule et point,
+enregistrer et rouvrir ; vérifier les dates. Tester confirmation/annulation de
+suppression puis annulation globale du formulaire. Vérifier les erreurs de paire
+dupliquée/identique et de valeur invalide sans perte de saisie. Changer la devise
+de référence, dupliquer et vérifier les taux. Dans deux onglets, modifier des
+paires différentes (fusion) puis la même paire (conflit sans écriture partielle).
+Tester mobile, clavier, sélecteurs, enregistrement hors ligne et protection PWA
+pendant les saisies. Les écrans Programme/Budget ne montrent aucune conversion.

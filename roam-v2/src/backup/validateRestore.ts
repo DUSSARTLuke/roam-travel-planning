@@ -1,3 +1,4 @@
+import { validateManualRates } from '../money/manualRates'
 import { validateCurrency } from '../db/currency'
 import { isActivityDate, validateActivity, type TripActivity } from '../db/activityModel'
 import type { Trip } from '../db/database'
@@ -86,6 +87,7 @@ export async function validateRestoreArchive(archive: Blob, progress: (message: 
   for (const trip of tripRows) {
     text(trip.destination, 'Destination'); text(trip.country, 'Pays'); text(trip.image, 'Photo', true)
     if (!isActivityDate(trip.startDate) || !isActivityDate(trip.endDate) || trip.endDate < trip.startDate || !Number.isSafeInteger(trip.travelers) || (trip.travelers as number) < 1 || (trip.archived !== undefined && typeof trip.archived !== 'boolean')) throw new Error('Voyage invalide dans la sauvegarde.')
+    validateManualRates(trip.manualExchangeRates)
     if (trip.referenceCurrency !== undefined) validateCurrency(trip.referenceCurrency)
     if (trip.deletedAt !== undefined) timestamp(trip.deletedAt)
   }

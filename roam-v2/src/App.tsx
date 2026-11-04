@@ -37,6 +37,9 @@ import { BackupExport, BackupPage } from './components/backup/BackupExport'
 import { useReloadBlocker } from './pwa/useReloadBlocker'
 import { tripReferenceCurrency, validateCurrency } from './db/currency'
 import { CurrencySelector } from './components/currency/CurrencySelector'
+import { ManualRatesEditor } from './components/currency/ManualRatesEditor'
+import { manualRateDrafts, prepareManualRates, validateManualRates, type ManualRateDraft, type ManualExchangeRate } from './money/manualRates'
+import { saveTripWithRates, type TripEditableFields } from './db/tripRates'
 import './App.css'
 
 type TabId = 'home' | 'program' | 'map' | 'budget' | 'more'
@@ -56,7 +59,7 @@ const tabs: Tab[] = [
 ]
 
 
-const emptyTripForm: Omit<Trip, 'id' | 'archived' | 'deletedAt'> = {
+const emptyTripForm: TripEditableFields = {
   referenceCurrency: 'EUR',
   destination: '',
   country: '',
@@ -112,6 +115,9 @@ useEffect(() => {
   const [showCreateTrip, setShowCreateTrip] = useState(false)
 
   const [newTrip, setNewTrip] = useState(emptyTripForm)
+  const [rateDrafts, setRateDrafts] = useState<ManualRateDraft[]>([])
+  const rateBaseline = useRef<ManualExchangeRate[]>([])
+  const tripFieldsBaseline = useRef<TripEditableFields | null>(null)
   const [editingTripId, setEditingTripId] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
   const savingRef = useRef(false)
@@ -174,6 +180,9 @@ function closeCreateTrip() {
   setShowCreateTrip(false)
   setEditingTripId(null)
   setNewTrip({ ...emptyTripForm })
+  setRateDrafts([])
+  rateBaseline.current = []
+  tripFieldsBaseline.current = null
   setFormError('')
 }
 
@@ -181,13 +190,23 @@ function openCreateTrip() {
   if (writeLock.current) return
   setEditingTripId(null)
   setNewTrip({ ...emptyTripForm })
+  setRateDrafts([])
+  rateBaseline.current = []
+  tripFieldsBaseline.current = null
   setFormError('')
   setShowCreateTrip(true)
 }
 
 function editTrip(trip: Trip) {
   if (writeLock.current) return
+  let rates: ManualExchangeRate[]
+  try { rates = validateManualRates(trip.manualExchangeRates) }
+  catch (error) { setDatabaseError(error instanceof Error ? error.message : 'Taux invalides.'); return }
   const { id, ...fields } = trip
+  tripFieldsBaseline.current = { destination: trip.destination, country: trip.country, startDate: trip.startDate,
+    endDate: trip.endDate, travelers: trip.travelers, image: trip.image, referenceCurrency: tripReferenceCurrency(trip) }
+  rateBaseline.current = rates
+  setRateDrafts(manualRateDrafts(rates))
   setEditingTripId(id)
   setNewTrip({ ...fields, referenceCurrency: tripReferenceCurrency(trip) })
   setFormError('')
@@ -261,6 +280,7 @@ async function duplicateTrip(trip: Trip) {
       id: crypto.randomUUID(),
       destination: `${trip.destination} (copie)`,
       referenceCurrency: tripReferenceCurrency(trip),
+      ...(trip.manualExchangeRates !== undefined ? { manualExchangeRates: validateManualRates(trip.manualExchangeRates) } : {}),
       country: trip.country,
       startDate: trip.startDate,
       endDate: trip.endDate,
@@ -314,7 +334,11 @@ async function saveTrip(event: React.FormEvent<HTMLFormElement>) {
   try { referenceCurrency = validateCurrency(newTrip.referenceCurrency) }
   catch (error) { setFormError(error instanceof Error ? error.message : 'Devise invalide.'); return }
 
-  const fields: Omit<Trip, 'id' | 'archived' | 'deletedAt'> = {
+  let desiredRates: ManualExchangeRate[]
+  try { desiredRates = prepareManualRates(rateDrafts, rateBaseline.current, new Date().toISOString()) }
+  catch (error) { setFormError(error instanceof Error ? error.message : 'Taux invalides.'); return }
+
+  const fields: TripEditableFields = {
     referenceCurrency,
     destination,
     country,
@@ -330,13 +354,9 @@ async function saveTrip(event: React.FormEvent<HTMLFormElement>) {
 
   try {
     if (editingTripId !== null) {
-      const updated = await db.trips.update(editingTripId, fields)
-      if (updated === 0) {
-        setFormError('Ce voyage est introuvable. Ferme le formulaire et actualise la liste.')
-        return
-      }
+      await saveTripWithRates(editingTripId, fields, rateBaseline.current, desiredRates, db, tripFieldsBaseline.current ?? undefined)
     } else {
-      await db.trips.add({ ...fields, id: crypto.randomUUID(), archived: false })
+      await db.trips.add({ ...fields, ...(desiredRates.length ? { manualExchangeRates: desiredRates } : {}), id: crypto.randomUUID(), archived: false })
       if (showArchived || showTrash) {
         setShowArchived(false)
         setShowTrash(false)
@@ -345,7 +365,7 @@ async function saveTrip(event: React.FormEvent<HTMLFormElement>) {
     }
   } catch (error) {
     console.error('Erreur de sauvegarde :', error)
-    setFormError("Impossible d'enregistrer ce voyage. Réessaie.")
+    setFormError(error instanceof Error ? error.message : "Impossible d’enregistrer ce voyage. Réessaie.")
     return
   } finally {
     writeLock.current = false
@@ -876,6 +896,8 @@ if (!databaseReady || trips === undefined) {
             }
           />
         </label>
+
+        <ManualRatesEditor rates={rateDrafts} referenceCurrency={newTrip.referenceCurrency ?? 'EUR'} onChange={setRateDrafts} disabled={isSaving} />
 
         {formError && (
           <p className="form-error" role="alert">

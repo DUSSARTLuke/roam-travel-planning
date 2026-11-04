@@ -1,0 +1,7 @@
+.manual-rates { border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+.manual-rates summary { cursor: pointer; font-weight: 600; min-height: 32px; }
+.manual-rates p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.manual-rates fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 14px; }
+.manual-rate { display: grid; gap: 12px; border-top: 1px solid var(--border); padding-top: 16px; min-width: 0; }
+.manual-rate [role="group"] { display: flex; flex-wrap: wrap; gap: 10px; }
+.manual-rate [role="group"] p { width: 100%; }

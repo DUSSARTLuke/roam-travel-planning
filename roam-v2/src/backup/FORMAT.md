@@ -143,3 +143,15 @@ Les fonctions de restauration ne prennent pas d'objets JSON arbitraires : elles
 exigent une préparation validée et un aperçu générés par le module, associés à la
 même base. Les enregistrements vérifiés sont privés et les résumés exposés à
 l'interface sont gelés. Cela évite leur modification entre vérification et import.
+
+## Taux manuels par voyage — 2.5.4c
+
+Le champ optionnel `manualExchangeRates` est un tableau de paires ordonnées
+`{ sourceCurrency, targetCurrency, rate, updatedAt }`. Codes ISO reconnus, devises
+différentes, paire unique, taux numérique fini strictement positif et date ISO UTC
+avec millisecondes sont vérifiés avant restauration. Aucun taux inverse n'est
+déduit ; changer la devise de référence ne change pas ces paires. Les anciens
+voyages sans ce champ restent valides, sans remplissage. Export complet/individuel
+incluent ce champ ; identifiants et données des activités restent inchangés.
+Dexie V4 et format ZIP 1 sont conservés. Un voyage local déjà présent reste ignoré
+intégralement, y compris ses taux : aucune fusion ZIP de voyages existants.

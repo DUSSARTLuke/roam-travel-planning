@@ -1,6 +1,7 @@
 
 import Dexie, { type EntityTable } from 'dexie'
 import type { ActivityDocument, ActivityDocumentBlob } from './documentModel'
+import type { ManualExchangeRate } from '../money/manualRates'
 import type { TripActivity } from './activityModel'
 
 export type Trip = {
@@ -13,6 +14,7 @@ export type Trip = {
   image: string
   // Missing on legacy records: EUR logically, without rewriting stored data.
   referenceCurrency?: string
+  manualExchangeRates?: ManualExchangeRate[]
   // Missing on legacy records: treated as false without rewriting user data.
   archived?: boolean
   deletedAt?: string

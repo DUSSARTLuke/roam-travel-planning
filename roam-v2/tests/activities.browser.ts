@@ -1,3 +1,5 @@
+import { testManualRatesPure, testManualRatesPersistence } from './manualRates.browser'
+import { testMoney } from './money.browser'
 import { testCurrencySelector } from './currencySelector.browser'
 import { testCurrencies } from './currency.browser'
 import Dexie from 'dexie'
@@ -167,6 +169,9 @@ button.addEventListener('click', async () => {
   button.disabled = true
   results.textContent = ''
   try {
+    await testManualRatesPure((message) => { results.textContent += `✓ ${message}\n` })
+    await testManualRatesPersistence((message) => { results.textContent += `✓ ${message}\n` })
+    testMoney((message) => { results.textContent += `✓ ${message}\n` })
     testCurrencySelector((message) => { results.textContent += `✓ ${message}\n` })
     testPwaUpdates((message) => { results.textContent += `✓ ${message}\n` })
     testNativePdfPreview((message) => { results.textContent += `✓ ${message}\n` })
