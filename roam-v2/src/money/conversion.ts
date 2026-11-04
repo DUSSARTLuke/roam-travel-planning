@@ -97,11 +97,11 @@ export function calculateFinancialTotals(items: readonly FinancialItem[], target
 }
 
 export type FormattedMoney = { status: 'formatted'; text: string } | { status: 'invalid'; reason: 'invalid-amount' | 'invalid-currency' | 'invalid-locale' }
-export function formatMoney(amount: number, code: string, locale = 'fr-FR'): FormattedMoney {
+export function formatMoney(amount: number, code: string, locale = 'fr-FR', currencyDisplay: 'symbol' | 'narrowSymbol' = 'symbol'): FormattedMoney {
   if (!Number.isFinite(amount) || amount < 0) return { status: 'invalid', reason: 'invalid-amount' }
   let normalized: string
   try { normalized = validateCurrency(code) } catch { return { status: 'invalid', reason: 'invalid-currency' } }
   try {
-    return { status: 'formatted', text: new Intl.NumberFormat(locale, { style: 'currency', currency: normalized }).format(amount) }
+    return { status: 'formatted', text: new Intl.NumberFormat(locale, { style: 'currency', currency: normalized, currencyDisplay }).format(amount) }
   } catch { return { status: 'invalid', reason: 'invalid-locale' } }
 }

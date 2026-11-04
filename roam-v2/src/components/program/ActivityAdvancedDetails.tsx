@@ -1,4 +1,6 @@
 import { isSafeActivityUrl, type TripActivity } from '../../db/activityModel'
+import type { Trip } from '../../db/database'
+import { ActivityMoneyDetails } from './ActivityMoneyDetails'
 import { reservationLabels } from './activityPresentation'
 import { formatDate } from './dates'
 
@@ -8,14 +10,10 @@ function ActivityLink({ title, url }: { title: string; url: string }) {
     : <span>{title}<span className="activity-meta">URL non prise en charge</span></span>}</li>
 }
 
-export function ActivityAdvancedDetails({ activity }: { activity: TripActivity }) {
+export function ActivityAdvancedDetails({ activity, trip }: { activity: TripActivity; trip: Trip }) {
   const reservation = activity.reservationStatus !== undefined || activity.reservationReference || activity.reservationProvider ||
     activity.reservationPeople !== undefined || activity.reservationDeadline || activity.reservationNotes
-  const budget = activity.estimatedCost !== undefined || activity.paidAmount !== undefined || activity.currency
   const links = activity.links ?? []
-  function amount(value: number) {
-    return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 20 }).format(value)} ${activity.currency ?? '(devise non renseignée)'}`
-  }
   return <>
     {reservation && <section aria-labelledby="activity-detail-reservation">
       <h3 id="activity-detail-reservation">Réservation</h3>
@@ -28,15 +26,7 @@ export function ActivityAdvancedDetails({ activity }: { activity: TripActivity }
         {activity.reservationNotes && <div><dt>Notes de réservation</dt><dd className="activity-detail-notes">{activity.reservationNotes}</dd></div>}
       </dl>
     </section>}
-    {budget && <section aria-labelledby="activity-detail-budget">
-      <h3 id="activity-detail-budget">Budget de l’activité</h3>
-      <dl className="activity-detail-fields">
-        {activity.estimatedCost !== undefined && <div><dt>Prix estimé</dt><dd>{amount(activity.estimatedCost)}</dd></div>}
-        {activity.paidAmount !== undefined && <div><dt>Montant payé</dt><dd>{amount(activity.paidAmount)}</dd></div>}
-        {activity.currency && <div><dt>Devise</dt><dd>{activity.currency}</dd></div>}
-      </dl>
-      <p className="activity-meta">Aucune conversion de devise.</p>
-    </section>}
+    <ActivityMoneyDetails activity={activity} trip={trip} />
     {(activity.url || links.length > 0) && <section aria-labelledby="activity-detail-links">
       <h3 id="activity-detail-links">Liens utiles</h3>
       <ul className="activity-detail-links">

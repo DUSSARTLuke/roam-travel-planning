@@ -1,5 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import { ArrowLeft, Pencil } from 'lucide-react'
+import type { Trip } from '../../db/database'
 import type { TripActivity } from '../../db/activityModel'
 import { categoryLabels, periodLabels } from './activityPresentation'
 import { ActivityDocuments } from './ActivityDocuments'
@@ -7,6 +8,7 @@ import { ActivityAdvancedDetails } from './ActivityAdvancedDetails'
 import { formatDate } from './dates'
 
 type Props = {
+  trip: Trip
   activity: TripActivity
   returnFocusRef: RefObject<HTMLButtonElement | null>
   fallbackFocusRef: RefObject<HTMLButtonElement | null>
@@ -14,7 +16,7 @@ type Props = {
   onEdit: () => void
 }
 
-export function ActivityDetailPanel({ activity, returnFocusRef, fallbackFocusRef, onClose, onEdit }: Props) {
+export function ActivityDetailPanel({ trip, activity, returnFocusRef, fallbackFocusRef, onClose, onEdit }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const backdropRef = useRef(false)
 
@@ -70,7 +72,7 @@ export function ActivityDetailPanel({ activity, returnFocusRef, fallbackFocusRef
         {activity.notes && <section aria-labelledby="activity-detail-notes">
           <h3 id="activity-detail-notes">Notes</h3><p className="activity-detail-notes">{activity.notes}</p>
         </section>}
-        <ActivityAdvancedDetails activity={activity} />
+        <ActivityAdvancedDetails activity={activity} trip={trip} />
         <ActivityDocuments tripId={activity.tripId} activityId={activity.id} />
       </div>
       <footer className="activity-detail-footer">

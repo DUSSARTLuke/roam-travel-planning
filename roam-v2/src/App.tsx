@@ -114,6 +114,7 @@ useEffect(() => {
   }
 }, [])
   const [showCreateTrip, setShowCreateTrip] = useState(false)
+  const tripFormOrigin = useRef<HTMLElement | null>(null)
 
   const [newTrip, setNewTrip] = useState(emptyTripForm)
   const [rateDrafts, setRateDrafts] = useState<ManualRateDraft[]>([])
@@ -185,10 +186,14 @@ function closeCreateTrip() {
   rateBaseline.current = []
   tripFieldsBaseline.current = null
   setFormError('')
+  const origin = tripFormOrigin.current
+  tripFormOrigin.current = null
+  requestAnimationFrame(() => { if (origin?.isConnected) origin.focus() })
 }
 
 function openCreateTrip() {
-  if (writeLock.current) return
+  if (writeLock.current || showCreateTrip) return
+  tripFormOrigin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
   setEditingTripId(null)
   setNewTrip({ ...emptyTripForm })
   setRateDrafts([])
@@ -199,10 +204,11 @@ function openCreateTrip() {
 }
 
 function editTrip(trip: Trip) {
-  if (writeLock.current) return
+  if (writeLock.current || showCreateTrip) return
   let rates: ManualExchangeRate[]
   try { rates = validateManualRates(trip.manualExchangeRates) }
   catch (error) { setDatabaseError(error instanceof Error ? error.message : 'Taux invalides.'); return }
+  tripFormOrigin.current = document.activeElement instanceof HTMLElement ? document.activeElement : null
   const { id, ...fields } = trip
   tripFieldsBaseline.current = { destination: trip.destination, country: trip.country, startDate: trip.startDate,
     endDate: trip.endDate, travelers: trip.travelers, image: trip.image, referenceCurrency: tripReferenceCurrency(trip) }
@@ -421,7 +427,7 @@ if (!databaseReady || trips === undefined) {
   return (
     <div className="app-shell">
       {selectedTrip && <AutomaticRatesController key={selectedTrip.id} tripId={selectedTrip.id} />}
-      <header className="topbar">
+      <header className="topbar" inert={showCreateTrip}>
         <div className="brand-area">
           <div className="brand">
             <Compass size={25} color="#F59E0B" strokeWidth={2.4} />
@@ -457,16 +463,22 @@ if (!databaseReady || trips === undefined) {
           ))}
         </nav>
 
-        <button
-          className="icon-button"
-          aria-label="Paramètres (bientôt disponibles)"
-          disabled
+        {selectedTrip && <button
+          type="button"
+          className="icon-button trip-settings-button"
+          aria-label="Paramètres du voyage"
+          title="Paramètres du voyage"
+          aria-haspopup="dialog"
+          aria-expanded={showCreateTrip && editingTripId === selectedTrip.id}
+          disabled={writeBusy || showCreateTrip || confirmation !== null}
+          onClick={() => editTrip(selectedTrip)}
         >
-          <Settings2 size={21} />
-        </button>
+          <Settings2 size={21} aria-hidden="true" />
+          <span>Paramètres</span>
+        </button>}
       </header>
 
-      <main className="main-content">
+      <main className="main-content" inert={showCreateTrip}>
         {!confirmation && trashError && <p className="form-error" role="alert">{trashError}</p>}
         {archiveError && <p className="form-error" role="alert">{archiveError}</p>}
         {activeTab === 'home' && selectedTrip ? (
@@ -727,7 +739,7 @@ if (!databaseReady || trips === undefined) {
         ) : activeTab === 'more' ? (
           <BackupPage tripId={selectedTrip?.id} />
         ) : activeTab === 'program' && selectedTrip ? (
-          <TripProgram key={`${selectedTrip.id}:${selectedTrip.startDate}:${selectedTrip.endDate}`} trip={selectedTrip} />
+          <TripProgram key={selectedTrip.id} trip={selectedTrip} />
         ) : (
           <section className="placeholder-page">
             <div className="placeholder-icon">
@@ -749,7 +761,7 @@ if (!databaseReady || trips === undefined) {
         )}
       </main>
 
-      <nav className="bottom-nav" aria-label="Navigation mobile">
+      <nav className="bottom-nav" aria-label="Navigation mobile" inert={showCreateTrip}>
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}

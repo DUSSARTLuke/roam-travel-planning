@@ -52,6 +52,10 @@ export function TripProgram({ trip }: { trip: Trip }) {
   const [mode, setMode] = useState<'day' | 'calendar' | 'ideas'>('day')
   const [selectedDate, setSelectedDate] = useState(trip.startDate)
   const [month, setMonth] = useState(trip.startDate.slice(0, 7))
+  // Keep views, panels and drafts mounted when trip dates change. Only an
+  // out-of-range day/month is reconciled; changing trips still resets via key.
+  if (days.length > 0 && !days.includes(selectedDate)) setSelectedDate(days[0])
+  if (months.length > 0 && !months.includes(month)) setMonth(months[0])
   const addButtonRef = useRef<HTMLButtonElement>(null)
   const detailOriginRef = useRef<HTMLButtonElement>(null)
   const [detailId, setDetailId] = useState<string | null>(null)
@@ -139,7 +143,7 @@ export function TripProgram({ trip }: { trip: Trip }) {
         <p className="subtitle">Ces activités sont en dehors des dates actuelles du séjour. Tu peux modifier leur date pour les replanifier.</p>
         <ActivityList activities={outsideDays} onEdit={editActivity} onOpen={openActivity} showDate />
       </section>}
-      {!editor && ready && detailActivity && <ActivityDetailPanel activity={detailActivity}
+      {!editor && ready && detailActivity && <ActivityDetailPanel trip={trip} activity={detailActivity}
         returnFocusRef={detailOriginRef} fallbackFocusRef={addButtonRef}
         onClose={() => setDetailId(null)} onEdit={() => editActivity(detailActivity)} />}
       {editor && <ActivityFormPanel referenceCurrency={tripReferenceCurrency(trip)} tripId={trip.id} activity={editor.activity} initialDate={editor.date}

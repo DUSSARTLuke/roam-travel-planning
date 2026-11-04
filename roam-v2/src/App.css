@@ -852,3 +852,15 @@ button:disabled {
   line-height: 1.6;
   overflow-wrap: anywhere;
 }
+
+/* Shared access to the selected trip's existing edit form. */
+.trip-settings-button { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; flex-shrink: 0; font-size: 12px; margin-left: 12px; }
+.trip-settings-button:hover:not(:disabled) { background: var(--surface-hover); }
+.trip-settings-button:disabled { opacity: .5; cursor: not-allowed; }
+.brand-area .brand { flex-shrink: 0; }
+.active-trip { min-width: 0; }
+.active-trip span { overflow: hidden; text-overflow: ellipsis; }
+.active-trip svg { flex-shrink: 0; }
+@media (max-width: 640px) {
+  .trip-settings-button { padding: 10px 8px; gap: 5px; margin-left: 8px; }
+}

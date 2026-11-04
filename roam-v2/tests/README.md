@@ -355,3 +355,46 @@ quotidien/manuel, hors connexion, persistance, conflits et restauration ZIP. Auc
 appel réel à Frankfurter : fetch et horloge sont injectés. Bases temporaires
 `roam-v2-test-auto-rates-*`. Procédure UI/CORS et limites :
 `src/money/AUTOMATIC_RATES.md`.
+
+## Conversions dans la fiche activité — 2.5.4e
+
+`activityMoney.browser.tsx` dans `/tests/activities.html` couvre la présentation
+pure et le rendu HTML : symboles/codes, montants originaux, manuel prioritaire,
+automatique, dates, identité, taux manquant, devise historique absente/inconnue,
+zéro, montant absent, estimation/paiement séparés, ancienneté et immutabilité.
+
+Manuellement : ouvrir une fiche datée puis une idée à planifier, vérifier les
+équivalents avec un taux manuel puis automatique. Modifier les taux ou la devise
+de référence depuis un autre onglet : la fiche doit se mettre à jour sans fermer
+le panneau. Tester hors connexion, modifier l’activité puis enregistrer et vérifier
+le retour à la fiche. Sur mobile (320/375 px), vérifier absence de débordement,
+lisibilité des dates et avertissements, défilement, bouton Retour et Échap au clavier.
+Les cartes et le calendrier doivent rester inchangés. Aucun montant converti
+n'est enregistré et aucun appel réseau supplémentaire n'est initié par la fiche.
+
+## Accès direct aux paramètres du voyage — 2.5.4f
+
+Vérifications manuelles sur une origine de test (desktop et mobile 320/375 px) :
+
+1. Ouvrir un voyage puis Programme, Carte et Budget successivement. Le bouton
+   partagé « Paramètres » doit ouvrir le formulaire existant, prérempli pour le
+   voyage actif. Tester Tab/Entrée/Espace et son nom accessible « Paramètres du voyage ».
+2. Depuis chaque onglet, modifier un champ puis enregistrer : même voyage et
+   même onglet, données mises à jour et focus rendu au bouton. Annuler une autre
+   saisie : même écran et aucune écriture des champs/taux manuels en cours de saisie.
+   Les actualisations de taux automatiques restent des opérations explicites ou
+   automatiques indépendantes de l'enregistrement du formulaire, comme auparavant.
+3. Dans Programme, sélectionner une journée, puis Calendrier ou Idées à planifier.
+   Modifier le nom/la devise : mode/journée conservés. Modifier les dates : mode
+   conservé ; seule une journée/un mois hors séjour revient au premier disponible.
+4. Ouvrir un formulaire d'activité et saisir du texte sans enregistrer : son
+   dialogue natif doit empêcher l'accès au bouton derrière, sans superposition.
+   Modifier les dates du voyage depuis un autre onglet : la saisie d'activité
+   reste montée et inchangée ; vérifier aussi la fiche activité ouverte.
+5. Vérifier création et modification depuis les cartes de l'accueil ; les boutons
+   existants restent fonctionnels. Le nouvel accès n'apparaît pas sans voyage actif.
+6. Tester une longue destination sur mobile : nom tronqué, bouton visible, aucun
+   débordement horizontal. Vérifier les erreurs de validation/conflit : formulaire
+   et saisies conservés, pas de navigation ni double ouverture pendant l'écriture.
+
+Aucun changement de schéma, ZIP, données ou montant n'est requis pour cet accès.

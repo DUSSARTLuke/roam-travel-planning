@@ -764,3 +764,8 @@
     padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   }
 }
+
+.activity-money-original { display: block; font-size: 17px; font-weight: 650; overflow-wrap: anywhere; }
+.activity-money-equivalent { display: block; margin-top: 4px; color: var(--text); }
+.activity-money-source { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.activity-money-warning { display: block; margin-top: 6px; color: var(--accent); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }

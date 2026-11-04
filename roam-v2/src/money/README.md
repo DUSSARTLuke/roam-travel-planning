@@ -56,3 +56,20 @@ non modifiés par l'utilisateur sont aussi préservés ; un conflit sur un champ
 modifié est refusé. Il faut conserver ses saisies puis fermer/rouvrir le formulaire
 pour réconcilier un conflit. Les dates ne changent que pour les taux nouveaux ou
 modifiés. Archivage/corbeille conservent les taux ; duplication les copie.
+
+## Présentation des activités — 2.5.4e
+
+`activityMoneyRows` construit une présentation pure depuis l'activité, le voyage
+et le jour UTC explicitement fourni. Le résolveur existant choisit le taux manuel
+avant le cache automatique ; convertMoney effectue tous les calculs. Les montants
+originaux sont toujours affichés, même avec une devise historique non reconnue
+ou absente. Les absences ne créent pas de ligne ; zéro reste un montant.
+
+formatMoney accepte un quatrième paramètre facultatif currencyDisplay
+(symbol par défaut, narrowSymbol pour la fiche), sans changer les appels existants.
+Le code ISO accompagne le symbole pour distinguer les dollars/yen partagés.
+La provenance et la date apparaissent sous chaque équivalent indicatif. Un taux
+automatique de plus de trois jours UTC est signalé ancien ; une date en avance
+invite à vérifier l'horloge. Le jour est réévalué localement à une minute près,
+sans requête réseau de la fiche. Les données du voyage sont passées réactivement
+par le Programme, les résultats sont mémoïsés et ne sont jamais persistés.

@@ -1,3 +1,4 @@
+import { testActivityMoney } from './activityMoney.browser'
 import { testAutomaticRatesPure, testAutomaticRatesPersistence } from './automaticRates.browser'
 import { testManualRatesPure, testManualRatesPersistence } from './manualRates.browser'
 import { testMoney } from './money.browser'
@@ -170,6 +171,7 @@ button.addEventListener('click', async () => {
   button.disabled = true
   results.textContent = ''
   try {
+    testActivityMoney((message) => { results.textContent += `✓ ${message}\n` })
     await testAutomaticRatesPure((message) => { results.textContent += `✓ ${message}\n` })
     await testAutomaticRatesPersistence((message) => { results.textContent += `✓ ${message}\n` })
     await testManualRatesPure((message) => { results.textContent += `✓ ${message}\n` })

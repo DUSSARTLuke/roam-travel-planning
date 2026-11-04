@@ -5,24 +5,8 @@ import { automaticRateService, requiredAutomaticPairs, type RefreshResult } from
 import { validateAutomaticCache } from '../../money/automaticRates'
 import { connection } from '../../pwa/connection'
 import { useReloadBlocker } from '../../pwa/useReloadBlocker'
+import { useUtcDay } from '../../hooks/useUtcDay'
 import './manual-rates.css'
-
-// Local clock only: no network polling. The stable snapshot changes at UTC
-// midnight (within one minute), even when a settings panel stays open.
-let utcDay = new Date().toISOString().slice(0, 10)
-const dayListeners = new Set<() => void>()
-let dayTimer: ReturnType<typeof setInterval> | undefined
-function tickDay() {
-  const next = new Date().toISOString().slice(0, 10)
-  if (next !== utcDay) { utcDay = next; for (const listener of dayListeners) listener() }
-}
-function subscribeDay(listener: () => void) {
-  dayListeners.add(listener)
-  tickDay()
-  dayTimer ??= setInterval(tickDay, 60000)
-  return () => { dayListeners.delete(listener); if (!dayListeners.size) { clearInterval(dayTimer); dayTimer = undefined } }
-}
-const getDay = () => utcDay
 
 function useAutomaticRates(tripId: string) {
   const data = useLiveQuery(async () => {
@@ -31,7 +15,7 @@ function useAutomaticRates(tripId: string) {
     const activities = await db.activities.where('tripId').equals(tripId).toArray()
     return { trip, pairs: requiredAutomaticPairs(trip, activities) }
   }, [tripId])
-  const today = useSyncExternalStore(subscribeDay, getDay, getDay)
+  const today = useUtcDay()
   const network = useSyncExternalStore(connection.subscribe, connection.getSnapshot, connection.getSnapshot)
   // Cache writes and tab navigation must not retrigger fetching. The service
   // also reserves persistently, so StrictMode and other tabs cannot duplicate it.
