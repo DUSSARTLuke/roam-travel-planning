@@ -2,7 +2,7 @@ import { db, type RoamDatabase, type Trip } from './database'
 import { tripReferenceCurrency, validateCurrency } from './currency'
 import { mergeManualRates, validateManualRates, type ManualExchangeRate } from '../money/manualRates'
 
-export type TripEditableFields = Omit<Trip, 'id' | 'archived' | 'deletedAt' | 'manualExchangeRates'>
+export type TripEditableFields = Omit<Trip, 'id' | 'archived' | 'deletedAt' | 'manualExchangeRates' | 'automaticExchangeRates'>
 export async function saveTripWithRates(id: string, fields: TripEditableFields, baseline: readonly ManualExchangeRate[], desired: readonly ManualExchangeRate[], database: RoamDatabase = db, originalFields?: TripEditableFields): Promise<void> {
   const before = validateManualRates(baseline)
   const after = validateManualRates(desired)

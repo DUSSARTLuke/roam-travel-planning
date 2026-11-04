@@ -1,6 +1,7 @@
 
 import Dexie, { type EntityTable } from 'dexie'
 import type { ActivityDocument, ActivityDocumentBlob } from './documentModel'
+import type { AutomaticRateCache } from '../money/automaticRates'
 import type { ManualExchangeRate } from '../money/manualRates'
 import type { TripActivity } from './activityModel'
 
@@ -15,6 +16,7 @@ export type Trip = {
   // Missing on legacy records: EUR logically, without rewriting stored data.
   referenceCurrency?: string
   manualExchangeRates?: ManualExchangeRate[]
+  automaticExchangeRates?: AutomaticRateCache
   // Missing on legacy records: treated as false without rewriting user data.
   archived?: boolean
   deletedAt?: string

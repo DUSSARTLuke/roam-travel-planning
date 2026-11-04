@@ -1,3 +1,4 @@
+import { testAutomaticRatesPure, testAutomaticRatesPersistence } from './automaticRates.browser'
 import { testManualRatesPure, testManualRatesPersistence } from './manualRates.browser'
 import { testMoney } from './money.browser'
 import { testCurrencySelector } from './currencySelector.browser'
@@ -169,6 +170,8 @@ button.addEventListener('click', async () => {
   button.disabled = true
   results.textContent = ''
   try {
+    await testAutomaticRatesPure((message) => { results.textContent += `✓ ${message}\n` })
+    await testAutomaticRatesPersistence((message) => { results.textContent += `✓ ${message}\n` })
     await testManualRatesPure((message) => { results.textContent += `✓ ${message}\n` })
     await testManualRatesPersistence((message) => { results.textContent += `✓ ${message}\n` })
     testMoney((message) => { results.textContent += `✓ ${message}\n` })

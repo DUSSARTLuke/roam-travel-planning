@@ -37,6 +37,7 @@ import { BackupExport, BackupPage } from './components/backup/BackupExport'
 import { useReloadBlocker } from './pwa/useReloadBlocker'
 import { tripReferenceCurrency, validateCurrency } from './db/currency'
 import { CurrencySelector } from './components/currency/CurrencySelector'
+import { AutomaticRatesController, AutomaticRatesStatus } from './components/currency/AutomaticRatesStatus'
 import { ManualRatesEditor } from './components/currency/ManualRatesEditor'
 import { manualRateDrafts, prepareManualRates, validateManualRates, type ManualRateDraft, type ManualExchangeRate } from './money/manualRates'
 import { saveTripWithRates, type TripEditableFields } from './db/tripRates'
@@ -419,6 +420,7 @@ if (!databaseReady || trips === undefined) {
 
   return (
     <div className="app-shell">
+      {selectedTrip && <AutomaticRatesController key={selectedTrip.id} tripId={selectedTrip.id} />}
       <header className="topbar">
         <div className="brand-area">
           <div className="brand">
@@ -897,6 +899,7 @@ if (!databaseReady || trips === undefined) {
           />
         </label>
 
+        {editingTripId && <AutomaticRatesStatus key={editingTripId} tripId={editingTripId} disabled={isSaving} />}
         <ManualRatesEditor rates={rateDrafts} referenceCurrency={newTrip.referenceCurrency ?? 'EUR'} onChange={setRateDrafts} disabled={isSaving} />
 
         {formError && (

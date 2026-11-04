@@ -346,3 +346,12 @@ de référence, dupliquer et vérifier les taux. Dans deux onglets, modifier des
 paires différentes (fusion) puis la même paire (conflit sans écriture partielle).
 Tester mobile, clavier, sélecteurs, enregistrement hors ligne et protection PWA
 pendant les saisies. Les écrans Programme/Budget ne montrent aucune conversion.
+
+## Taux automatiques — 2.5.4d
+
+`automaticRates.browser.ts` est intégré à `/tests/activities.html` : validation V2,
+dates, cache, priorité manuelle, paires utiles, erreurs HTTP/réseau/JSON simulées,
+quotidien/manuel, hors connexion, persistance, conflits et restauration ZIP. Aucun
+appel réel à Frankfurter : fetch et horloge sont injectés. Bases temporaires
+`roam-v2-test-auto-rates-*`. Procédure UI/CORS et limites :
+`src/money/AUTOMATIC_RATES.md`.

@@ -155,3 +155,21 @@ voyages sans ce champ restent valides, sans remplissage. Export complet/individu
 incluent ce champ ; identifiants et données des activités restent inchangés.
 Dexie V4 et format ZIP 1 sont conservés. Un voyage local déjà présent reste ignoré
 intégralement, y compris ses taux : aucune fusion ZIP de voyages existants.
+
+## Cache de taux automatiques — 2.5.4d
+
+`automaticExchangeRates` est un objet optionnel du voyage : `rates`, `checks` et
+une réservation `refresh` optionnelle. Un taux contient sourceCurrency,
+targetCurrency, rate, rateDate (YYYY-MM-DD), fetchedAt (ISO UTC millisecondes) et
+provider (`frankfurter-v2`). Les checks conservent la dernière tentative par paire
+(checkedAt, état pending/ok/unavailable/error). La réservation contient id et
+startedAt, expire après 10 minutes et ne déclenche pas de réseau à l'import.
+
+La restauration contrôle types, paires uniques/non identiques, devises reconnues,
+valeurs finies positives et dates ; rateDate peut dépasser le jour UTC de fetchedAt d’un seul jour calendaire
+pour tolérer un décalage de date fournisseur/fuseau/horloge. Un diagnostic
+optionnel (texte, 500 caractères maximum) est accepté pour les checks en erreur.
+L'absence du champ reste valide sans réécriture. Tous ces objets sont conservés
+par l'export complet/individuel, toujours en format 1 et Dexie V4. Les conflits de
+voyages existants restent ignorés intégralement. Les réservations importées
+peuvent différer une prochaine actualisation pendant au plus 10 minutes.
