@@ -769,3 +769,25 @@
 .activity-money-equivalent { display: block; margin-top: 4px; color: var(--text); }
 .activity-money-source { display: block; margin-top: 4px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 .activity-money-warning { display: block; margin-top: 6px; color: var(--accent); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+
+/* Separate location clearing from the address/GPS fields only. */
+.activity-location-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.activity-location-actions > .secondary-button {
+  min-height: 44px;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .activity-location-actions {
+    margin-top: 28px;
+    padding-top: 20px;
+  }
+  .activity-location-actions > .secondary-button { width: 100%; }
+}

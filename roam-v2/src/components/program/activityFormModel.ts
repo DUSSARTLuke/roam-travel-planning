@@ -1,3 +1,4 @@
+import { coordinateFormValue, coordinateInput } from '../../db/activityLocation'
 import type { ActivityCategory, ActivityLink, ReservationStatus, ActivityPeriod, ActivitySchedule, TripActivity, TripActivityInput } from '../../db/activityModel'
 
 export type ActivityFormValues = {
@@ -10,6 +11,9 @@ export type ActivityFormValues = {
   endTime: string
   period: ActivityPeriod
   location: string
+  address: string
+  latitude: string
+  longitude: string
   notes: string
   reservationStatus: ReservationStatus | ''
   reservationReference: string
@@ -30,6 +34,8 @@ export function initialActivityValues(activity: TripActivity | null, date: strin
     date: activity?.date ?? date ?? fallback, idea: activity ? activity.date === null : date === null,
     scheduleType: activity?.scheduleType ?? 'unscheduled', startTime: activity?.startTime ?? '',
     endTime: activity?.endTime ?? '', period: activity?.period ?? 'morning',
+    address: activity?.address ?? '', latitude: coordinateFormValue(activity?.latitude),
+    longitude: coordinateFormValue(activity?.longitude),
     location: activity?.location ?? '', notes: activity?.notes ?? '',
     reservationStatus: activity?.reservationStatus ?? '',
     reservationReference: activity?.reservationReference ?? '', reservationProvider: activity?.reservationProvider ?? '',
@@ -49,7 +55,12 @@ export function activityFormInput(form: ActivityFormValues, existing: TripActivi
     const latest = initialActivityValues(existing, form.date, form.date)
     form = { ...form }
     for (const key of Object.keys(form) as (keyof ActivityFormValues)[]) {
+      if (key === 'latitude' || key === 'longitude') continue
       if (JSON.stringify(form[key]) === JSON.stringify(initial[key])) form = { ...form, [key]: latest[key] }
+    }
+    if (form.latitude === initial.latitude && form.longitude === initial.longitude) {
+      form.latitude = latest.latitude
+      form.longitude = latest.longitude
     }
   }
   let schedule: ActivitySchedule
@@ -62,6 +73,7 @@ export function activityFormInput(form: ActivityFormValues, existing: TripActivi
   }
   return {
     ...schedule, title: form.title, category: form.category, date: form.idea ? null : form.date,
+    address: form.address, latitude: coordinateInput(form.latitude, 'La latitude'), longitude: coordinateInput(form.longitude, 'La longitude'),
     location: form.location, notes: form.notes, sortOrder: existing?.sortOrder ?? 0,
     estimatedCost: form.estimatedCost.trim() === '' ? undefined : Number(form.estimatedCost),
     paidAmount: form.paidAmount.trim() === '' ? undefined : Number(form.paidAmount),

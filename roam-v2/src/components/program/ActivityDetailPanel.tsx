@@ -4,6 +4,7 @@ import type { Trip } from '../../db/database'
 import type { TripActivity } from '../../db/activityModel'
 import { categoryLabels, periodLabels } from './activityPresentation'
 import { ActivityDocuments } from './ActivityDocuments'
+import { ActivityLocationDetails } from './ActivityLocationDetails'
 import { ActivityAdvancedDetails } from './ActivityAdvancedDetails'
 import { formatDate } from './dates'
 
@@ -66,9 +67,7 @@ export function ActivityDetailPanel({ trip, activity, returnFocusRef, fallbackFo
             </> : <div><dt>Horaire</dt><dd>{activity.scheduleType === 'period' ? periodLabels[activity.period] : 'Sans horaire'}</dd></div>}
           </dl>
         </section>
-        {activity.location && <section aria-labelledby="activity-detail-location">
-          <h3 id="activity-detail-location">Lieu</h3><p>{activity.location}</p>
-        </section>}
+        <ActivityLocationDetails activity={activity} />
         {activity.notes && <section aria-labelledby="activity-detail-notes">
           <h3 id="activity-detail-notes">Notes</h3><p className="activity-detail-notes">{activity.notes}</p>
         </section>}

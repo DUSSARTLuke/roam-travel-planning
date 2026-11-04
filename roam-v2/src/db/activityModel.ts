@@ -1,3 +1,4 @@
+import { validateCoordinates } from './activityLocation'
 import { validateCurrency } from './currency'
 
 export type ActivityCategory = 'visit' | 'meal' | 'transport' | 'outing' | 'rest' | 'other'
@@ -7,6 +8,7 @@ export type ReservationStatus = 'not_required' | 'to_book' | 'pending' | 'confir
 export type ActivityLink = { id: string; title: string; url: string }
 
 export const advancedActivityKeys = [
+  'location', 'address', 'latitude', 'longitude',
   'estimatedCost', 'paidAmount', 'currency', 'reservationStatus', 'reservationReference',
   'reservationProvider', 'reservationPeople', 'reservationDeadline', 'reservationNotes', 'url', 'links',
 ] as const
@@ -26,6 +28,9 @@ export type TripActivityInput = ActivitySchedule & {
   // A local calendar date, never converted to the browser's time zone.
   date: string | null
   location?: string
+  address?: string
+  latitude?: number
+  longitude?: number
   notes?: string
   paidAmount?: number
   reservationReference?: string
@@ -67,6 +72,7 @@ function optionalText(value: unknown, label: string): string | undefined {
 // Rebuild an allowlisted object: callers cannot overwrite identity or timestamps.
 export function validateActivity(input: TripActivityInput, existing?: TripActivity): TripActivityInput {
   if (!input || typeof input !== 'object') throw new Error('Activité invalide.')
+  const coordinates = validateCoordinates(input.latitude, input.longitude)
   const title = optionalText(input.title, 'Le titre')
   if (!title) throw new Error("Le titre de l'activité est obligatoire.")
   if (!['visit', 'meal', 'transport', 'outing', 'rest', 'other'].includes(input.category)) {
@@ -147,6 +153,7 @@ export function validateActivity(input: TripActivityInput, existing?: TripActivi
 
   return {
     ...schedule, title, category: input.category, date: input.date, sortOrder: input.sortOrder,
+    ...coordinates, address: optionalText(input.address, 'L’adresse'),
     location: optionalText(input.location, 'Le lieu'), notes: optionalText(input.notes, 'Les notes'),
     estimatedCost: input.estimatedCost, paidAmount: input.paidAmount, currency, reservationStatus: input.reservationStatus, url,
     reservationReference, reservationProvider, reservationPeople: input.reservationPeople,

@@ -398,3 +398,52 @@ Vérifications manuelles sur une origine de test (desktop et mobile 320/375 px) 
    et saisies conservés, pas de navigation ni double ouverture pendant l'écriture.
 
 Aucun changement de schéma, ZIP, données ou montant n'est requis pour cet accès.
+
+## Localisation structurée — 2.5.5a
+
+`activityLocation.browser.tsx` est intégré à `/tests/activities.html` : décimales,
+limites, paires, zéro, valeurs invalides, formulaire/rendu, CRUD, ancienne activité,
+copie via l'API existante, préservation partielle, réouverture et export/import ZIP.
+Bases isolées `roam-v2-test-location-*`, aucun réseau ni géolocalisation.
+
+Manuellement : créer avec/sans lieu ; ajouter adresse et GPS dans Informations
+complémentaires, avec virgule puis point. Tester une seule coordonnée, des limites
+invalides et 0/0 ; vérifier l'erreur sans perte de saisie. Enregistrer, rouvrir et
+consulter la fiche. Effacer la localisation puis annuler (données préservées), puis
+effacer et enregistrer (activité conservée). Tester hors connexion et sur mobile,
+notamment les coordonnées négatives, le clavier, les longs noms/adresses et les
+notes existantes. Vérifier que les cartes d'activité continuent à afficher le nom
+du lieu. L'application ne duplique pas encore les activités depuis l'interface ;
+aucune nouvelle duplication n'est ajoutée. L'API peut recréer une activité à partir
+d'une autre sans perdre sa localisation ; la duplication actuelle de voyage ne
+copie toujours pas ses activités. Aucune carte, recherche, lien ou géocodage ajouté.
+
+### Diagnostic « Formulaire non normalisé »
+
+Le test indique désormais le champ fautif, la valeur attendue, la valeur réelle
+et leur type. La fixture d'origine et toutes les validations restent présentes ;
+des cas point/virgule, espaces, zéro et ancien lieu sans coordonnées traversent
+aussi la chaîne complète formulaire → validateActivity.
+
+Si cet échec apparaît, relancer la suite sur l'adresse du serveur `npm.cmd run dev`
+(port indiqué par Vite), chemin `/tests/activities.html`, et relever le nouveau
+message exact. Un serveur preview sert les fichiers générés lors du dernier build,
+pas les sources en cours ; le service worker PWA ne s'enregistre pas en mode dev.
+Vérifier le dossier PowerShell courant et l'URL utilisée, sans vider les caches,
+supprimer les données du site ou désenregistrer le service worker. Le message
+attendu contient désormais « attendu …, reçu … » ; l'ancien libellé seul indique
+que cette version du test n'est pas celle exécutée.
+
+La fixture de localisation utilise un parent `location-test-trip` ajouté seulement
+à la base source isolée. Les deux bases contiennent déjà le voyage d'exemple
+`london-2026` : l'utiliser comme parent ferait ignorer ses activités à l'import,
+conformément à la politique anti-écrasement. Le test contrôle désormais l'aperçu
+(voyage de fixture importé, Londres ignoré), l'existence de l'activité restaurée
+puis l'égalité complète de ses données. Aucun contrôle de localisation ni règle
+de conflit de restauration n'est relâché.
+
+Le correctif inclut aussi une zone d'action dédiée pour « Effacer la localisation » :
+espacement vertical et séparateur, alignement à droite sur desktop, pleine largeur
+sur mobile et hauteur minimale de 44 px. Vérifier à 320/375 px avec les coordonnées
+GPS ouvertes puis fermées : aucun chevauchement, libellé lisible et action bien
+séparée des champs. Les styles sont limités à `.activity-location-actions`.

@@ -173,3 +173,15 @@ L'absence du champ reste valide sans réécriture. Tous ces objets sont conserv�
 par l'export complet/individuel, toujours en format 1 et Dexie V4. Les conflits de
 voyages existants restent ignorés intégralement. Les réservations importées
 peuvent différer une prochaine actualisation pendant au plus 10 minutes.
+
+## Localisation d'activité — 2.5.5a
+
+`location` reste le nom du lieu historique. Les champs optionnels `address` (texte),
+`latitude` et `longitude` (nombres finis) structurent la localisation sans migration
+Dexie V4 ni évolution du ZIP format 1. Les coordonnées sont présentes ensemble :
+latitude dans [-90,90], longitude dans [-180,180]. Zéro est valide. Aucune donnée
+ancienne n'est réécrite. La validation de restauration réutilise validateActivity :
+une paire partielle, non numérique ou hors limites est refusée avant écriture.
+L'export conserve les champs existants sans normalisation, comme auparavant.
+Les mises à jour partielles qui omettent la localisation la préservent ; effacer
+explicitement les champs retire la localisation sans supprimer l'activité.

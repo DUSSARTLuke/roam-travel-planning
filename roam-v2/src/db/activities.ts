@@ -1,3 +1,4 @@
+import { validateCoordinates } from './activityLocation'
 import { db, type RoamDatabase } from './database'
 import { advancedActivityKeys, compareActivities, isActivityDate, validateActivity, type TripActivity, type TripActivityInput } from './activityModel'
 
@@ -53,6 +54,7 @@ export function createActivityRepository(database: RoamDatabase = db) {
     // Replace the quick fields as a coherent input to remove obsolete times.
     // Omitted optional advanced fields are retained; explicit undefined clears them.
     async updateActivity(tripId: string, id: string, input: TripActivityInput): Promise<TripActivity> {
+      if (Object.hasOwn(input, 'latitude') || Object.hasOwn(input, 'longitude')) validateCoordinates(input.latitude, input.longitude)
       return database.transaction('rw', database.trips, database.activities, async () => {
         await requireParent(tripId, true)
         const existing = await requireActivity(tripId, id)

@@ -7,6 +7,7 @@ import { activityFormInput, initialActivityValues, type ActivityFormValues } fro
 import { saveActivityWithDocuments } from '../../db/documents'
 import { prepareDocuments } from '../../db/documentModel'
 import { ActivityDocuments, type PendingDocument } from './ActivityDocuments'
+import { ActivityLocationFields } from './ActivityLocationFields'
 import { ActivityAdvancedFields } from './ActivityAdvancedFields'
 import { categoryLabels, periodLabels } from './activityPresentation'
 
@@ -165,7 +166,7 @@ export function ActivityFormPanel({ referenceCurrency, tripId, initialDate, fall
           </select></label>}
           <details className="activity-extra">
             <summary>Informations complémentaires</summary>
-            <label>Lieu<input value={form.location} onChange={(event) => setField('location', event.target.value)} /></label>
+            <ActivityLocationFields form={form} onChange={setForm} />
             <label>Notes<textarea rows={4} value={form.notes} onChange={(event) => setField('notes', event.target.value)} /></label>
           </details>
           <ActivityAdvancedFields form={form} onChange={setForm} />
