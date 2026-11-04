@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type RefObject } from 'react'
+import { useReloadBlocker } from '../../pwa/useReloadBlocker'
 import { X } from 'lucide-react'
 import { getActivity } from '../../db/activities'
 import type { ActivityCategory, ActivityPeriod, TripActivity } from '../../db/activityModel'
@@ -48,6 +49,7 @@ export function ActivityFormPanel({ tripId, initialDate, fallbackDate, activity,
   const backdropRef = useRef(false)
   const discardFocusRef = useRef<HTMLElement | null>(null)
   const dirty = JSON.stringify(form) !== JSON.stringify(initial) || pendingDocuments.length > 0
+  useReloadBlocker(dirty || busy, 'Enregistre ou abandonne les modifications de l’activité avant la mise à jour.')
 
   useEffect(() => {
     const dialog = dialogRef.current!

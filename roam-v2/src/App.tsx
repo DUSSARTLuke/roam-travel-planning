@@ -32,6 +32,9 @@ import {
 } from 'lucide-react'
 import { TripConfirmation } from './TripConfirmation'
 import { TripProgram } from './components/program/TripProgram'
+import { TripExportMenu } from './components/backup/TripExportMenu'
+import { BackupExport, BackupPage } from './components/backup/BackupExport'
+import { useReloadBlocker } from './pwa/useReloadBlocker'
 import './App.css'
 
 type TabId = 'home' | 'program' | 'map' | 'budget' | 'more'
@@ -132,6 +135,7 @@ useEffect(() => {
     action: 'trash' | 'delete'
   } | null>(null)
   const writeBusy = isSaving || duplicatingTripId !== null || archivingTripId !== null || trashBusy
+  useReloadBlocker(showCreateTrip || writeBusy || confirmation !== null, 'Termine ou ferme le formulaire de voyage et les opérations en cours.')
 
 const selectedTrip = (trips ?? []).find(
     (item) => item.id === selectedTripId && item.archived !== true && item.deletedAt === undefined,
@@ -345,7 +349,7 @@ async function saveTrip(event: React.FormEvent<HTMLFormElement>) {
 
 
 function navigateToTab(tabId: TabId) {
-  if (!isTripOpen && tabId !== 'home') {
+  if (!isTripOpen && tabId !== 'home' && tabId !== 'more') {
     return
   }
 
@@ -413,7 +417,7 @@ if (!databaseReady || trips === undefined) {
               type="button"
               className={`nav-link ${activeTab === id ? 'active' : ''}`}
               aria-current={activeTab === id ? 'page' : undefined}
-              disabled={!isTripOpen && id !== 'home'}
+              disabled={!isTripOpen && id !== 'home' && id !== 'more'}
               onClick={() => navigateToTab(id)}
             >
               <Icon size={18} />
@@ -476,6 +480,7 @@ if (!databaseReady || trips === undefined) {
       <Trash2 size={18} /> Mettre à la corbeille
     </button>
 
+    <BackupExport key={selectedTrip.id} scope={{ mode: 'trip', tripId: selectedTrip.id }} />
     <h2 className="dashboard-title">Organiser mon voyage</h2>
 
     <div className="dashboard-grid">
@@ -607,6 +612,7 @@ if (!databaseReady || trips === undefined) {
                       <div className="trip-footer">
                         <span>{item.travelers} voyageurs</span>
                         <div className="trip-actions">
+                          <TripExportMenu tripId={item.id} destination={item.destination} />
                           {showTrash ? <>
                             <button type="button" className="secondary-button trip-action-label" disabled={writeBusy}
                               onClick={(event) => { event.stopPropagation(); void runTrashAction(item, 'restore') }}>
@@ -687,6 +693,8 @@ if (!databaseReady || trips === undefined) {
               )}
             </section>
           </>
+        ) : activeTab === 'more' ? (
+          <BackupPage tripId={selectedTrip?.id} />
         ) : activeTab === 'program' && selectedTrip ? (
           <TripProgram key={`${selectedTrip.id}:${selectedTrip.startDate}:${selectedTrip.endDate}`} trip={selectedTrip} />
         ) : (
@@ -717,7 +725,7 @@ if (!databaseReady || trips === undefined) {
             type="button"
             className={`bottom-nav-item ${activeTab === id ? 'active' : ''}`}
             aria-current={activeTab === id ? 'page' : undefined}
-            disabled={!isTripOpen && id !== 'home'}
+            disabled={!isTripOpen && id !== 'home' && id !== 'more'}
             onClick={() => navigateToTab(id)}
           >
             <Icon size={21} strokeWidth={activeTab === id ? 2.4 : 1.8} />

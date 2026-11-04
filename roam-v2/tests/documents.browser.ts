@@ -2,7 +2,7 @@ import Dexie from 'dexie'
 import { RoamDatabase, updateTripTrash, type Trip } from '../src/db/database'
 import { createActivityRepository } from '../src/db/activities'
 import { createDocumentRepository } from '../src/db/documents'
-import { MAX_DOCUMENT_BYTES } from '../src/db/documentModel'
+import { MAX_DOCUMENT_BYTES, type ActivityDocumentBlob } from '../src/db/documentModel'
 import type { TripActivity } from '../src/db/activityModel'
 
 function assert(value: unknown, message: string): asserts value { if (!value) throw new Error(message) }
@@ -69,6 +69,42 @@ export async function testDocuments(report: (message: string) => void) {
     await rejects(() => docs.listDocuments('wrong-trip', activity.id))
     await rejects(() => docs.importDocuments('wrong-trip', activity.id, [file()]))
     report('Documents : V3→V4 préservée, quatre formats, limites, lot invalide atomique, persistance et métadonnées sans Blob.')
+
+    let blobReads = 0
+    function countRead(value: ActivityDocumentBlob) { blobReads++; return value }
+    database.activityDocumentBlobs.hook('reading', countRead)
+    const opened = await docs.getDocument(trip.id, activity.id, imported[0].id)
+    database.activityDocumentBlobs.hook('reading').unsubscribe(countRead)
+    assert(blobReads === 1 && opened.metadata.name === imported[0].name && opened.blob.type === imported[0].mime, 'Ouverture ne charge pas exactement le Blob demandé.')
+    for (const document of imported) {
+      const read = await docs.getDocument(trip.id, activity.id, document.id)
+      assert(read.blob.size === document.size, 'Lecture individuelle incorrecte.')
+    }
+    await rejects(() => docs.getDocument('wrong-trip', activity.id, imported[0].id))
+    await rejects(() => docs.getDocument(trip.id, 'wrong-activity', imported[0].id))
+    await rejects(() => docs.deleteDocument('wrong-trip', activity.id, imported[0].id))
+    await rejects(() => docs.deleteDocument(trip.id, 'wrong-activity', imported[0].id))
+    const managedActivity = await activities.createActivity(trip.id, activity)
+    const managed = await docs.importDocuments(trip.id, managedActivity.id, [file(), file('image/png')])
+    await rejects(() => docs.getDocument(trip.id, managedActivity.id, imported[0].id))
+    await rejects(() => docs.deleteDocument(trip.id, managedActivity.id, imported[0].id))
+    function failDocumentDelete() { throw new Error('Échec de suppression volontaire') }
+    database.activityDocuments.hook('deleting', failDocumentDelete)
+    await rejects(() => docs.deleteDocument(trip.id, managedActivity.id, managed[0].id))
+    database.activityDocuments.hook('deleting').unsubscribe(failDocumentDelete)
+    assert(await database.activityDocuments.get(managed[0].id) && await database.activityDocumentBlobs.get(managed[0].id), 'Suppression individuelle non atomique.')
+    await database.activityDocumentBlobs.put({ id: managed[0].id, blob: new Blob(['corrompu']) })
+    await rejects(() => docs.getDocument(trip.id, managedActivity.id, managed[0].id))
+    await docs.deleteDocument(trip.id, managedActivity.id, managed[0].id)
+    await rejects(() => docs.getDocument(trip.id, managedActivity.id, managed[0].id))
+    await database.activityDocumentBlobs.delete(managed[1].id)
+    await rejects(() => docs.getDocument(trip.id, managedActivity.id, managed[1].id))
+    await docs.deleteDocument(trip.id, managedActivity.id, managed[1].id)
+    database.close()
+    await database.open()
+    assert((await docs.listDocuments(trip.id, managedActivity.id)).length === 0 && (await docs.listDocuments(trip.id, activity.id)).length === 5, 'Suppression non persistée ou autre activité affectée.')
+    await activities.deleteActivity(trip.id, managedActivity.id)
+    report('Lecture/suppression individuelles : un seul Blob, quatre formats, intégrité, manquant/corrompu, isolation, rollback et persistance.')
 
     const second = await activities.createActivity(trip.id, activity)
     const concurrent = await Promise.allSettled([

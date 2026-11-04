@@ -1,0 +1,170 @@
+.backup-export {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 22px 0;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
+.backup-export p {
+  margin: 0;
+  line-height: 1.6;
+}
+
+.backup-privacy {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.backup-export button,
+.backup-download {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.backup-compact {
+  width: 100%;
+  margin: 0;
+  padding: 12px;
+}
+
+.backup-page {
+  max-width: 780px;
+}
+
+@media (max-width: 640px) {
+  .backup-export {
+    align-items: stretch;
+  }
+}
+
+.trip-export-trigger {
+  position: relative;
+  flex-shrink: 0;
+  min-width: 44px;
+  min-height: 44px;
+  margin-right: 8px;
+}
+
+.trip-export-indicator {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.export-ready .trip-export-indicator { background: #4ade80; }
+.export-error .trip-export-indicator { background: #f87171; }
+
+.trip-export-menu {
+  position: fixed;
+  z-index: 1100;
+  width: 240px;
+  max-width: calc(100vw - 16px);
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.trip-export-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.trip-export-menu button:hover,
+.trip-export-menu button:focus-visible {
+  background: var(--surface-hover);
+}
+
+.trip-export-dialog .backup-export {
+  border: 0;
+  padding: 0;
+  background: transparent;
+}
+
+.trip-export-dialog h2 {
+  overflow-wrap: anywhere;
+}
+
+.backup-restore {
+  margin-top: 36px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+  overflow-wrap: anywhere;
+}
+
+.backup-restore p {
+  line-height: 1.6;
+}
+
+.backup-restore label {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.backup-restore input[type='file'] {
+  max-width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.backup-restore input:focus-visible,
+.backup-restore h3:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.backup-restore-preview {
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+
+.backup-restore-preview ul {
+  max-height: 220px;
+  overflow: auto;
+  padding-left: 24px;
+}
+
+.backup-restore .backup-restore-confirm {
+  flex-direction: row;
+  align-items: flex-start;
+  line-height: 1.6;
+}
+
+.backup-restore-confirm input {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  margin-top: 3px;
+  accent-color: var(--accent);
+}

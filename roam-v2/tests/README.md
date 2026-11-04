@@ -153,3 +153,141 @@ Tests manuels avec de vrais fichiers et des voyages de test :
    de test isolées. Ne pas supprimer de véritables données pour tester.
 6. Vérifier le panneau mobile et le clavier. Aucun bouton de consultation,
    téléchargement ou suppression manuelle de document n'est présent à cette étape.
+
+## Étape 2.4.4 : consultation et gestion individuelles
+
+`getDocument(tripId, activityId, documentId)` vérifie les deux parents, l'appartenance,
+la présence du Blob, sa taille et sa signature. Seul ce Blob est lu. La liste reste
+une requête de métadonnées. `deleteDocument` relit les parents et supprime les deux
+lignes transactionnellement. La suppression est interdite lorsque le voyage est
+à la corbeille. Le schéma reste V4.
+
+La suite isolée vérifie lecture unique, formats, noms/MIME, accès inter-voyages et
+inter-activités refusés, fichiers absents/corrompus, rollback de suppression,
+conservation des autres documents et persistance après réouverture.
+
+La visionneuse crée une URL temporaire uniquement après lecture du document et la
+révoque à sa fermeture, son démontage ou un changement de fichier. Aucun fichier
+n'est transformé en HTML. Les images sont rendues par `<img>`, les PDF par un iframe sans attribut `sandbox` pour permettre le lecteur natif.
+L'absence de lecteur PDF ou les paramètres du navigateur peuvent empêcher l'affichage. Le message de repli et le bouton de
+téléchargement restent toujours disponibles. Il n'est pas possible de détecter
+fiablement tous les échecs internes du lecteur PDF. Aucun moteur PDF externe ajouté.
+
+Tests manuels (fichiers et activités de test uniquement) :
+
+1. Depuis la fiche, consulter PDF/JPEG/PNG/WebP, dont une image de QR code. Vérifier
+   ajustement, zoom et défilement, puis Télécharger : nom d'origine et contenu corrects.
+2. Sur mobile : plein écran, zones de sécurité, rotation ; sur ordinateur : modal,
+   fond, fermeture, Tab/Maj+Tab et Échap. Depuis l'iframe PDF, certains raccourcis
+   peuvent être gérés par le lecteur natif ; le bouton Fermer reste disponible.
+3. Ouvrir/fermer plusieurs fichiers et changer de voyage : pas de fichier ancien
+   affiché, retour au focus dans la fiche, URL Blob révoquées (outils navigateur).
+4. Annuler puis confirmer Supprimer. Vérifier un seul document retiré, compteur
+   actualisé et emplacement libéré pour un nouvel import, puis recharger.
+5. Supprimer le document dans un autre onglet pendant la consultation : fermeture
+   propre et message. Tester aussi stockage inaccessible ou Blob manquant sur la
+   base de tests, sans altérer de données réelles.
+6. Sans lecteur PDF intégré, ou si ses paramètres empêchent son rendu, vérifier le message
+   et le téléchargement. Le téléchargement démarre via le navigateur ; son achèvement
+   dépend du navigateur et ne peut pas être confirmé par l'application.
+
+
+## Correctif PDF natif de Chrome
+
+Cause : `sandbox=""` sur l'iframe restreint les plugins et empêche le lecteur PDF
+natif de Chrome de fonctionner. Ajouter seulement `allow-scripts` ou
+`allow-downloads` ne résout pas cette restriction. Référence :
+https://issues.chromium.org/issues/40754148
+
+`NativePdfPreview` reçoit exclusivement l'URL Blob créée par la visionneuse après
+`getDocument` (isolation, MIME `application/pdf`, taille et signature vérifiés).
+Les sources HTTP, data et javascript ne sont pas chargées par ce composant.
+`referrerPolicy="no-referrer"` est conservé. Le chargement à la demande et la
+révocation des URL restent dans `DocumentViewer` et ne sont pas modifiés.
+
+Risque résiduel : retirer `sandbox` supprime les restrictions HTML de cet iframe.
+La vérification d'en-tête n'assainit pas un PDF non fiable et n'exclut pas les
+PDF polyglottes. Le lecteur natif peut traiter scripts, formulaires et liens PDF
+selon ses propres règles ; Roam ne peut pas imposer leur désactivation avec cette
+solution sans dépendance. L'isolation et les protections du lecteur relèvent du
+navigateur. Une URL Blob locale ne garantit pas qu'un document est inoffensif.
+Aucun contenu n'est injecté avec srcdoc ou comme HTML dans l'application.
+
+La suite isolée appelle `nativePdfPreview.browser.tsx` : rendu HTML inerte du vrai
+composant, absence de sandbox, conservation de src/titre/referrer, refus des sources
+non-Blob et messages de repli. Elle ne démontre pas le rendu du lecteur PDF natif.
+
+Non-régression visuelle sous Windows :
+
+1. Dans Chrome, consulter un PDF valide importé dans IndexedDB : pages visibles,
+   sans icône cassée. Tester aussi un autre navigateur et le mobile.
+2. Vérifier le message/Télécharger avec le lecteur PDF désactivé dans les paramètres.
+   Un événement load d'iframe ne prouve pas la réussite du rendu : le message reste
+   donc toujours visible, y compris si le lecteur échoue silencieusement.
+3. Ouvrir/fermer plusieurs PDF, changer de fichier/voyage : vérifier la révocation
+   des URL Blob dans les outils navigateur, le focus et Échap.
+4. Recontrôler images/QR, zoom, téléchargement au nom original et suppression
+   confirmée : leurs implémentations ne sont pas modifiées par ce correctif.
+
+## Étape 2.5.1 : export ZIP
+
+Format documenté dans `src/backup/FORMAT.md`.
+La suite `/tests/activities.html` lance aussi `backups.browser.ts` dans une base
+`roam-v2-test-backups-<UUID>` supprimée à la fin : export complet, individuel,
+archives/corbeille, CRC, répertoire ZIP, inventaire SHA-256, binaires identiques,
+relations, champs avancés, base vide, données source inchangées, snapshot conservé
+après modifications, Blob manquant/corrompu/orphelin et parent absent.
+L'analyseur ZIP présent dans ces tests est une inspection en mémoire, pas une
+fonction de restauration de l'application.
+
+À vérifier manuellement :
+
+1. Sans voyage sélectionné, ouvrir Plus et créer la sauvegarde complète ; vérifier
+   le message de confidentialité, l'attente puis le lien Télécharger le ZIP.
+2. Exporter un voyage actif, archivé et dans la corbeille via leurs cartes : aucun
+   autre voyage ne doit figurer dans les données JSON.
+3. Ouvrir le ZIP avec l'explorateur Windows ou 7-Zip ; consulter les JSON et comparer
+   quelques fichiers extraits à leurs originaux (empreinte, contenu et taille).
+4. Pendant l'export, modifier des données depuis un autre onglet : l'archive doit
+   refléter la capture initiale, sans mélange entre métadonnées et fichiers.
+5. Tester base vide, clics rapides, erreur puis nouvelle tentative et gros documents.
+   Une erreur ne doit jamais proposer un ZIP partiel ; aucune donnée n'est supprimée.
+6. Vérifier l'interface mobile et le téléchargement effectif sous Windows.
+
+## Étape 2.5.2 : restauration non destructive
+
+La suite `/tests/activities.html` appelle `restore.browser.ts` avec deux bases
+`roam-v2-test-restore-*` isolées, supprimées en fin de test. Elle contrôle :
+préparation/aperçu sans écriture, base vide, identifiants et relations, champs
+avancés, archives/corbeille, octets et persistance, conflits complets et mixtes,
+modification des conflits après aperçu, collisions d'identifiants enfants,
+rollback sur quota/interruption, ZIP corrompu, SHA invalide malgré CRC recalculé,
+version incompatible, JSON ambigu, champs/relations invalides malgré empreintes
+recalculées, chemins dangereux, entrée inattendue, limite de taille simulée sans
+allouer 512 Mio, export individuel et sauvegarde vide.
+
+Tests manuels depuis Plus, exclusivement avec des sauvegardes/bases de test :
+
+1. Choisir un ZIP Roam : attendre la vérification, examiner les listes importer/
+   ignorer et les compteurs ; aucune donnée ne doit apparaître avant confirmation.
+2. Cocher la confirmation et restaurer ; vérifier les trois états de voyages,
+   activités, réservations, prix zéro, liens et documents, puis recharger.
+3. Réimporter : les voyages existants sont ignorés intégralement, sans compléter ni
+   écraser leurs activités/documents. Tester également un conflit partiel.
+4. Entre aperçu et confirmation, ajouter un voyage concerné depuis un autre onglet :
+   l'import doit être refusé, puis réussir après actualisation et reconfirmation.
+5. Tester ZIP incomplet/corrompu, fichier non ZIP, erreur de quota et nouvelle
+   tentative : aucune écriture partielle. Ne pas interrompre de données réelles.
+6. Vérifier clavier, annonce des résultats, mobile, noms longs et sélection du
+   même fichier après erreur. Les contrôles ZIP/empreintes/types sont réalisés
+   aussi pour les voyages qui seront finalement ignorés.
+
+## Étape 2.5.3a : ressources PWA
+
+Procédure détaillée : `pwa/README.md`.
+Après build sous Windows : `npm.cmd run test:pwa` vérifie les ressources de dist,
+le manifeste et les icônes, puis simule le cache du worker à la racine et sous
+préfixe. Aucun enregistrement réel de service worker ni aucune base utilisateur
+n'est modifié par ce script. Les tests visuels se font avec `vite preview`, pas
+avec le serveur de développement. `node tests/pwa-check.mjs --source-only` ne
+vérifie pas les artefacts du build.

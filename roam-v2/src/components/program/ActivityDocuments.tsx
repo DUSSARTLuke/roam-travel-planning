@@ -1,6 +1,9 @@
+import { useRef, useState } from 'react'
+import { DocumentViewer } from './DocumentViewer'
+import { DocumentDeleteConfirmation } from './DocumentDeleteConfirmation'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { listDocuments } from '../../db/documents'
-import { documentSizeLabel, type DocumentMime } from '../../db/documentModel'
+import { documentSizeLabel, type ActivityDocument, type DocumentMime } from '../../db/documentModel'
 
 export type PendingDocument = { file: File; mime: DocumentMime }
 type Props = {
@@ -11,14 +14,22 @@ type Props = {
 }
 
 export function ActivityDocuments({ tripId, activityId, pending = [], onSelect }: Props) {
+  const [panel, setPanel] = useState<{ kind: 'view' | 'delete'; document: ActivityDocument } | null>(null)
+  const [notice, setNotice] = useState('')
+  const sectionRef = useRef<HTMLElement>(null)
   const result = useLiveQuery(async () => {
     try { return { documents: activityId === null ? [] : await listDocuments(tripId, activityId), error: '' } }
     catch { return { documents: [], error: 'Impossible de charger les métadonnées des documents.' } }
   }, [tripId, activityId])
   const documents = result?.documents ?? []
-  if (!onSelect && result && !result.error && documents.length === 0) return null
+  if (panel && result && (result.error || !documents.some((document) => document.id === panel.document.id))) {
+    setPanel(null)
+    setNotice(result.error || 'Ce document n’est plus disponible.')
+  }
+  if (!onSelect && result && !result.error && documents.length === 0 && !notice) return null
   const content = <>
     {result === undefined && <p role="status">Chargement des documents…</p>}
+    {notice && <p role="status">{notice}</p>}
     {result?.error && <p className="form-error" role="alert">{result.error}</p>}
     <p className="activity-meta">{documents.length + pending.length}/5 documents · 15 Mo maximum par fichier</p>
     {onSelect && <>
@@ -36,12 +47,23 @@ export function ActivityDocuments({ tripId, activityId, pending = [], onSelect }
     <ul className="activity-document-list">
       {documents.map((document) => <li key={document.id}><strong>{document.name}</strong>
         <span>{document.mime} · {documentSizeLabel(document.size)}</span>
+        {!onSelect && <div className="document-actions">
+          <button type="button" className="secondary-button" aria-haspopup="dialog" aria-label={`Consulter ${document.name}`}
+            onClick={() => { setNotice(''); setPanel({ kind: 'view', document }) }}>Consulter</button>
+          <button type="button" className="secondary-button danger-text" aria-haspopup="dialog" aria-label={`Supprimer ${document.name}`}
+            onClick={() => { setNotice(''); setPanel({ kind: 'delete', document }) }}>Supprimer</button>
+        </div>}
       </li>)}
       {pending.map(({ file, mime }, index) => <li key={`pending-${index}`}><strong>{file.name}</strong>
         <span>{mime} · {documentSizeLabel(file.size)} · En attente d’enregistrement</span>
       </li>)}
     </ul>
+    {panel && activityId !== null && (panel.kind === 'view'
+      ? <DocumentViewer key={panel.document.id} tripId={tripId} activityId={activityId} document={panel.document} fallbackFocusRef={sectionRef}
+          onClose={() => setPanel(null)} />
+      : <DocumentDeleteConfirmation tripId={tripId} activityId={activityId} document={panel.document} fallbackFocusRef={sectionRef}
+          onClose={() => setPanel(null)} onDeleted={() => { setPanel(null); setNotice('Document supprimé.'); sectionRef.current?.focus() }} />)}
   </>
   return onSelect ? <details className="activity-extra"><summary>Documents</summary>{content}</details>
-    : <section aria-labelledby="activity-detail-documents"><h3 id="activity-detail-documents">Documents</h3>{content}</section>
+    : <section ref={sectionRef} tabIndex={-1} aria-labelledby="activity-detail-documents"><h3 id="activity-detail-documents">Documents</h3>{content}</section>
 }

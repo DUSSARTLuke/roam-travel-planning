@@ -1,4 +1,8 @@
 import Dexie from 'dexie'
+import { testPwaUpdates } from './pwa-updates.browser'
+import { testRestore } from './restore.browser'
+import { testBackups } from './backups.browser'
+import { testNativePdfPreview } from './nativePdfPreview.browser'
 import { testDocuments } from './documents.browser'
 import { testAdvancedActivities } from './activityAdvanced.browser'
 import { activityFormInput, initialActivityValues } from '../src/components/program/activityFormModel'
@@ -161,8 +165,12 @@ button.addEventListener('click', async () => {
   button.disabled = true
   results.textContent = ''
   try {
+    testPwaUpdates((message) => { results.textContent += `✓ ${message}\n` })
+    testNativePdfPreview((message) => { results.textContent += `✓ ${message}\n` })
     await run((message) => { results.textContent += `✓ ${message}\n` })
     await testDocuments((message) => { results.textContent += `✓ ${message}\n` })
+    await testBackups((message) => { results.textContent += `✓ ${message}\n` })
+    await testRestore((message) => { results.textContent += `✓ ${message}\n` })
     results.textContent += '\nTous les tests ont réussi. Base de test supprimée.'
   } catch (error) {
     results.textContent += `\nÉCHEC : ${String(error)}`

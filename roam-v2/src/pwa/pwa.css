@@ -1,0 +1,53 @@
+.pwa-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+}
+
+.pwa-status p {
+  margin: 0;
+  max-width: 900px;
+  line-height: 1.5;
+}
+
+.pwa-status button {
+  padding: 8px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--accent);
+}
+
+.pwa-connection {
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.pwa-update {
+  justify-content: flex-start;
+}
+
+.pwa-status button:disabled {
+  opacity: 0.6;
+}
+
+@media (max-width: 640px) {
+  .pwa-update {
+    gap: 10px;
+  }
+  .pwa-update p {
+    width: 100%;
+  }
+}

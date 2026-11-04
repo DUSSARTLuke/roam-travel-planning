@@ -1,7 +1,7 @@
 import { db, type RoamDatabase } from './database'
 import { createActivityRepository } from './activities'
 import type { TripActivityInput } from './activityModel'
-import { MAX_ACTIVITY_DOCUMENTS, prepareDocuments, type ActivityDocument, type PreparedDocument } from './documentModel'
+import { MAX_ACTIVITY_DOCUMENTS, detectDocumentMime, prepareDocuments, type ActivityDocument, type PreparedDocument } from './documentModel'
 
 function storageFailure(error: unknown): never {
   const failure = error as { name?: string; failures?: { name?: string }[] }
@@ -20,7 +20,7 @@ export function createDocumentRepository(database: RoamDatabase = db) {
     const trip = await database.trips.get(tripId)
     const activity = await database.activities.get(activityId)
     if (!trip || !activity || activity.tripId !== tripId) throw new Error('Activité inaccessible pour ce voyage.')
-    if (writable && trip.deletedAt !== undefined) throw new Error('Restaure le voyage avant d’importer des documents.')
+    if (writable && trip.deletedAt !== undefined) throw new Error('Restaure le voyage avant de modifier ses documents.')
   }
 
   async function store(activityId: string, prepared: PreparedDocument[]): Promise<ActivityDocument[]> {
@@ -41,6 +41,30 @@ export function createDocumentRepository(database: RoamDatabase = db) {
         return (await database.activityDocuments.where('activityId').equals(activityId).toArray())
           .sort((a, b) => a.importedAt.localeCompare(b.importedAt) || a.id.localeCompare(b.id))
       })
+    },
+
+    async getDocument(tripId: string, activityId: string, id: string) {
+      const stored = await database.transaction('r', writeTables, async () => {
+        await requireAccess(tripId, activityId, false)
+        const metadata = await database.activityDocuments.get(id)
+        if (!metadata || metadata.activityId !== activityId) throw new Error('Document supprimé ou inaccessible pour cette activité.')
+        const payload = await database.activityDocumentBlobs.get(id)
+        if (!payload || !(payload.blob instanceof Blob)) throw new Error('Le fichier est manquant dans le stockage local.')
+        return { metadata, blob: payload.blob }
+      })
+      const mime = detectDocumentMime(new Uint8Array(await stored.blob.slice(0, 32).arrayBuffer()))
+      if (mime !== stored.metadata.mime || stored.blob.size !== stored.metadata.size) throw new Error('Le fichier est endommagé ou son format ne correspond pas aux métadonnées.')
+      return { metadata: stored.metadata, blob: stored.blob.slice(0, stored.blob.size, stored.metadata.mime) }
+    },
+
+    async deleteDocument(tripId: string, activityId: string, id: string): Promise<void> {
+      await database.transaction('rw', writeTables, async () => {
+        await requireAccess(tripId, activityId, true)
+        const metadata = await database.activityDocuments.get(id)
+        if (!metadata || metadata.activityId !== activityId) throw new Error('Document supprimé ou inaccessible pour cette activité.')
+        await database.activityDocumentBlobs.delete(id)
+        await database.activityDocuments.delete(id)
+      }).catch(storageFailure)
     },
 
     async importDocuments(tripId: string, activityId: string, files: readonly File[]): Promise<ActivityDocument[]> {
@@ -67,4 +91,4 @@ export function createDocumentRepository(database: RoamDatabase = db) {
   }
 }
 
-export const { listDocuments, importDocuments, saveActivityWithDocuments } = createDocumentRepository()
+export const { listDocuments, getDocument, deleteDocument, importDocuments, saveActivityWithDocuments } = createDocumentRepository()
