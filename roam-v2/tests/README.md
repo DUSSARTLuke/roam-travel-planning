@@ -304,3 +304,21 @@ modifiable en GBP ; modifier une ancienne activité sans devise doit laisser ce
 champ vide. Changer la devise du voyage ne modifie ni les montants ni les devises
 des activités. Tester aussi un ancien voyage : EUR proposé à son ouverture.
 Aucun taux, conversion ou accès réseau n'est ajouté.
+
+## Sélecteur de devises — 2.5.4a.1
+
+`currencySelector.browser.tsx`, intégré à `/tests/activities.html`, vérifie le
+catalogue partagé avec la validation, l'ordre des devises courantes, la recherche
+par code/nom et quelques pays (sans accents), les valeurs historiques, le budget
+d'activité et les interactions React : flèches/Entrée, clic, Échap, focus et sortie.
+
+Manuellement, tester création/modification/duplication d'un voyage puis création
+et modification d'une activité ; vérifier après rechargement que seul le code ISO
+est enregistré. Une activité ancienne sans devise reste « Devise non renseignée ».
+Une devise historique inconnue reste affichée et conservée tant qu'aucun autre
+choix n'est fait. Tester une recherche sans résultat (Entrée ne doit pas soumettre
+le formulaire), Tab/Maj+Tab, Échap dans le panneau d'activité (ferme d'abord la
+liste), lecture avec un lecteur d'écran, longue liste sur mobile et hors connexion
+après un nouveau build précaché. Aucun appel réseau n'est nécessaire au catalogue.
+Les alias de pays sont une aide limitée aux principales devises, pas un annuaire
+exhaustif ; noms et symboles dépendent des données Intl du navigateur.

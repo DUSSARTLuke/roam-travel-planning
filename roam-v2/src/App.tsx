@@ -36,6 +36,7 @@ import { TripExportMenu } from './components/backup/TripExportMenu'
 import { BackupExport, BackupPage } from './components/backup/BackupExport'
 import { useReloadBlocker } from './pwa/useReloadBlocker'
 import { tripReferenceCurrency, validateCurrency } from './db/currency'
+import { CurrencySelector } from './components/currency/CurrencySelector'
 import './App.css'
 
 type TabId = 'home' | 'program' | 'map' | 'budget' | 'more'
@@ -841,12 +842,8 @@ if (!databaseReady || trips === undefined) {
           </label>
         </div>
 
-        <label>
-          Devise de référence *
-          <input required maxLength={3} autoCapitalize="characters" placeholder="EUR"
-            value={newTrip.referenceCurrency ?? 'EUR'}
-            onChange={(event) => setNewTrip({ ...newTrip, referenceCurrency: event.target.value })} />
-        </label>
+        <CurrencySelector label="Devise de référence" value={newTrip.referenceCurrency ?? 'EUR'}
+          onChange={(code) => setNewTrip({ ...newTrip, referenceCurrency: code })} />
 
         <label>
           Nombre de voyageurs

@@ -1,3 +1,4 @@
+import { testCurrencySelector } from './currencySelector.browser'
 import { testCurrencies } from './currency.browser'
 import Dexie from 'dexie'
 import { testPwaUpdates } from './pwa-updates.browser'
@@ -166,6 +167,7 @@ button.addEventListener('click', async () => {
   button.disabled = true
   results.textContent = ''
   try {
+    testCurrencySelector((message) => { results.textContent += `✓ ${message}\n` })
     testPwaUpdates((message) => { results.textContent += `✓ ${message}\n` })
     testNativePdfPreview((message) => { results.textContent += `✓ ${message}\n` })
     await run((message) => { results.textContent += `✓ ${message}\n` })

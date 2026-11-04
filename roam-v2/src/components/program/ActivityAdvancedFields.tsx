@@ -1,3 +1,4 @@
+import { CurrencySelector } from '../currency/CurrencySelector'
 import { useRef } from 'react'
 import type { ActivityFormValues } from './activityFormModel'
 import type { ReservationStatus } from '../../db/activityModel'
@@ -36,7 +37,7 @@ export function ActivityAdvancedFields({ form, onChange }: Props) {
         <label>Prix estimé<input type="number" min="0" step="any" value={form.estimatedCost} onChange={(event) => field('estimatedCost', event.target.value)} /></label>
         <label>Montant payé<input type="number" min="0" step="any" value={form.paidAmount} onChange={(event) => field('paidAmount', event.target.value)} /></label>
       </div>
-      <label>Devise ISO (ex. EUR, GBP, USD)<input autoCapitalize="characters" maxLength={3} value={form.currency} onChange={(event) => field('currency', event.target.value)} /></label>
+      <CurrencySelector label="Devise de l’activité" value={form.currency} allowEmpty onChange={(code) => field('currency', code)} />
     </details>
     <details className="activity-extra">
       <summary>Liens utiles</summary>
