@@ -45,6 +45,10 @@ Le manifeste ne contient pas sa propre empreinte, afin d'éviter une référence
 circulaire. SHA-256 et CRC détectent des altérations ; ils ne constituent pas une
 signature d'authenticité et n'empêchent pas une modification intentionnelle.
 Les champs optionnels absents restent absents, sans valeur par défaut injectée.
+Le champ optionnel `referenceCurrency` des voyages contient un code devise ISO
+reconnu. Son absence signifie EUR dans l'application, sans réécriture à l'import.
+Les devises et montants historiques des activités restent indépendants et inchangés.
+Ce champ ne nécessite ni changement de format 1 ni migration du schéma V4.
 Les valeurs JSON des enregistrements sont conservées, y compris leurs champs
 additionnels. Des nombres non finis provoquent un refus plutôt qu'une conversion
 silencieuse en null.

@@ -35,6 +35,7 @@ import { TripProgram } from './components/program/TripProgram'
 import { TripExportMenu } from './components/backup/TripExportMenu'
 import { BackupExport, BackupPage } from './components/backup/BackupExport'
 import { useReloadBlocker } from './pwa/useReloadBlocker'
+import { tripReferenceCurrency, validateCurrency } from './db/currency'
 import './App.css'
 
 type TabId = 'home' | 'program' | 'map' | 'budget' | 'more'
@@ -55,6 +56,7 @@ const tabs: Tab[] = [
 
 
 const emptyTripForm: Omit<Trip, 'id' | 'archived' | 'deletedAt'> = {
+  referenceCurrency: 'EUR',
   destination: '',
   country: '',
   startDate: '',
@@ -186,7 +188,7 @@ function editTrip(trip: Trip) {
   if (writeLock.current) return
   const { id, ...fields } = trip
   setEditingTripId(id)
-  setNewTrip(fields)
+  setNewTrip({ ...fields, referenceCurrency: tripReferenceCurrency(trip) })
   setFormError('')
   setShowCreateTrip(true)
 }
@@ -257,6 +259,7 @@ async function duplicateTrip(trip: Trip) {
     await db.trips.add({
       id: crypto.randomUUID(),
       destination: `${trip.destination} (copie)`,
+      referenceCurrency: tripReferenceCurrency(trip),
       country: trip.country,
       startDate: trip.startDate,
       endDate: trip.endDate,
@@ -306,7 +309,12 @@ async function saveTrip(event: React.FormEvent<HTMLFormElement>) {
     return
   }
 
+  let referenceCurrency: string
+  try { referenceCurrency = validateCurrency(newTrip.referenceCurrency) }
+  catch (error) { setFormError(error instanceof Error ? error.message : 'Devise invalide.'); return }
+
   const fields: Omit<Trip, 'id' | 'archived' | 'deletedAt'> = {
+    referenceCurrency,
     destination,
     country,
     startDate: newTrip.startDate,
@@ -832,6 +840,13 @@ if (!databaseReady || trips === undefined) {
             />
           </label>
         </div>
+
+        <label>
+          Devise de référence *
+          <input required maxLength={3} autoCapitalize="characters" placeholder="EUR"
+            value={newTrip.referenceCurrency ?? 'EUR'}
+            onChange={(event) => setNewTrip({ ...newTrip, referenceCurrency: event.target.value })} />
+        </label>
 
         <label>
           Nombre de voyageurs

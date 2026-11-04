@@ -11,6 +11,7 @@ import { ActivityAdvancedFields } from './ActivityAdvancedFields'
 import { categoryLabels, periodLabels } from './activityPresentation'
 
 type Props = {
+  referenceCurrency: string
   tripId: string
   initialDate: string | null
   fallbackDate: string
@@ -37,8 +38,8 @@ function DiscardPrompt({ onContinue, onDiscard }: { onContinue: () => void; onDi
   )
 }
 
-export function ActivityFormPanel({ tripId, initialDate, fallbackDate, activity, fallbackFocusRef, onClose, onSaved }: Props) {
-  const [initial] = useState(() => initialActivityValues(activity, initialDate, fallbackDate))
+export function ActivityFormPanel({ referenceCurrency, tripId, initialDate, fallbackDate, activity, fallbackFocusRef, onClose, onSaved }: Props) {
+  const [initial] = useState(() => initialActivityValues(activity, initialDate, fallbackDate, referenceCurrency))
   const [form, setForm] = useState(initial)
   const [pendingDocuments, setPendingDocuments] = useState<PendingDocument[]>([])
   const [busy, setBusy] = useState(false)

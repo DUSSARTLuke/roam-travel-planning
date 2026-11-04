@@ -1,3 +1,5 @@
+import { validateCurrency } from './currency'
+
 export type ActivityCategory = 'visit' | 'meal' | 'transport' | 'outing' | 'rest' | 'other'
 export type ActivityPeriod = 'morning' | 'afternoon' | 'evening'
 export type ReservationStatus = 'not_required' | 'to_book' | 'pending' | 'confirmed' | 'cancelled'
@@ -84,10 +86,7 @@ export function validateActivity(input: TripActivityInput, existing?: TripActivi
     throw new Error('Le montant payé doit être non négatif.')
   }
   const currency = optionalText(input.currency, 'La devise')?.toUpperCase()
-  if (currency !== undefined && input.currency !== existing?.currency &&
-      !Intl.supportedValuesOf('currency').includes(currency)) {
-    throw new Error('Utilise un code devise ISO reconnu, comme EUR, GBP ou USD.')
-  }
+  if (currency !== undefined && input.currency !== existing?.currency) validateCurrency(currency)
   if (input.reservationPeople !== undefined && (!Number.isSafeInteger(input.reservationPeople) || input.reservationPeople <= 0)) {
     throw new Error('Le nombre de personnes doit être un entier strictement positif.')
   }

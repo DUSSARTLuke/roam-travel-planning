@@ -11,6 +11,8 @@ export type Trip = {
   endDate: string
   travelers: number
   image: string
+  // Missing on legacy records: EUR logically, without rewriting stored data.
+  referenceCurrency?: string
   // Missing on legacy records: treated as false without rewriting user data.
   archived?: boolean
   deletedAt?: string

@@ -24,7 +24,7 @@ export type ActivityFormValues = {
   links: ActivityLink[]
 }
 
-export function initialActivityValues(activity: TripActivity | null, date: string | null, fallback: string): ActivityFormValues {
+export function initialActivityValues(activity: TripActivity | null, date: string | null, fallback: string, referenceCurrency = 'EUR'): ActivityFormValues {
   return {
     title: activity?.title ?? '', category: activity?.category ?? 'visit',
     date: activity?.date ?? date ?? fallback, idea: activity ? activity.date === null : date === null,
@@ -37,7 +37,7 @@ export function initialActivityValues(activity: TripActivity | null, date: strin
     reservationDeadline: activity?.reservationDeadline ?? '', reservationNotes: activity?.reservationNotes ?? '',
     estimatedCost: activity?.estimatedCost === undefined ? '' : String(activity.estimatedCost),
     paidAmount: activity?.paidAmount === undefined ? '' : String(activity.paidAmount),
-    currency: activity?.currency ?? '', legacyUrl: activity?.url ?? '',
+    currency: activity ? activity.currency ?? '' : referenceCurrency, legacyUrl: activity?.url ?? '',
     links: activity?.links?.map((link) => ({ ...link })) ?? [],
   }
 }

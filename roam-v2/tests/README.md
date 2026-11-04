@@ -291,3 +291,16 @@ préfixe. Aucun enregistrement réel de service worker ni aucune base utilisateu
 n'est modifié par ce script. Les tests visuels se font avec `vite preview`, pas
 avec le serveur de développement. `node tests/pwa-check.mjs --source-only` ne
 vérifie pas les artefacts du build.
+
+## Devise de référence — 2.5.4a
+
+La suite `/tests/activities.html` inclut `currency.browser.ts` : bases isolées,
+défaut EUR sans migration, codes invalides, persistance des devises, montants
+historiques inchangés et restauration ZIP avec/sans referenceCurrency.
+
+Vérifications UI : créer un voyage GBP, le modifier en USD puis le dupliquer ;
+vérifier la devise dans chaque formulaire. Une nouvelle activité propose USD,
+modifiable en GBP ; modifier une ancienne activité sans devise doit laisser ce
+champ vide. Changer la devise du voyage ne modifie ni les montants ni les devises
+des activités. Tester aussi un ancien voyage : EUR proposé à son ouverture.
+Aucun taux, conversion ou accès réseau n'est ajouté.

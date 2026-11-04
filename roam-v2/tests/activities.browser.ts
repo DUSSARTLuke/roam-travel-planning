@@ -1,3 +1,4 @@
+import { testCurrencies } from './currency.browser'
 import Dexie from 'dexie'
 import { testPwaUpdates } from './pwa-updates.browser'
 import { testRestore } from './restore.browser'
@@ -169,6 +170,7 @@ button.addEventListener('click', async () => {
     testNativePdfPreview((message) => { results.textContent += `✓ ${message}\n` })
     await run((message) => { results.textContent += `✓ ${message}\n` })
     await testDocuments((message) => { results.textContent += `✓ ${message}\n` })
+    await testCurrencies((message) => { results.textContent += `✓ ${message}\n` })
     await testBackups((message) => { results.textContent += `✓ ${message}\n` })
     await testRestore((message) => { results.textContent += `✓ ${message}\n` })
     results.textContent += '\nTous les tests ont réussi. Base de test supprimée.'

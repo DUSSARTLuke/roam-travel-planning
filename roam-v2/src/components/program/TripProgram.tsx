@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { listActivities } from '../../db/activities'
 import type { TripActivity } from '../../db/activityModel'
 import { ActivityDetailPanel } from './ActivityDetailPanel'
+import { tripReferenceCurrency } from '../../db/currency'
 import { ActivityFormPanel } from './ActivityFormPanel'
 import { ActivityList } from './ActivityList'
 import type { Trip } from '../../db/database'
@@ -141,7 +142,7 @@ export function TripProgram({ trip }: { trip: Trip }) {
       {!editor && ready && detailActivity && <ActivityDetailPanel activity={detailActivity}
         returnFocusRef={detailOriginRef} fallbackFocusRef={addButtonRef}
         onClose={() => setDetailId(null)} onEdit={() => editActivity(detailActivity)} />}
-      {editor && <ActivityFormPanel tripId={trip.id} activity={editor.activity} initialDate={editor.date}
+      {editor && <ActivityFormPanel referenceCurrency={tripReferenceCurrency(trip)} tripId={trip.id} activity={editor.activity} initialDate={editor.date}
         fallbackDate={selectedDate} fallbackFocusRef={addButtonRef} onClose={() => setEditor(null)} onSaved={activitySaved} />}
     </section>
   )
