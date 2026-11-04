@@ -1,3 +1,7 @@
+import { testDayPlanning } from './dayPlanning.core'
+import { testDayPlanningUI } from './dayPlanning.browser'
+import { testMapPreviewCore } from './mapPreview.core'
+import { testMapPreviewUI } from './mapPreview.browser'
 import { testPlaceProvider, testPlaceController, testPlaceSearchUI } from './placeSearch.browser'
 import { testActivityLocation } from './activityLocation.browser'
 import { testActivityMoney } from './activityMoney.browser'
@@ -173,6 +177,10 @@ button.addEventListener('click', async () => {
   button.disabled = true
   results.textContent = ''
   try {
+    testDayPlanning((message) => { results.textContent += `✓ ${message}\n` })
+    await testDayPlanningUI((message) => { results.textContent += `✓ ${message}\n` })
+    await testMapPreviewCore((message) => { results.textContent += `✓ ${message}\n` })
+    await testMapPreviewUI((message) => { results.textContent += `✓ ${message}\n` })
     await testPlaceProvider((message) => { results.textContent += `✓ ${message}\n` })
     await testPlaceController((message) => { results.textContent += `✓ ${message}\n` })
     await testPlaceSearchUI((message) => { results.textContent += `✓ ${message}\n` })

@@ -6,6 +6,7 @@ import type { TripActivity } from '../../db/activityModel'
 import { ActivityDetailPanel } from './ActivityDetailPanel'
 import { tripReferenceCurrency } from '../../db/currency'
 import { ActivityFormPanel } from './ActivityFormPanel'
+import { DayTimeline } from './DayTimeline'
 import { ActivityList } from './ActivityList'
 import type { Trip } from '../../db/database'
 import { formatDate, getTripDays, getTripMonths } from './dates'
@@ -19,7 +20,7 @@ function DayDetails({ date, activities, onAdd, onEdit, onOpen }: {
   return (
     <section className="program-day-detail" aria-labelledby="program-day-title">
       <h2 id="program-day-title">{formatDate(date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</h2>
-      <ActivityList activities={activities} onAdd={onAdd} onEdit={onEdit} onOpen={onOpen} />
+      <DayTimeline activities={activities} onAdd={onAdd} onEdit={onEdit} onOpen={onOpen} />
     </section>
   )
 }

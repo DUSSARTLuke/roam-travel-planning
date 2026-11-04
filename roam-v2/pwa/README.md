@@ -24,6 +24,12 @@ cache. Les fichiers doivent être publiés ensemble, sans modifier leurs octets
 après build. Une absence, redirection, réponse invalide ou empreinte différente
 fait échouer l'installation et supprime son cache incomplet.
 
+Exception depuis 2.5.5c : l'aperçu cartographique est optionnel et en ligne. Les
+assets `maplibrePreview-*` (JS/CSS) et `maplibre-gl-worker-*` sont exclus du précache
+et chargés seulement à l'ouverture d'une activité avec GPS valide. Les tuiles OSM
+ne sont jamais précachées ni ajoutées au cache applicatif ; leur cache HTTP normal
+reste géré par le navigateur. Les textes/adresses/coordonnées restent hors ligne.
+
 Après installation : cache-first pour cette liste exacte et pour la navigation
 vers l'entrée du dossier/index.html. Aucune écriture de cache à l'exécution.
 Toutes les autres requêtes suivent le comportement normal du navigateur.

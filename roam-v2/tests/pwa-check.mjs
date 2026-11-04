@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { createHash, webcrypto } from 'node:crypto'
-import { readFile, access } from 'node:fs/promises'
+import { readFile, access, readdir } from 'node:fs/promises'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
@@ -169,5 +169,12 @@ if (!process.argv.includes('--source-only')) {
     assert(!/\.(zip|pdf|map|json)$/.test(entry.path))
     assert.equal(hash(await read(`dist/${entry.path}`)), entry.sha256, `Build hash mismatch: ${entry.path}`)
   }
+  const optionalMapAssets = (await readdir(resolve(root, 'dist/assets'))).filter((path) => /^(?:maplibrePreview|maplibre-gl-worker)[-.]/.test(path))
+  assert(optionalMapAssets.some((path) => /^maplibrePreview-.*\.js$/.test(path)), 'Lazy MapLibre chunk missing')
+  assert(optionalMapAssets.some((path) => /^maplibre-gl-worker-.*\.js$/.test(path)), 'Bundled map worker missing')
+  for (const path of optionalMapAssets) assert(!built.entries.some((entry) => entry.path === `assets/${path}`), `Optional map asset precached: ${path}`)
+  const mainEntry = built.entries.find((entry) => /^assets\/index-.*\.js$/.test(entry.path))
+  assert(mainEntry && /import\(\s*["'`][^"'`]*maplibrePreview-/.test((await read(`dist/${mainEntry.path}`)).toString()), 'MapLibre must use a dynamic import')
   console.log('Production build checks passed: every precached file exists and matches its SHA-256.')
+  console.log('Optional map assets: lazy chunk and worker present, excluded from PWA precache.')
 }

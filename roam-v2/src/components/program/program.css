@@ -791,3 +791,24 @@
   }
   .activity-location-actions > .secondary-button { width: 100%; }
 }
+
+.day-planning { margin-top: 20px; }
+.day-timeline { list-style: none; padding: 0; margin: 18px 0; display: grid; gap: 18px; }
+.day-timeline-item { display: grid; grid-template-columns: 86px minmax(0, 1fr); gap: 14px; }
+.day-timeline-time { border-right: 2px solid var(--border); padding: 12px 12px 0 0; font-variant-numeric: tabular-nums; }
+.day-timeline-time > time { display: block; font-size: 18px; font-weight: 700; color: var(--accent); }
+.day-timeline-time > span, .day-timeline-time small { display: block; margin-top: 6px; color: var(--muted); font-size: 12px; line-height: 1.4; }
+.day-timeline-content { min-width: 0; }
+.day-planning-warning { color: var(--accent); font-size: 13px; line-height: 1.5; display: flex; align-items: flex-start; gap: 6px; overflow-wrap: anywhere; }
+.day-planning-warning svg { flex-shrink: 0; margin-top: 2px; }
+.day-timeline-free { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 10px 14px; margin-left: 100px; border-left: 2px dashed var(--border); color: var(--muted); font-size: 12px; line-height: 1.5; }
+.day-timeline-free > span:first-child { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.day-to-organize { border-top: 1px solid var(--border); padding-top: 18px; margin-top: 24px; }
+@media (max-width: 640px) {
+  .day-timeline-item { grid-template-columns: 64px minmax(0, 1fr); gap: 10px; }
+  .day-timeline-time { padding-right: 8px; }
+  .day-timeline-time > time { font-size: 16px; }
+  .day-timeline-free { margin-left: 74px; }
+  .day-timeline-content .activity-card { padding: 12px; gap: 10px; }
+  .day-timeline-content .activity-edit { min-height: 44px; flex-wrap: wrap; max-width: 100%; }
+}

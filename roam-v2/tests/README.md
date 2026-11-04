@@ -456,3 +456,23 @@ contrôlée (debounce, obsolescence, annulation, offline/démontage), interface 
 (clavier, remplissage sans soumission, confirmation, préservation et offline).
 Aucun appel au serveur public n'est réalisé par les tests. Les vérifications
 visuelles et les limites d'utilisation figurent dans `src/places/README.md`.
+
+## Aperçu cartographique — 2.5.5c
+
+`mapPreview.core.ts` et `mapPreview.browser.tsx` dans `/tests/activities.html`
+couvrent absence/GPS/zéro/négatifs, configuration OSM/cache/Referer, chargement
+différé, mise à jour, import tardif, offline, erreurs/timeout/retry et nettoyage.
+Le moteur est simulé : aucun appel de tuile et aucune exigence WebGL dans la suite.
+`npm.cmd run test:pwa` vérifie après build que les assets MapLibre sont séparés et
+exclus du précache. Les vérifications réelles de WebGL, centre/marqueur, tuiles,
+mobile, sous-chemin et headers figurent dans `src/maps/README.md`.
+
+## Planning chronologique — 2.6a
+
+`dayPlanning.core.ts` et `dayPlanning.browser.tsx` sont intégrés à la suite : vide,
+horaires, périodes/sans horaire, tri début avant sortOrder, fin/durée absentes,
+créneaux bornés, chevauchements/imbriqués/simultanés, minuit, zéro et immutabilité.
+Les tests React couvrent cartes/actions/focus et mise à jour réelle via useLiveQuery
+avec une base temporaire `roam-v2-test-planning-*`, puis changement de journée.
+Aucun réseau ni donnée utilisateur. Détails et vérifications mobiles :
+`src/components/program/PLANNING.md`.

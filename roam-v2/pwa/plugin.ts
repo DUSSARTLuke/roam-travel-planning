@@ -13,6 +13,8 @@ export function roamPwa(): Plugin {
       const template = readFileSync(new URL('./service-worker.js', import.meta.url), 'utf8')
       const files = new Map<string, string | Uint8Array>()
       for (const [path, file] of Object.entries(bundle)) {
+        // Optional online map is fetched only when a geolocated activity opens.
+        if (/^assets\/(?:maplibrePreview|maplibre-gl-worker)[-.]/.test(path)) continue
         if (path === 'index.html' || (/^assets\//.test(path) && /\.(js|css|svg|png|jpe?g|webp|woff2?|ttf|otf)$/.test(path))) {
           files.set(path, file.type === 'chunk' ? file.code : file.source)
         }

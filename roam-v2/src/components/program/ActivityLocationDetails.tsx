@@ -1,3 +1,4 @@
+import { ActivityMapPreview } from './ActivityMapPreview'
 import type { TripActivity } from '../../db/activityModel'
 
 export function ActivityLocationDetails({ activity }: { activity: TripActivity }) {
@@ -10,5 +11,6 @@ export function ActivityLocationDetails({ activity }: { activity: TripActivity }
       <div><dt>Latitude</dt><dd>{String(activity.latitude).replace('.', ',')}</dd></div>
       <div><dt>Longitude</dt><dd>{String(activity.longitude).replace('.', ',')}</dd></div>
     </dl>}
+    <ActivityMapPreview activity={activity} />
   </section>
 }
