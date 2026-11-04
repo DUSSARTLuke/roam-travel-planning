@@ -1,3 +1,4 @@
+import { validateTripTransfers } from '../db/transferModel'
 import { validateAutomaticCache } from '../money/automaticRates'
 import { validateManualRates } from '../money/manualRates'
 import { validateCurrency } from '../db/currency'
@@ -103,6 +104,8 @@ export async function validateRestoreArchive(archive: Blob, progress: (message: 
     // currencies remain accepted, just as during an unchanged activity edit.
     validateActivity(activity as unknown as TripActivity, activity as unknown as TripActivity)
   }
+  const transferActivities = new Map(activityRows.map((activity) => [activity.id as string, activity as unknown as TripActivity]))
+  for (const trip of tripRows) validateTripTransfers(trip.manualTransfers, trip.id as string, transferActivities)
   const perActivity = new Map<string, number>()
   const payloads: ActivityDocumentBlob[] = []
   const extension: Record<string, string> = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }

@@ -1,3 +1,4 @@
+import { validateTripTransfers } from '../db/transferModel'
 import { beginSensitiveOperation } from '../pwa/reloadSafety'
 import { db, type RoamDatabase } from '../db/database'
 import { detectDocumentMime } from '../db/documentModel'
@@ -45,6 +46,8 @@ export async function buildExportArchive(snapshot: ExportSnapshot, onProgress: (
   if (activities.some((activity) => !tripIds.has(activity.tripId)) || documents.some((document) => !activityIds.has(document.activityId))) {
     throw new Error('Des données n’ont plus de parent. Export interrompu pour éviter une sauvegarde incomplète.')
   }
+  const transferActivities = new Map(activities.map((activity) => [activity.id, activity]))
+  for (const trip of trips) validateTripTransfers(trip.manualTransfers, trip.id, transferActivities)
   const blobs = new Map<string, Blob>()
   for (const payload of payloads) {
     if (!payload || !(payload.blob instanceof Blob) || blobs.has(payload.id)) throw new Error('Un fichier est manquant ou invalide. Export interrompu.')

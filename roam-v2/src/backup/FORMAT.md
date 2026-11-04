@@ -185,3 +185,26 @@ une paire partielle, non numérique ou hors limites est refusée avant écriture
 L'export conserve les champs existants sans normalisation, comme auparavant.
 Les mises à jour partielles qui omettent la localisation la préservent ; effacer
 explicitement les champs retire la localisation sans supprimer l'activité.
+
+## Déplacements manuels — 2.6c
+
+`Trip.manualTransfers?: ManualTransfer[]` est un champ optionnel de
+`data/trips.json`. Son absence représente un voyage sans trajet. Aucun nouveau
+fichier, index ou store n'est requis : Dexie V4 et format ZIP 1 restent inchangés.
+Le snapshot transactionnel des voyages/activités inclut ces liens atomiquement.
+
+Chaque trajet contient `id`, `fromActivityId`, `toActivityId`, `mode`, `currency`,
+`createdAt`, `updatedAt`, et éventuellement `durationMinutes`, `estimatedCost`,
+`notes`. La devise est un code ISO reconnu ; durée et coût sont des nombres finis
+positifs ou nuls, sans valeur par défaut injectée. Les modes sont `walk`,
+`bicycle`, `bus`, `metro`, `tram`, `train`, `car`, `taxi`, `plane`, `boat`, `other`.
+Les identifiants de trajet sont uniques dans leur voyage (maximum 10 000).
+
+L'export et l'import vérifient les champs et les deux références : activités
+existantes, distinctes et du voyage parent. Les jours peuvent avoir divergé après
+création : la sauvegarde conserve alors le trajet et l'application le signale
+comme à corriger. Aucun lien n'est réinterprété ou corrigé lors de l'import.
+Les anciennes sauvegardes sans trajets restent acceptées sans réécriture.
+Un voyage déjà présent est toujours ignoré intégralement, trajets compris.
+Les anciennes versions de Roam ne connaissent pas cette fonctionnalité : utiliser
+la version actuelle pour modifier les activités et maintenir leurs liens.

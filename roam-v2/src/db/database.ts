@@ -1,3 +1,4 @@
+import type { ManualTransfer } from './transferModel'
 
 import Dexie, { type EntityTable } from 'dexie'
 import type { ActivityDocument, ActivityDocumentBlob } from './documentModel'
@@ -15,6 +16,7 @@ export type Trip = {
   image: string
   // Missing on legacy records: EUR logically, without rewriting stored data.
   referenceCurrency?: string
+  manualTransfers?: ManualTransfer[]
   manualExchangeRates?: ManualExchangeRate[]
   automaticExchangeRates?: AutomaticRateCache
   // Missing on legacy records: treated as false without rewriting user data.

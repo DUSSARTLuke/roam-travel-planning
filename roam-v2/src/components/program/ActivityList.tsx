@@ -1,3 +1,4 @@
+import { Fragment, type ReactNode } from 'react'
 import { OrganizationActions } from './ActivityOrganization'
 import { MapPin, Pencil, Plus } from 'lucide-react'
 import type { TripActivity } from '../../db/activityModel'
@@ -11,6 +12,7 @@ type Props = {
   onAdd?: () => void
   ideas?: boolean
   showDate?: boolean
+  afterActivity?: (activity: TripActivity) => ReactNode
 }
 
 export function ActivityCard({ activity, onEdit, onOpen, showDate = false, showSchedule = true }: {
@@ -33,7 +35,7 @@ export function ActivityCard({ activity, onEdit, onOpen, showDate = false, showS
   )
 }
 
-export function ActivityList({ activities, onEdit, onOpen, onAdd, ideas = false, showDate = false }: Props) {
+export function ActivityList({ activities, onEdit, onOpen, onAdd, ideas = false, showDate = false, afterActivity }: Props) {
   if (activities.length === 0) return (
     <div className="program-empty">
       <h3>{ideas ? 'Des envies pour ce voyage ?' : 'Une journée à imaginer'}</h3>
@@ -44,7 +46,7 @@ export function ActivityList({ activities, onEdit, onOpen, onAdd, ideas = false,
   return (
     <div className="activity-list">
       {activities.map((activity) => (
-        <ActivityCard key={activity.id} activity={activity} onEdit={onEdit} onOpen={onOpen} showDate={showDate} />
+        <Fragment key={activity.id}><ActivityCard activity={activity} onEdit={onEdit} onOpen={onOpen} showDate={showDate} />{afterActivity?.(activity)}</Fragment>
       ))}
     </div>
   )

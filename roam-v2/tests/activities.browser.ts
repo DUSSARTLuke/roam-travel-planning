@@ -1,3 +1,4 @@
+import { testTransfers } from './transfers.browser'
 import { testActivityOrganization } from './activityOrganization.browser'
 import { testDayPlanning } from './dayPlanning.core'
 import { testDayPlanningUI } from './dayPlanning.browser'
@@ -178,6 +179,7 @@ button.addEventListener('click', async () => {
   button.disabled = true
   results.textContent = ''
   try {
+    await testTransfers((message) => { results.textContent += `✓ ${message}\n` })
     await testActivityOrganization((message) => { results.textContent += `✓ ${message}\n` })
     testDayPlanning((message) => { results.textContent += `✓ ${message}\n` })
     await testDayPlanningUI((message) => { results.textContent += `✓ ${message}\n` })

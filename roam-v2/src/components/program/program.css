@@ -825,3 +825,20 @@
   .activity-organization button { flex: 1 1 110px; }
   .activity-organization-panel { max-height: 100dvh; }
 }
+
+.program-add-transfer { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 12px; }
+.program-transfer { border: 1px dashed var(--border); border-left: 3px solid var(--accent); border-radius: 12px; padding: 16px; margin: 12px 0; background: var(--surface); overflow-wrap: anywhere; }
+.program-transfer p { margin: 0 0 10px; }
+.program-transfer-mode { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.program-transfer-endpoints { line-height: 1.6; font-size: 14px; }
+.program-transfer-notes { white-space: pre-wrap; font-size: 14px; }
+.program-transfer button, .transfer-panel button { min-height: 44px; }
+.program-transfer button { display: inline-flex; align-items: center; gap: 7px; }
+.transfer-panel .activity-panel-form > p { margin-bottom: 20px; }
+.transfer-confirmation { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 12px; }
+.transfer-confirmation p { flex-basis: 100%; }
+@media (max-width: 640px) {
+  .program-add-transfer { width: 100%; justify-content: center; }
+  .program-transfer { padding: 12px; }
+  .transfer-confirmation button { flex: 1 1 130px; }
+}

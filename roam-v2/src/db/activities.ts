@@ -117,6 +117,12 @@ export function createActivityRepository(database: RoamDatabase = db) {
         const documentIds = await database.activityDocuments.where('activityId').equals(id).primaryKeys()
         await database.activityDocumentBlobs.bulkDelete(documentIds)
         await database.activityDocuments.bulkDelete(documentIds)
+        // Explicit cascade: permanent activity deletion also removes its links.
+        // trips belongs to this transaction, so no orphan or partial deletion.
+        const trip = await database.trips.get(tripId)
+        if (trip?.manualTransfers?.some((item) => item.fromActivityId === id || item.toActivityId === id)) {
+          await database.trips.update(tripId, { manualTransfers: trip.manualTransfers.filter((item) => item.fromActivityId !== id && item.toActivityId !== id) })
+        }
         await database.activities.delete(id)
       })
     },
