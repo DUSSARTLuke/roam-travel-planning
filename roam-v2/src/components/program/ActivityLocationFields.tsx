@@ -1,9 +1,11 @@
+import { ActivityPlaceSearch } from './ActivityPlaceSearch'
 import { useRef, type ChangeEvent, type SyntheticEvent } from 'react'
 import { isCoordinateDraft } from '../../db/activityLocation'
 import type { ActivityFormValues } from './activityFormModel'
 
 type Props = { form: ActivityFormValues; onChange: (form: ActivityFormValues) => void }
 export function ActivityLocationFields({ form, onChange }: Props) {
+  const locationInput = useRef<HTMLInputElement>(null)
   const selections = useRef<Record<string, { start: number; end: number; direction: 'forward' | 'backward' | 'none' }>>({})
   function remember(field: 'latitude' | 'longitude', event: SyntheticEvent<HTMLInputElement>) {
     const input = event.currentTarget
@@ -20,7 +22,8 @@ export function ActivityLocationFields({ form, onChange }: Props) {
     }
   }
   return <>
-    <label>Nom du lieu<input value={form.location} placeholder="Ex. British Museum" onChange={(event) => onChange({ ...form, location: event.target.value })} /></label>
+    <ActivityPlaceSearch form={form} onChange={onChange} onApplied={() => requestAnimationFrame(() => locationInput.current?.focus())} />
+    <label>Nom du lieu<input ref={locationInput} value={form.location} placeholder="Ex. British Museum" onChange={(event) => onChange({ ...form, location: event.target.value })} /></label>
     <label>Adresse (facultative)<textarea rows={2} value={form.address} onChange={(event) => onChange({ ...form, address: event.target.value })} /></label>
     <details className="activity-extra">
       <summary>Coordonnées GPS (facultatives)</summary>

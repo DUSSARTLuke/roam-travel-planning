@@ -2,7 +2,7 @@ import { db, type RoamDatabase, type Trip } from './database'
 import { tripReferenceCurrency, validateCurrency } from './currency'
 import type { TripActivity } from './activityModel'
 import { validateManualRates } from '../money/manualRates'
-import { AUTOMATIC_PROVIDER, parseFrankfurterRate, ratePairKey, validateAutomaticCache, type AutomaticRate, type RateCheck } from '../money/automaticRates'
+import { parseFrankfurterRate, ratePairKey, validateAutomaticCache, type AutomaticRate, type RateCheck } from '../money/automaticRates'
 import { withSensitiveOperation } from '../pwa/reloadSafety'
 
 export function requiredAutomaticPairs(trip: Trip, activities: readonly TripActivity[]) {

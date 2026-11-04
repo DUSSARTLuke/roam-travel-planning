@@ -1,0 +1,13 @@
+.activity-place-search { margin: 18px 0 24px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; min-width: 0; }
+.activity-place-search > label { margin-top: 0; }
+.activity-place-search > input { width: 100%; min-height: 44px; }
+.activity-place-search > p { margin-top: 10px; }
+.activity-place-search a { text-decoration: underline; }
+.activity-place-search ul { list-style: none; padding: 0; margin: 12px 0; max-height: min(300px, 40dvh); overflow-y: auto; overscroll-behavior: contain; }
+.activity-place-search [role="option"] { padding: 12px; min-height: 48px; border-radius: 8px; cursor: pointer; overflow-wrap: anywhere; }
+.activity-place-search [role="option"] span { display: block; margin-top: 4px; font-size: 12px; color: var(--muted); }
+.activity-place-search .place-result-active, .activity-place-search [role="option"]:hover { background: var(--surface-hover); }
+.place-search-confirm { display: flex; flex-wrap: wrap; gap: 12px; border-top: 1px solid var(--border); margin-top: 16px; padding-top: 16px; }
+.place-search-confirm h4, .place-search-confirm p { width: 100%; margin: 0; }
+.place-search-confirm button { min-height: 44px; }
+@media (max-width: 640px) { .place-search-confirm button { width: 100%; } }

@@ -447,3 +447,12 @@ espacement vertical et séparateur, alignement à droite sur desktop, pleine lar
 sur mobile et hauteur minimale de 44 px. Vérifier à 320/375 px avec les coordonnées
 GPS ouvertes puis fermées : aucun chevauchement, libellé lisible et action bien
 séparée des champs. Les styles sont limités à `.activity-location-actions`.
+
+## Recherche de lieux — 2.5.5b
+
+`placeSearch.browser.tsx` est intégré à `/tests/activities.html` : fournisseur HTTP
+simulé (succès/vide/validation/HTTP/réseau/timeout/429/cache), contrôleur à horloge
+contrôlée (debounce, obsolescence, annulation, offline/démontage), interface React
+(clavier, remplissage sans soumission, confirmation, préservation et offline).
+Aucun appel au serveur public n'est réalisé par les tests. Les vérifications
+visuelles et les limites d'utilisation figurent dans `src/places/README.md`.

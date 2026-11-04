@@ -147,7 +147,7 @@ export function ActivityFormPanel({ referenceCurrency, tripId, initialDate, fall
       <form onSubmit={save} onInvalidCapture={(event) => {
         if (event.target instanceof HTMLElement) event.target.closest('details')?.setAttribute('open', '')
       }} className="activity-panel-form" inert={discard}>
-        <fieldset disabled={busy || discard}>
+        <fieldset disabled={busy || discard} inert={busy || discard}>
           <label>Nom de l’activité *<input autoFocus required value={form.title} onChange={(event) => setField('title', event.target.value)} /></label>
           <label>Catégorie<select value={form.category} onChange={(event) => setField('category', event.target.value as ActivityCategory)}>
             {Object.entries(categoryLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}

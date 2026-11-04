@@ -1,3 +1,4 @@
+import { testPlaceProvider, testPlaceController, testPlaceSearchUI } from './placeSearch.browser'
 import { testActivityLocation } from './activityLocation.browser'
 import { testActivityMoney } from './activityMoney.browser'
 import { testAutomaticRatesPure, testAutomaticRatesPersistence } from './automaticRates.browser'
@@ -172,6 +173,9 @@ button.addEventListener('click', async () => {
   button.disabled = true
   results.textContent = ''
   try {
+    await testPlaceProvider((message) => { results.textContent += `✓ ${message}\n` })
+    await testPlaceController((message) => { results.textContent += `✓ ${message}\n` })
+    await testPlaceSearchUI((message) => { results.textContent += `✓ ${message}\n` })
     await testActivityLocation((message) => { results.textContent += `✓ ${message}\n` })
     testActivityMoney((message) => { results.textContent += `✓ ${message}\n` })
     await testAutomaticRatesPure((message) => { results.textContent += `✓ ${message}\n` })
