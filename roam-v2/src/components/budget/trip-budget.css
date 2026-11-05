@@ -53,3 +53,32 @@
   .budget-category-toggle { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
   .budget-category-toggle button { min-width: 0; padding: 10px 8px; }
 }
+.budget-day-section { margin: 28px 0; min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
+.budget-day-scroll { max-width: 100%; overflow-x: auto; overscroll-behavior-x: contain; border: 1px solid var(--border); border-radius: 12px; }
+.budget-day-bars { display: grid; grid-auto-flow: column; grid-auto-columns: 136px; gap: 8px; width: max-content; min-width: 100%; list-style: none; padding: 12px; margin: 0; box-sizing: border-box; }
+.budget-day-bars li { min-width: 0; }
+.budget-day-column { display: flex; flex-direction: column; align-items: center; gap: 9px; width: 100%; height: 100%; min-width: 0; padding: 12px 6px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--text); font: inherit; font-size: 13px; text-align: center; cursor: pointer; white-space: normal; overflow-wrap: anywhere; }
+.budget-day-column[aria-pressed="true"] { border-color: var(--accent); background: #f59e0b0a; }
+.budget-day-amount { min-height: 48px; font-weight: 700; }
+.budget-day-track { height: 150px; width: 46px; display: flex; align-items: flex-end; justify-content: center; border-bottom: 1px solid var(--border); }
+.budget-day-bar { display: block; width: 100%; min-height: 1px; max-height: 100%; border-radius: 6px 6px 0 0; background: #60a5fa; }
+.budget-day-bar.is-zero { min-height: 2px; background: var(--muted); }
+.budget-day-track.is-unknown { border: 1px dashed var(--border); align-items: center; color: var(--muted); border-radius: 6px; }
+.budget-day-column.is-highest .budget-day-bar { background: var(--accent); }
+.budget-day-peak { font-weight: 650; color: var(--accent); }
+.budget-day-incomplete { font-size: 12px; color: var(--muted); }
+.budget-day-detail { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--border); }
+.budget-day-detail h3 { margin: 0 0 12px; }
+.budget-day-total { font-weight: 650; }
+.budget-day-expenses { padding-left: 20px; }
+.budget-day-expenses li { margin: 14px 0; line-height: 1.5; overflow-wrap: anywhere; }
+.budget-day-expenses p { margin: 6px 0; }
+.budget-day-unassigned { margin-top: 16px; border-top: 1px solid var(--border); }
+@media (max-width: 640px) {
+  .budget-day-section { padding: 14px; }
+  .budget-day-bars { grid-auto-columns: 124px; padding: 8px; }
+}
+
+.budget-day-picker { display: grid; gap: 7px; margin: 12px 0; max-width: 100%; min-width: 0; color: var(--muted); }
+.budget-day-picker select { width: 100%; max-width: 100%; min-width: 0; min-height: 44px; padding: 10px; border-radius: 9px; border: 1px solid var(--border); color: var(--text); background: var(--surface); font: inherit; font-size: 16px; }
+.budget-day-detail-link { margin-top: 12px; white-space: normal; max-width: 100%; }

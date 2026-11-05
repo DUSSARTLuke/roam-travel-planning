@@ -166,3 +166,74 @@ basculer estimé/payé au clavier, modifier une catégorie et un montant dans un
 onglet, retirer un taux puis le rétablir, consulter hors connexion. Pour une activité
 repos nommée « Hôtel », vérifier le classement explicite dans Autres et l’indication
 « Hébergement : non distingué ». Aucun classement automatique n’est attendu.
+
+## Budget par journée — 2.8c
+
+Le ledger transitoire `BudgetEntry` reçoit la date locale de l’activité et, pour un
+transfert, la date valide commune à ses deux activités. Les dates sont vérifiées
+avec `parseDate`, les jours du séjour sont générés par `getTripDays` (UTC, bornes
+incluses) comme dans le Programme. Aucune date n’est déduite de l’heure, de l’ordre,
+de la création, du voyage ou d’une réservation. Les montants payés sont rattachés
+à la journée prévue de l’activité, **pas à une date de paiement non enregistrée**.
+
+Un transfert entre jours différents ou avec une date absente/invalide reste sans
+journée attribuable, sans suppression de son coût global. Son ordre chronologique
+ou ses GPS ne changent pas sa date budgétaire. Les dépenses valablement datées hors
+séjour sont conservées à part avec leur date réelle, sans élargir artificiellement
+le voyage. Deux groupes consultables « Sans journée attribuable » et « Hors des dates
+du séjour » expliquent la différence entre les barres du séjour et les totaux globaux.
+
+`buildTripBudget` construit les groupes journaliers, sans date et hors séjour par
+un passage sur les mêmes entrées dédupliquées. Tous leurs totaux et les détails
+par entrée utilisent `totalsFor`, `calculateFinancialTotals` et le même résolveur
+en cache que 2.8a/2.8b. Les règles d’absence/zéro, paiements des transferts,
+conversions et arrondis sont inchangées. Aucun calcul monétaire ne se trouve dans
+le rendu des barres. `budgetDayDistribution` ne fait que sélectionner le flux
+estimé/payé et rapporter les montants connus au maximum journalier connu pour
+l’échelle graphique. Les fonctions de présentation communes sont regroupées dans
+`budgetPresentation.ts` sans changer les règles de 2.8a.
+
+`BudgetDayChart.tsx` affiche une barre/bouton par journée, avec montant numérique
+et date (formatage ISO de la devise, aucun arrondi de calcul). « Plus élevé connu »
+identifie tous les ex æquo positifs, jamais une journée dont le montant est absent
+ou invalide. Les comparaisons portent uniquement sur les sous-totaux convertibles :
+une journée incomplète peut avoir un coût réel supérieur à celui représenté.
+
+Une journée sans entrée affiche « Aucune dépense » et aucun montant inventé. Une
+entrée sans prix/paiement affiche « Non renseigné ». Les vrais zéros restent à
+zéro avec un simple repère de base ; ils n’ont pas de fausse barre positive. Les
+inconnus/exclusions sont marqués, les détails conservent les valeurs d’origine et
+les causes de non-conversion. Aucun remboursement ou paiement implicite n’est ajouté.
+
+Le mode Estimés/Payés est désormais un état partagé de `TripBudget` : les deux
+sélecteurs de l’anneau et des journées sont synchronisés sans requête ni écriture.
+Le choix et la journée sélectionnée restent stables lors des mises à jour valides.
+Le graphique est défilable horizontalement dans son seul conteneur ; aucune remise
+à zéro du scroll ne se produit au rendu. Le sélecteur de date permet d’atteindre
+rapidement une journée d’un long séjour, et un bouton donne le focus au détail.
+Les jours et leurs détails sont accessibles au clavier sans dépendre des couleurs.
+
+Tests : `tests/budgetDays.browser.tsx`, intégré à `/tests/activities.html`, couvre
+les dates inclusives/décembre–janvier, transferts sans doublons et dérive de date,
+flux estimé/payé, conversions/taux manquants, absences/vrais zéros/journées vides,
+rapprochement avec les totaux globaux, groupes sans date/hors séjour, ex æquo,
+précision, séjour de plus de 180 jours, mode partagé, détails/focus/sélecteur,
+réactivité activité/transfert/taux, géométrie 320/375/desktop et fonctionnement
+offline sans écriture au rendu. Les repositories et leurs règles de cohérence
+restent inchangés (corriger la journée commune avant de modifier un transfert).
+
+Contrôles manuels complémentaires :
+1. Sur téléphone, faire défiler les barres sans déplacer la page horizontalement,
+   sélectionner une journée puis consulter son détail (montants et dates complets).
+2. Basculer Estimés/Payés depuis les deux graphiques : ils suivent le même mode.
+3. Comparer un jour vide, un montant nul, un prix absent et une devise sans taux.
+4. Déplacer une activité liée à un transfert vers un autre jour : son coût reste
+   visible sans journée attribuable ; corriger les dates le replace une seule fois.
+5. Créer une idée sans date et une activité hors séjour : vérifier les groupes
+   séparés et les totaux globaux conservés.
+6. Modifier montant, taux ou dates du voyage dans un autre onglet : actualisation,
+   conservation de sélection si elle reste valide et absence de dates inventées.
+7. Vérifier un séjour long, les années/mois traversés, 320/375 px, clavier et offline.
+
+Aucune modification Dexie V4, ZIP format 1 ou dépendance ; aucun montant converti
+ou regroupement journalier n’est persisté. Pas d’implémentation de 2.8d/2.8e.

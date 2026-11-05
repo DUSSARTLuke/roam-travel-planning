@@ -1,3 +1,4 @@
+import { BudgetDayChart } from './BudgetDayChart'
 import { BudgetCategoryChart } from './BudgetCategoryChart'
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -5,19 +6,13 @@ import { Wallet, Receipt, CircleHelp } from 'lucide-react'
 import type { Trip } from '../../db/database'
 import { listActivities } from '../../db/activities'
 import type { TripActivity } from '../../db/activityModel'
-import { buildTripBudget, type BudgetEntry } from '../../money/tripBudget'
-import { formatMoney, type MoneyTotal, type ConversionResult } from '../../money/conversion'
+import { buildTripBudget, type BudgetDistributionMode } from '../../money/tripBudget'
+import type { MoneyTotal } from '../../money/conversion'
+import { budgetTotalText as totalText, budgetOriginalAmount as originalAmount, budgetExclusionReason as exclusionReason } from '../../money/budgetPresentation'
 import { formatDate } from '../program/dates'
 import './trip-budget.css'
 
-function money(amount: number | null, currency: string): string {
-  if (amount === null) return 'Non renseigné'
-  const formatted = formatMoney(amount, currency)
-  return formatted.status === 'formatted' ? `${formatted.text} ${formatted.text.includes(currency) ? '' : currency}`.trim() : 'Montant indisponible'
-}
-function totalText(total: MoneyTotal, currency: string) {
-  return total.status === 'invalid' ? 'Total indisponible' : total.amount === null && total.excluded.length ? 'Conversion indisponible' : money(total.amount, currency)
-}
+
 function Summary({ title, total, currency, missing = total.absentCount }: { title: string; total: MoneyTotal; currency: string; missing?: number }) {
   return <article className="budget-summary" aria-label={title}>
     <h2>{title}</h2><p className="budget-amount">{totalText(total, currency)}</p>
@@ -27,22 +22,9 @@ function Summary({ title, total, currency, missing = total.absentCount }: { titl
     {total.status === 'invalid' && <p className="budget-warning">Le total dépasse la précision numérique disponible.</p>}
   </article>
 }
-function exclusionReason(result: ConversionResult): string {
-  if (result.status === 'unavailable') return result.reason === 'missing-source-currency' ? 'Devise d’origine non renseignée' : result.reason === 'missing-rate' ? 'Taux de change manquant pour cette paire' : 'Devise de référence non renseignée'
-  if (result.status === 'invalid') return ['invalid-source-currency', 'invalid-target-currency'].includes(result.reason) ? 'Devise invalide' : result.reason === 'invalid-rate' || result.reason === 'resolver-error' ? 'Taux enregistré invalide ou indisponible' : 'Montant ou résultat numérique invalide'
-  return 'Montant non disponible'
-}
-function originalAmount(item: BudgetEntry, kind: 'estimatedCost' | 'paidAmount') {
-  const value = item[kind]
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return 'Montant invalide'
-  if (item.currency) {
-    const formatted = formatMoney(value, item.currency)
-    if (formatted.status === 'formatted') return `${formatted.text} (${item.currency})`
-  }
-  return `${new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 20 }).format(value)} (${item.currency || 'devise non renseignée'})`
-}
 
 export function TripBudget({ trip, readActivities = listActivities }: { trip: Trip; readActivities?: typeof listActivities }) {
+  const [distributionMode, setDistributionMode] = useState<BudgetDistributionMode>('estimated')
   const [attempt, retry] = useState(0)
   const result = useLiveQuery(() => readActivities(trip.id).then(
     (activities) => ({ tripId: trip.id, activities, error: '' }),
@@ -69,7 +51,7 @@ export function TripBudget({ trip, readActivities = listActivities }: { trip: Tr
         <Summary title="Total payé" total={paid} currency={currency} />
         <Summary title="Reste à payer connu" total={budget.remaining.estimated} currency={currency} missing={budget.unknownRemaining.length} />
       </div>
-      <BudgetCategoryChart budget={budget} />
+      <BudgetCategoryChart budget={budget} mode={distributionMode} onModeChange={setDistributionMode} />
       <p className="budget-note"><CircleHelp size={19} aria-hidden="true" />Le reste connu est calculé par élément : estimation moins montant payé, sans descendre sous zéro. Une valeur absente reste inconnue ; elle ne vaut pas zéro.</p>
       {budget.overpaidCount > 0 && <p className="budget-meta">{budget.overpaidCount} paiement(s) dépassent leur estimation. Ces dépassements ne compensent pas les autres montants restant à payer.</p>}
       <section aria-labelledby="budget-origin-title"><h2 id="budget-origin-title">Origine des montants</h2><div className="budget-table-wrap" role="region" aria-label="Montants par origine" tabIndex={0}><table>
@@ -84,6 +66,7 @@ export function TripBudget({ trip, readActivities = listActivities }: { trip: Tr
       </table></div></section>
       {budget.remaining.estimated.excluded.length > 0 && <p className="budget-warning">Le reste connu exclut aussi {budget.remaining.estimated.excluded.length} élément(s) dont la devise ou la conversion est indisponible.</p>}
     </>}
+    <BudgetDayChart budget={budget} mode={distributionMode} onModeChange={setDistributionMode} />
     <p className="budget-meta">Les déplacements ne disposent actuellement que d’un coût estimé, sans montant payé. Une réservation confirmée ou annulée ne modifie pas les montants enregistrés et ne prouve pas un paiement.</p>
     {exclusions.length > 0 && <details className="budget-exclusions" open><summary>Montants non intégrés aux totaux ({exclusions.length})</summary><ul>
       {exclusions.map((excluded) => { const item = entries.get(excluded.id)!; return <li key={`${excluded.id}:${excluded.kind}`}><strong>{item.kind === 'activity' ? 'Activité' : 'Déplacement'} · {item.label}</strong>

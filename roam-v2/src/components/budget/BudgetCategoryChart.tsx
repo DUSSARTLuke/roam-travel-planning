@@ -1,4 +1,4 @@
-import { useId, useState } from 'react'
+import { useId } from 'react'
 import { budgetCategoryDistribution, type BudgetDistributionMode, type TripBudget } from '../../money/tripBudget'
 import { formatMoney } from '../../money/conversion'
 
@@ -7,8 +7,7 @@ function amountLabel(amount: number | null | undefined, currency: string | null)
   const value = currency ? formatMoney(amount, currency) : null
   return value?.status === 'formatted' ? value.text : 'Indisponible'
 }
-export function BudgetCategoryChart({ budget }: { budget: TripBudget }) {
-  const [mode, setMode] = useState<BudgetDistributionMode>('estimated')
+export function BudgetCategoryChart({ budget, mode, onModeChange }: { budget: TripBudget; mode: BudgetDistributionMode; onModeChange: (mode: BudgetDistributionMode) => void }) {
   const id = useId()
   const distribution = budgetCategoryDistribution(budget, mode)
   const { total, drawable, currency } = distribution
@@ -17,8 +16,8 @@ export function BudgetCategoryChart({ budget }: { budget: TripBudget }) {
   return <section className="budget-category-section" aria-labelledby={`${id}-heading`}>
     <div className="budget-category-heading"><h2 id={`${id}-heading`}>Répartition par catégorie</h2>
       <div className="budget-category-toggle" role="group" aria-label="Montants de la répartition">
-        <button type="button" className="secondary-button" aria-pressed={mode === 'estimated'} onClick={() => setMode('estimated')}>Montants estimés</button>
-        <button type="button" className="secondary-button" aria-pressed={mode === 'paid'} onClick={() => setMode('paid')}>Montants payés</button>
+        <button type="button" className="secondary-button" aria-pressed={mode === 'estimated'} onClick={() => onModeChange('estimated')}>Montants estimés</button>
+        <button type="button" className="secondary-button" aria-pressed={mode === 'paid'} onClick={() => onModeChange('paid')}>Montants payés</button>
       </div></div>
     <p id={`${id}-scope`} className="budget-meta">Les pourcentages portent uniquement sur les montants connus et convertibles en {currency ?? 'devise du voyage'}. Les valeurs affichées sont arrondies.</p>
     <div className="budget-category-chart" aria-live="polite">

@@ -1,3 +1,4 @@
+import { getTripDays, parseDate } from '../components/program/dates'
 import { activityBudgetCategory, budgetCategories, type BudgetCategory } from './budgetCategories'
 import type { TripActivity } from '../db/activityModel'
 import type { Trip } from '../db/database'
@@ -6,7 +7,7 @@ import { validateTransfer, type ManualTransfer } from '../db/transferModel'
 import { createTripRateResolver } from './automaticRates'
 import { calculateFinancialTotals, type FinancialItem, type FinancialTotals, type RateResolution, type RateResolver } from './conversion'
 
-export type BudgetEntry = FinancialItem & { kind: 'activity' | 'transfer'; category: BudgetCategory; label: string }
+export type BudgetEntry = FinancialItem & { kind: 'activity' | 'transfer'; category: BudgetCategory; label: string; date: string | null; dateIssue?: string }
 export type BudgetIssue = { label: string; reason: string }
 export type RemainingUnknown = { id: string; reason: 'missing-estimate' | 'missing-paid' | 'missing-both' | 'invalid-amount' }
 export type BudgetRate = Extract<RateResolution, { status: 'available' }> & { sourceCurrency: string; targetCurrency: string }
@@ -42,10 +43,11 @@ function totalsFor(items: readonly FinancialItem[], target: string, resolve: Rat
 // Pure snapshot calculation. No currency filling, writes, fetching or rounding.
 export function buildTripBudget(trip: Trip, activities: readonly TripActivity[]) {
   const issues: BudgetIssue[] = []
-  const local = unique(activities.filter((item) => item.tripId === trip.id), (a, b) => sameMoney(a, b) && a.category === b.category, issues)
+  const local = unique(activities.filter((item) => item.tripId === trip.id), (a, b) => sameMoney(a, b) && a.category === b.category && a.date === b.date, issues)
   const byId = new Map(local.map((item) => [item.id, item]))
   const entries: BudgetEntry[] = local.map((item) => ({ id: `activity:${item.id}`, kind: 'activity', category: activityBudgetCategory(item.category), label: item.title,
-    currency: item.currency, estimatedCost: item.estimatedCost, paidAmount: item.paidAmount }))
+    currency: item.currency, estimatedCost: item.estimatedCost, paidAmount: item.paidAmount, date: typeof item.date === 'string' && parseDate(item.date) ? item.date : null,
+    ...(item.date !== null && !(typeof item.date === 'string' && parseDate(item.date)) ? { dateIssue: 'Date absente ou invalide' } : {}) }))
   const transfers = unique(trip.manualTransfers ?? [], (a: ManualTransfer, b: ManualTransfer) => sameMoney(a, b) && a.fromActivityId === b.fromActivityId && a.toActivityId === b.toActivityId, issues)
   for (const raw of transfers) {
     try {
@@ -55,7 +57,9 @@ export function buildTripBudget(trip: Trip, activities: readonly TripActivity[])
       // Date/order/GPS changes do not erase an existing expense. The map's
       // display eligibility is intentionally unrelated to financial inclusion.
       entries.push({ id: `transfer:${item.id}`, kind: 'transfer', category: 'transport', label: `${from.title} → ${to.title}`,
-        estimatedCost: item.estimatedCost, currency: item.currency })
+        estimatedCost: item.estimatedCost, currency: item.currency,
+        date: typeof from.date === 'string' && from.date === to.date && parseDate(from.date) ? from.date : null,
+        ...(typeof from.date === 'string' && from.date === to.date && parseDate(from.date) ? {} : { dateIssue: 'Les activités du déplacement n’ont pas de journée commune valide.' }) })
     } catch (error) { issues.push({ label: `Déplacement ${raw.id}`, reason: error instanceof Error ? error.message : 'Données du déplacement invalides.' }) }
   }
   const resolver = createTripRateResolver(trip), rateCache = new Map<string, RateResolution>(), usedRates: BudgetRate[] = []
@@ -82,8 +86,18 @@ export function buildTripBudget(trip: Trip, activities: readonly TripActivity[])
     }
   }
   const remaining = totalsFor(remainingEntries, target, resolve)
+  const dates = getTripDays(trip.startDate, trip.endDate), inTrip = new Set(dates)
+  const buckets = new Map<string, BudgetEntry[]>(), undated: BudgetEntry[] = [], outside: BudgetEntry[] = []
+  for (const item of entries) {
+    if (item.date === null) undated.push(item)
+    else if (!inTrip.has(item.date)) outside.push(item)
+    else { const bucket = buckets.get(item.date) ?? []; bucket.push(item); buckets.set(item.date, bucket) }
+  }
+  const group = (items: BudgetEntry[]) => ({ entries: items, totals: totalsFor(items, target, resolve) })
+  const dailyTotals = dates.map((date) => ({ date, ...group(buckets.get(date) ?? []) }))
+  const entryTotals = new Map(entries.map((item) => [item.id, totalsFor([item], target, resolve)]))
   return {
-    entries, issues, totals, remaining, unknownRemaining, overpaidCount, usedRates,
+    entries, issues, totals, remaining, dailyTotals, entryTotals, undated: group(undated), outside: group(outside), unknownRemaining, overpaidCount, usedRates,
     hasAmounts: entries.some((item) => item.estimatedCost !== undefined || item.paidAmount !== undefined),
     categoryTotals: budgetCategories.map((category) => ({ ...category, totals: totalsFor(entries.filter((item) => item.category === category.id), target, resolve) })),
     activityTotals: totalsFor(entries.filter((item) => item.kind === 'activity'), target, resolve),
@@ -116,4 +130,13 @@ export function budgetCategoryDistribution(budget: TripBudget, mode: BudgetDistr
     return segment
   })
   return { mode, total, rows, segments, drawable, currency: budget.totals.status === 'calculated' ? budget.totals.currency : null }
+}
+
+// Select a precomputed money stream. No conversion or date inference in the UI.
+export function budgetDayDistribution(budget: TripBudget, mode: BudgetDistributionMode) {
+  const rows = budget.dailyTotals.map((day) => ({ ...day, value: day.totals.status === 'calculated' ? day.totals[mode] : null }))
+  const maximum = rows.reduce((max, day) => day.value?.amount !== null && day.value?.amount !== undefined && day.value.status !== 'invalid' ? Math.max(max, day.value.amount) : max, 0)
+  return { mode, maximum, currency: budget.totals.status === 'calculated' ? budget.totals.currency : null,
+    rows: rows.map((day) => ({ ...day, highest: maximum > 0 && day.value?.amount === maximum,
+      height: maximum > 0 && day.value?.amount !== null && day.value?.amount !== undefined && day.value.status !== 'invalid' ? day.value.amount / maximum * 100 : 0 })) }
 }

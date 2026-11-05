@@ -1,3 +1,4 @@
+import { testBudgetDays } from './budgetDays.browser'
 import { testBudgetCategories } from './budgetCategories.browser'
 import { testTripBudget } from './tripBudget.browser'
 import { testTripMapMobile } from './tripMapMobile.browser'
@@ -191,6 +192,7 @@ button.addEventListener('click', async () => {
   results.textContent = ''
   try {
     await testActivitySave((message) => { results.textContent += `✓ ${message}\n` })
+    await testBudgetDays((message) => { results.textContent += `✓ ${message}\n` })
     await testBudgetCategories((message) => { results.textContent += `✓ ${message}\n` })
     await testTripBudget((message) => { results.textContent += `✓ ${message}\n` })
     await testTripMapMobile((message) => { results.textContent += `✓ ${message}\n` })
