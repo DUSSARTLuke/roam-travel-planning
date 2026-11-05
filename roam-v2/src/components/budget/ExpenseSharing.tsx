@@ -8,15 +8,15 @@ import './expense-sharing.css'
 
 type Repository = ReturnType<typeof createExpenseSharingRepository>
 type Source = ReturnType<typeof sharingSources>[number]
-export function SharingDialog({ title, onClose, dirty = false, busy, children }: { title: string; onClose: () => void; dirty?: boolean; busy: boolean; children: (close: () => void) => ReactNode }) {
+export function SharingDialog({ title, onClose, dirty = false, busy, children, reloadReason = 'Un formulaire budgétaire est en cours.', fallbackFocusRef, returnFocusRef }: { title: string; onClose: () => void; dirty?: boolean; busy: boolean; children: (close: () => void) => ReactNode; reloadReason?: string; fallbackFocusRef?: { current: HTMLElement | null }; returnFocusRef?: { current: HTMLElement | null } }) {
   const ref = useRef<HTMLDialogElement>(null), backdrop = useRef(false)
   const [discard, setDiscard] = useState(false)
-  useReloadBlocker(dirty || busy, 'Un formulaire budgétaire est en cours.')
+  useReloadBlocker(dirty || busy, reloadReason)
   useEffect(() => {
-    const dialog = ref.current!, previous = document.activeElement, overflow = document.body.style.overflow
+    const dialog = ref.current!, previous = returnFocusRef?.current ?? document.activeElement, overflow = document.body.style.overflow, fallback = fallbackFocusRef?.current
     document.body.style.overflow = 'hidden'; dialog.showModal()
-    return () => { dialog.close(); document.body.style.overflow = overflow; if (previous instanceof HTMLElement && previous.isConnected) previous.focus({ preventScroll: true }) }
-  }, [])
+    return () => { dialog.close(); document.body.style.overflow = overflow; if (previous instanceof HTMLElement && previous.isConnected) previous.focus({ preventScroll: true }); else fallback?.focus({ preventScroll: true }) }
+  }, [fallbackFocusRef, returnFocusRef])
   function close() { if (!busy) { if (dirty) setDiscard(true); else onClose() } }
   return <dialog ref={ref} className="activity-panel expense-sharing-dialog" aria-labelledby="sharing-dialog-title" onCancel={(event) => { event.preventDefault(); close() }}
     onPointerDown={(event) => { const box = event.currentTarget.getBoundingClientRect(); backdrop.current = event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom }}

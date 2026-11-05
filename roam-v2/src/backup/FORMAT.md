@@ -241,3 +241,20 @@ acceptées ; export et restauration valident tout champ présent. Aucun index,
 nouvelle table ou changement de version : Dexie V4, ZIP format 1 inchangés.
 Le prévisionnel n'est pas une dépense et n'entre dans aucun total d'activité.
 La duplication copie le montant/devise sans copier les dépenses.
+
+### Préparatifs facultatifs (2.9b)
+
+`Trip.preparationTasks?: PreparationTask[]` contient les tâches propres au voyage.
+Chaque tâche possède `id`, `title`, `category` (documents/luggage/transport/
+reservations/other), `priority` (high/normal/low), `completed` booléen, `createdAt`
+et `updatedAt` ISO, et éventuellement `dueDate` (date civile YYYY-MM-DD), `notes`
+et `templateId` identifiant d'un modèle prédéfini. Limites : 500 tâches par voyage,
+200 caractères par titre, 5 000 par note. Identifiants et modèles uniques dans une
+même liste ; dates, catégories, priorités, types et normalisation vérifiés à
+l'export comme à la restauration. Une archive invalide est refusée avant écriture.
+Les anciennes archives sans champ sont acceptées sans ajout automatique.
+Aucune table/index/migration : Dexie V4 et ZIP format 1 conservés. Une sauvegarde
+préserve les identifiants, coches, échéances, notes et dates de modification.
+La duplication d'un voyage crée de nouveaux IDs de tâches, remet les coches à
+false, conserve les échéances (aucun décalage inventé), titres, catégories,
+priorités et notes, avec de nouvelles dates de création/modification.

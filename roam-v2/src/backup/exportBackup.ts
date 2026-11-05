@@ -1,3 +1,4 @@
+import { validatePreparationTasks } from '../preparation/tasks'
 import { validatePlannedBudget } from '../money/budgetTracking'
 import { validateTripSharing } from '../money/expenseSharing'
 import { sha256 } from './sha256'
@@ -47,7 +48,7 @@ export async function buildExportArchive(snapshot: ExportSnapshot, onProgress: (
     throw new Error('Des données n’ont plus de parent. Export interrompu pour éviter une sauvegarde incomplète.')
   }
   const transferActivities = new Map(activities.map((activity) => [activity.id, activity]))
-  for (const trip of trips) { validateTripTransfers(trip.manualTransfers, trip.id, transferActivities); validateTripSharing(trip, transferActivities); validatePlannedBudget(trip.plannedBudget) }
+  for (const trip of trips) { validateTripTransfers(trip.manualTransfers, trip.id, transferActivities); validateTripSharing(trip, transferActivities); validatePlannedBudget(trip.plannedBudget); validatePreparationTasks(trip.preparationTasks) }
   const blobs = new Map<string, Blob>()
   for (const payload of payloads) {
     if (!payload || !(payload.blob instanceof Blob) || blobs.has(payload.id)) throw new Error('Un fichier est manquant ou invalide. Export interrompu.')

@@ -1,3 +1,4 @@
+import { PreparationChecklist } from '../preparation/PreparationChecklist'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { Trip } from '../../db/database'
@@ -51,6 +52,7 @@ export function TripOverview({ trip, navigate, readActivities = listActivities, 
       {progress.status !== 'invalid' && <p>{progress.days} jour{progress.days > 1 ? 's' : ''} de voyage, dates incluses.</p>}
       <p className="budget-meta">Repères basés sur la date et l’heure locales de cet appareil ; aucun fuseau de destination n’est enregistré.</p>
     </section>
+    <PreparationChecklist key={trip.id} trip={trip} today={clock.date} />
     {!ready ? <section className="overview-card" aria-live="polite">{result?.id === trip.id && result.error ? <><p role="alert">{result.error}</p><button className="secondary-button" type="button" onClick={() => retry((value) => value + 1)}>Réessayer les informations</button></> : <p role="status">Chargement du voyage…</p>}</section> : <>
       <div className="overview-grid"><section className="overview-card" aria-labelledby="overview-next"><h2 id="overview-next">Prochaine activité à heure précise</h2>
         {overview.next ? <><h3>{overview.next.title}</h3><p><time dateTime={`${overview.next.date}T${overview.next.startTime}`}>{completeDate(overview.next.date!)} · {overview.next.startTime}{overview.next.endTime ? `–${overview.next.endTime}` : ''}</time></p>

@@ -1,3 +1,4 @@
+import { copyPreparationTasks } from './db/preparation'
 import { TripOverview } from './components/dashboard/TripOverview'
 import { copyPlannedBudget, initialBudgetView, type BudgetViewState } from './money/budgetTracking'
 import { TripBudget } from './components/budget/TripBudget'
@@ -299,6 +300,7 @@ async function duplicateTrip(trip: Trip) {
       id: createId(),
       destination: `${trip.destination} (copie)`,
       ...copyPlannedBudget(trip),
+      ...copyPreparationTasks(trip.preparationTasks),
       ...(trip.participants ? { participants: trip.participants.map((participant) => ({ ...participant, id: createId() })) } : {}),
       referenceCurrency: tripReferenceCurrency(trip),
       ...(trip.manualExchangeRates !== undefined ? { manualExchangeRates: validateManualRates(trip.manualExchangeRates) } : {}),

@@ -1,0 +1,23 @@
+.preparation-checklist { min-width: 0; margin: 24px 0; padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); overflow-wrap: anywhere; }
+.preparation-checklist h2 { margin-top: 0; }
+.preparation-checklist progress { display: block; width: 100%; height: 14px; accent-color: var(--accent); }
+.preparation-checklist summary { cursor: pointer; min-height: 44px; padding: 12px 0; }
+.preparation-checklist button { min-height: 44px; max-width: 100%; white-space: normal; }
+.preparation-checklist :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.preparation-toolbar, .preparation-actions, .preparation-task-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.preparation-toolbar { justify-content: space-between; padding: 14px 0; }
+.preparation-toolbar label { display: grid; gap: 7px; min-width: 0; max-width: 100%; }
+.preparation-toolbar select { min-width: 0; max-width: 100%; min-height: 44px; font: inherit; font-size: 16px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 9px; padding: 10px; }
+.preparation-category ul { list-style: none; margin: 0; padding: 0; }
+.preparation-task { display: grid; min-width: 0; gap: 12px; padding: 16px 0; border-bottom: 1px solid var(--border); }
+.preparation-check { display: flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
+.preparation-check input { flex: 0 0 24px; width: 24px; height: 24px; accent-color: var(--accent); }
+.preparation-task-meta { font-size: 14px; color: var(--muted); }
+.preparation-task.is-overdue .preparation-task-meta > span:first-child { color: var(--accent); font-weight: 700; }
+.preparation-task.is-done .preparation-check strong { text-decoration: line-through; }
+.preparation-notes { margin: 0; white-space: pre-wrap; }
+.preparation-templates { margin-top: 20px; border-top: 1px solid var(--border); }
+.preparation-templates fieldset { min-width: 0; border: 1px solid var(--border); padding: 12px; margin-bottom: 16px; }
+.preparation-fields { display: grid; gap: 16px; min-width: 0; }
+.preparation-fields textarea { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; resize: vertical; background: var(--bg); color: var(--text); padding: 10px; font: inherit; font-size: 16px; border: 1px solid var(--border); border-radius: 9px; }
+@media (max-width: 640px) { .preparation-checklist { padding: 14px; } .preparation-toolbar { align-items: stretch; flex-direction: column; } .preparation-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } }

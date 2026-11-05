@@ -1,3 +1,4 @@
+import type { PreparationTask } from '../preparation/tasks'
 import type { PlannedBudget } from '../money/budgetTracking'
 import type { TripParticipant, ExpenseShare } from '../money/expenseSharing'
 import type { ManualTransfer } from './transferModel'
@@ -16,6 +17,7 @@ export type Trip = {
   endDate: string
   travelers: number
   image: string
+  preparationTasks?: PreparationTask[]
   plannedBudget?: PlannedBudget
   participants?: TripParticipant[]
   expenseShares?: ExpenseShare[]
