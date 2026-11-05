@@ -27,3 +27,8 @@
 .trip-map-places li.is-selected { border-color: var(--accent); }
 .trip-map-place-select { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; width: 100%; overflow-wrap: anywhere; }
 .trip-map-place-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.trip-map-filters { display: flex; flex-wrap: wrap; gap: 12px; margin: 20px 0; }
+.trip-map-filters label { display: grid; gap: 6px; min-width: 0; max-width: 100%; color: var(--muted); }
+.trip-map-filters select { min-height: 44px; max-width: 100%; width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; color: var(--text); background: var(--surface); font: inherit; }
+.trip-map-filters select:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+@media (max-width: 640px) { .trip-map-filters label { width: 100%; } }

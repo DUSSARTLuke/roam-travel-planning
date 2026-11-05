@@ -1,3 +1,4 @@
+import { testTripMapFiltering } from './tripMapFiltering.browser'
 import { testBackupHttp } from './backupHttp.browser'
 import { testActivitySave } from './activitySave.browser'
 import { testTripMap } from './tripMap.browser'
@@ -186,6 +187,7 @@ button.addEventListener('click', async () => {
   results.textContent = ''
   try {
     await testActivitySave((message) => { results.textContent += `✓ ${message}\n` })
+    await testTripMapFiltering((message) => { results.textContent += `✓ ${message}\n` })
     await testTripMap((message) => { results.textContent += `✓ ${message}\n` })
     await testTransferFormActivities((message) => { results.textContent += `✓ ${message}\n` })
     await testTransferAvailability((message) => { results.textContent += `✓ ${message}\n` })

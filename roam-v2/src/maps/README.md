@@ -174,3 +174,50 @@ Vérifier aussi avec MapLibre réel sur desktop et téléphone (375 px) : touche
 Entrée/Espace sur les marqueurs, choix des activités superposées, style sélectionné,
 zoom/déplacement puis fiche → Retour, fiche → Modifier → Enregistrer, hors connexion
 via la liste, changement de voyage et modification/suppression depuis un autre onglet.
+
+### 2.7c — Filtrer par journée
+
+« Tout le voyage » inclut les idées sans date et les activités hors séjour.
+« Journée » propose les dates du séjour, bornes incluses, avec les utilitaires UTC
+existants (aucune conversion de fuseau). Une seule requête `useLiveQuery` par voyage
+alimente le filtrage en mémoire, les marqueurs, les compteurs et la liste.
+Les journées vides et celles sans GPS ont des messages distincts ; les activités
+sans GPS restent dans la liste. Les aperçus/fiches sortant du filtre sont fermés.
+
+Les changements volontaires du mode ou de la date déclenchent un cadrage sur les
+points filtrés. Les actualisations IndexedDB, sélections et retours depuis une fiche
+ne déclenchent pas de cadrage. Lorsqu’il n’existe aucun point affichable, la carte
+est démontée ; le retour à un filtre contenant des points produit un cadrage initial.
+
+`App` mémorise le mode de filtre par voyage pendant la session et réutilise la date
+du Programme au retour dans Carte. Les actions du filtre transmettent la date au
+Programme sans changer sa présentation Jour/Multi-jours/Calendrier/Idées. Les mises
+à jour ne transitent pas par des effets réciproques : aucune boucle de synchronisation.
+Les fiches restent superposées à la carte montée et conservent filtre et caméra.
+L’état de navigation n’est pas écrit dans IndexedDB et revient au défaut au rechargement.
+
+`tests/tripMapFiltering.browser.tsx`, intégré à `/tests/activities.html`, vérifie :
+filtre global/journée, dates décembre–janvier, compteurs/listes/marqueurs cohérents,
+jour vide ou sans GPS, exclusion des idées/hors séjour en vue journée, isolation,
+invalidation de sélection après déplacement d’activité, absence de requête redondante,
+recentrage volontaire, caméra inchangée après modification et aller-retour fiche,
+synchronisation entre onglets sans boucle, contrôles labellisés/tactiles et 375 px.
+Les composants Programme et Carte sont utilisés dans un parent reproduisant le contrat
+navigation d’App, avec une base synthétique isolée et un moteur de carte simulé.
+
+Validation Windows PowerShell depuis `roam-v2/` :
+
+```powershell
+npm.cmd run lint
+npm.cmd run build
+npm.cmd run test:pwa
+npm.cmd run dev
+```
+
+Ouvrir `/tests/activities.html`, lancer la suite. Avec MapLibre réel, vérifier aussi :
+- Choisir une journée dans Programme puis ouvrir Carte, passer en Journée.
+- Choisir une autre date dans Carte puis revenir au Programme (y compris calendrier).
+- Déplacer/zoomer la carte, ouvrir une fiche, la fermer : même filtre et caméra.
+- Modifier la date d’une activité depuis un autre onglet : disparition du filtre
+  et fermeture de sa sélection, sans recentrer les marqueurs restants.
+- Journées vides/sans GPS, voyage court, petits écrans, clavier et hors connexion.
