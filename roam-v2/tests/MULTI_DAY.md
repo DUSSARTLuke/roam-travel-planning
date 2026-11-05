@@ -65,8 +65,8 @@ formulaires, isolation, ZIP et PWA.
    mises à jour immédiates, alertes et maintien en Multi-jours. Ajouter une activité
    depuis une colonne vide : date préremplie de cette colonne.
 5. Modifier/supprimer un déplacement et déplacer une activité liée vers un autre
-   jour : correction signalée, références et durée/coût inchangés. Les créneaux
-   libres continuent à exclure les déplacements du calcul.
+   jour : correction signalée, références et durée/coût inchangés. Depuis 2.6e, les durées des déplacements cohérents sont prises en compte selon
+   les règles documentées dans TRANSFER_AVAILABILITY.md.
 6. Vérifier Idées et Autres dates, les trajets à corriger et le calendrier.
    Modifier les dates du séjour : sélection valide, activités hors séjour conservées.
 7. Hors connexion après chargement de la PWA : navigation et organisation locales

@@ -1,22 +1,23 @@
+import type { ManualTransfer } from '../../db/transferModel'
+import { buildTransferDayPlanning } from './transferAvailability'
+import { PlanningGap } from './PlanningGap'
 import { useMemo, type ReactNode } from 'react'
 import { TriangleAlert } from 'lucide-react'
 import type { TripActivity } from '../../db/activityModel'
 import { ActivityCard, ActivityList } from './ActivityList'
-import { buildDayPlanning, planningDuration, planningTime } from './dayPlanning'
+import { planningDuration, planningTime } from './dayPlanning'
 
-type Props = { afterActivity?: (activity: TripActivity) => ReactNode; activities: TripActivity[]; onAdd?: () => void; onEdit: (activity: TripActivity) => void; onOpen: (activity: TripActivity, trigger: HTMLButtonElement) => void }
-export function DayTimeline({ activities, onAdd, onEdit, onOpen, afterActivity }: Props) {
-  const planning = useMemo(() => buildDayPlanning(activities), [activities])
+const noTransfers: readonly ManualTransfer[] = []
+type Props = { transfers?: readonly ManualTransfer[]; afterActivity?: (activity: TripActivity) => ReactNode; activities: TripActivity[]; onAdd?: () => void; onEdit: (activity: TripActivity) => void; onOpen: (activity: TripActivity, trigger: HTMLButtonElement) => void }
+export function DayTimeline({ activities, onAdd, onEdit, onOpen, afterActivity, transfers = noTransfers }: Props) {
+  const { planning, gaps } = useMemo(() => buildTransferDayPlanning(activities, transfers), [activities, transfers])
   if (!activities.length) return <ActivityList activities={activities} onAdd={onAdd} onEdit={onEdit} onOpen={onOpen} />
   return <div className="day-planning">
     {planning.conflictCount > 0 && <p className="day-planning-warning" role="status">{planning.conflictCount} activités ont des horaires en conflit. Vérifie leurs heures sans déplacement automatique.</p>}
     {planning.hasUnknownEnd && <p className="activity-meta">Une fin non renseignée limite le calcul des créneaux libres et des chevauchements.</p>}
     {planning.entries.length ? <ol className="day-timeline" aria-label="Planning chronologique de la journée">
       {planning.entries.map((entry) => entry.kind === 'free'
-        ? <li className="day-timeline-free" key={`free-${entry.start}-${entry.end}`}>
-          <span><time dateTime={planningTime(entry.start)}>{planningTime(entry.start)}</time> – <time dateTime={planningTime(entry.end)}>{planningTime(entry.end)}</time></span>
-          <span>Créneau libre entre activités horaires · {planningDuration(entry.durationMinutes)}</span>
-        </li>
+        ? <PlanningGap key={`free-${entry.start}-${entry.end}`} entry={entry} timing={gaps.get(entry)!} />
         : <li className="day-timeline-item" key={`activity-${entry.activity.id}`}>
           <div className="day-timeline-time">
             <time dateTime={planningTime(entry.start)}>{planningTime(entry.start)}</time>

@@ -1,3 +1,5 @@
+import { testTransferFormActivities } from './transferFormActivities.browser'
+import { testTransferAvailability } from './transferAvailability.browser'
 import { testMultiDay } from './multiDay.browser'
 import { testTransfers } from './transfers.browser'
 import { testActivityOrganization } from './activityOrganization.browser'
@@ -180,6 +182,8 @@ button.addEventListener('click', async () => {
   button.disabled = true
   results.textContent = ''
   try {
+    await testTransferFormActivities((message) => { results.textContent += `✓ ${message}\n` })
+    await testTransferAvailability((message) => { results.textContent += `✓ ${message}\n` })
     await testMultiDay((message) => { results.textContent += `✓ ${message}\n` })
     await testTransfers((message) => { results.textContent += `✓ ${message}\n` })
     await testActivityOrganization((message) => { results.textContent += `✓ ${message}\n` })

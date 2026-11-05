@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type RefObject } from 'react'
+import { orderedTransferActivities } from './transferFormActivities'
+import { useEffect, useMemo, useRef, useState, type RefObject } from 'react'
 import type { Trip } from '../../db/database'
 import type { TripActivity } from '../../db/activityModel'
 import { tripReferenceCurrency } from '../../db/currency'
@@ -40,8 +41,9 @@ export function TransferFormPanel({ trip, activities, transfer, initialDate, tri
     window.addEventListener('beforeunload', prevent)
     return () => window.removeEventListener('beforeunload', prevent)
   }, [dirty])
-  const days = [...new Set([initialDate, ...activities.flatMap((item) => item.date === null ? [] : [item.date])])].sort()
-  const candidates = activities.filter((item) => item.date === form.date)
+  const orderedActivities = useMemo(() => orderedTransferActivities(activities, trip.id), [activities, trip.id])
+  const days = [...new Set([initialDate, ...orderedActivities.map((item) => item.date!)])].sort()
+  const candidates = orderedActivities.filter((item) => item.date === form.date)
   function close() { if (!lock.current) { if (confirmation) setConfirmation(null); else if (dirty) setConfirmation('discard'); else onClose() } }
   function resume() {
     setConfirmation(null)
@@ -58,11 +60,16 @@ export function TransferFormPanel({ trip, activities, transfer, initialDate, tri
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Impossible d’enregistrer le déplacement.'); setConfirmation(null) }
     finally { lock.current = false; setBusy(false) }
   }
-  const endpoints = (field: 'from' | 'to', label: string) => <label>{label}<select required value={form[field]} onChange={(event) => setForm({ ...form, [field]: event.target.value })}>
-    <option value="">Choisir une activité</option>
-    {form[field] && !candidates.some((item) => item.id === form[field]) && <option value={form[field]}>Activité hors de cette journée — à rechoisir</option>}
-    {candidates.map((item) => <option key={item.id} value={item.id}>{item.title}{item.scheduleType === 'exact' ? ` · ${item.startTime}` : ''}</option>)}
-  </select></label>
+  const endpoints = (field: 'from' | 'to', label: string) => {
+    const opposite = form[field === 'from' ? 'to' : 'from']
+    const options = candidates.filter((item) => item.id !== opposite)
+    const value = form[field] === opposite ? '' : form[field]
+    return <label>{label}<select required value={value} onChange={(event) => setForm({ ...form, [field]: event.target.value })}>
+      <option value="">{options.length ? 'Choisir une activité' : 'Aucune autre activité disponible pour cette journée'}</option>
+      {value && !candidates.some((item) => item.id === value) && <option value={value}>Activité hors de cette journée — à rechoisir</option>}
+      {options.map((item) => <option key={item.id} value={item.id}>{item.title}{item.scheduleType === 'exact' && item.startTime ? ` · ${item.startTime}` : ''}</option>)}
+    </select></label>
+  }
   return <dialog ref={dialogRef} className="activity-panel transfer-panel" aria-labelledby="transfer-form-title" onCancel={(event) => { event.preventDefault(); close() }}
     onClick={(event) => { if (event.target !== event.currentTarget) return; const bounds = event.currentTarget.getBoundingClientRect(); if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) close() }}>
     <header className="activity-panel-header"><h2 id="transfer-form-title">{transfer ? 'Modifier le déplacement' : 'Ajouter un déplacement'}</h2><button type="button" className="secondary-button" disabled={busy} onClick={close}>Fermer</button></header>

@@ -877,3 +877,11 @@
 
 .program-view-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 20px; }
 .program-view-actions .program-add, .program-view-actions .program-add-transfer { margin: 0; min-height: 44px; }
+
+.day-timeline-free.gap-available { border-left-color: #34d399; }
+.day-timeline-free.gap-occupied { border-left-style: solid; }
+.day-timeline-free.gap-conflict { border-left-style: solid; border-left-color: var(--accent); }
+.transfer-time-status { display: block; line-height: 1.5; font-size: 13px; overflow-wrap: anywhere; }
+.transfer-time-available { color: var(--text); }
+.transfer-time-conflict { color: var(--accent); }
+.transfer-time-occupied, .transfer-time-unknown { color: var(--muted); }

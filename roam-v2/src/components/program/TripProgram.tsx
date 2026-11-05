@@ -23,14 +23,14 @@ import { formatDate, getTripDays, getTripMonths } from './dates'
 import { TripCalendar } from './TripCalendar'
 import './program.css'
 
-function DayDetails({ date, activities, onAdd, onEdit, onOpen, afterActivity }: {
-  afterActivity?: (activity: TripActivity) => ReactNode; date: string; activities: TripActivity[]; onAdd?: () => void; onEdit: (activity: TripActivity) => void
+function DayDetails({ date, activities, onAdd, onEdit, onOpen, afterActivity, transfers }: {
+  transfers: readonly ManualTransfer[]; afterActivity?: (activity: TripActivity) => ReactNode; date: string; activities: TripActivity[]; onAdd?: () => void; onEdit: (activity: TripActivity) => void
   onOpen: (activity: TripActivity, trigger: HTMLButtonElement) => void
 }) {
   return (
     <section className="program-day-detail" aria-labelledby="program-day-title">
       <h2 id="program-day-title">{formatDate(date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</h2>
-      <DayTimeline activities={activities} onAdd={onAdd} onEdit={onEdit} onOpen={onOpen} afterActivity={afterActivity} />
+      <DayTimeline transfers={transfers} activities={activities} onAdd={onAdd} onEdit={onEdit} onOpen={onOpen} afterActivity={afterActivity} />
     </section>
   )
 }
@@ -102,7 +102,7 @@ export function TripProgram({ trip, initialNavigation, onNavigationChange, readA
   function editTransfer(transfer: ManualTransfer, trigger: HTMLButtonElement) { if (ready) setTransferEditor({ transfer, trigger, date: activities.find((item) => item.id === transfer.fromActivityId)?.date ?? selectedDate }) }
   function afterActivity(activity: TripActivity) {
     return transfers.filter((item) => item.fromActivityId === activity.id && transferPlacements.get(item.id)?.day !== null)
-      .map((item) => <TransferCard key={item.id} transfer={item} activities={activities} onEdit={editTransfer} disabled={!ready} />)
+      .map((item) => <TransferCard key={item.id} transfer={item} transfers={transfers} activities={activities} onEdit={editTransfer} disabled={!ready} />)
   }
   const dayActivities = activities.filter((activity) => activity.date === selectedDate)
   const ideas = activities.filter((activity) => activity.date === null)
@@ -164,7 +164,6 @@ export function TripProgram({ trip, initialNavigation, onNavigationChange, readA
         <h1>Programme</h1>
         <p className="subtitle">{days.length} journée{days.length > 1 ? 's' : ''} pour profiter du voyage.</p>
       </header>
-      {transfers.length > 0 && <p className="activity-meta">Les déplacements sont manuels et ne sont pas déduits des créneaux libres entre horaires.</p>}
       {result === undefined && <p role="status">Chargement des activités…</p>}
       {result?.error && <div role="alert"><p>{result.error}</p><button type="button" className="secondary-button" onClick={() => setReload((value) => value + 1)}>Réessayer</button></div>}
       {days.length === 0 ? <p className="empty-state" role="status">Les dates de ce voyage ne permettent pas d’afficher le programme. Vérifie les dates de départ et de retour.</p> : <>
@@ -182,8 +181,8 @@ export function TripProgram({ trip, initialNavigation, onNavigationChange, readA
         </div>}
         {mode === 'day' ? <>
           <DayStrip days={days} selectedDate={selectedDate} onSelect={selectDay} />
-          {result && !result.error && <DayDetails date={selectedDate} activities={dayActivities} afterActivity={afterActivity} onAdd={ready ? addActivity : undefined} onEdit={editActivity} onOpen={openActivity} />}
-        </> : mode === 'multi' ? (result && !result.error && <MultiDayProgram days={days} selectedDate={selectedDate} activities={activities} onSelect={selectDay}
+          {result && !result.error && <DayDetails transfers={transfers} date={selectedDate} activities={dayActivities} afterActivity={afterActivity} onAdd={ready ? addActivity : undefined} onEdit={editActivity} onOpen={openActivity} />}
+        </> : mode === 'multi' ? (result && !result.error && <MultiDayProgram transfers={transfers} days={days} selectedDate={selectedDate} activities={activities} onSelect={selectDay}
           onAdd={ready ? addForDay : undefined} onAddTransfer={ready ? (date, trigger) => setTransferEditor({ transfer: null, trigger, date }) : undefined} onEdit={editActivity} onOpen={openActivity} afterActivity={afterActivity} />) : mode === 'ideas' ? <section className="program-day-detail" aria-labelledby="program-ideas-title">
           <h2 id="program-ideas-title">Idées à planifier</h2>
           {result && !result.error && <ActivityList activities={ideas} ideas onAdd={ready ? addActivity : undefined} onEdit={editActivity} onOpen={openActivity} />}
@@ -197,7 +196,7 @@ export function TripProgram({ trip, initialNavigation, onNavigationChange, readA
       </section>}
       {result && !result.error && invalidTransfers.length > 0 && <section className="program-day-detail" aria-labelledby="transfer-corrections">
         <h2 id="transfer-corrections">Déplacements à vérifier ({invalidTransfers.length})</h2>
-        {invalidTransfers.map((item) => <TransferCard key={item.id} transfer={item} activities={activities} onEdit={editTransfer} disabled={!ready} />)}
+        {invalidTransfers.map((item) => <TransferCard key={item.id} transfer={item} transfers={transfers} activities={activities} onEdit={editTransfer} disabled={!ready} />)}
       </section>}
       {transferEditor && ready && <TransferFormPanel trip={trip} activities={activities} transfer={transferEditor.transfer} initialDate={transferEditor.date}
         trigger={transferEditor.trigger} fallbackFocusRef={programFocusRef} onClose={() => setTransferEditor(null)} />}

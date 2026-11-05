@@ -26,8 +26,8 @@
   est refusé. Les autres champs du voyage restent intacts.
 - Coût et durée facultatifs, zéro distinct d'une valeur absente. Devise proposée
   depuis le voyage, modifiable indépendamment. Virgule/point acceptés ; aucune
-  conversion, durée, distance ou route calculée. Les créneaux entre horaires ne
-  déduisent pas les déplacements : cette limite est indiquée dans le Programme.
+  conversion, durée, distance ou route calculée. Depuis 2.6e, les créneaux prennent en compte un trajet unique cohérent dont la
+  durée est connue ; les autres cas restent explicites (TRANSFER_AVAILABILITY.md).
 - Pas d'appel réseau. Les formulaires bloquent la mise à jour PWA pendant une
   saisie non enregistrée ou une écriture, et demandent confirmation à l'abandon.
 
@@ -71,3 +71,24 @@ cascade avec rollback. Les suites précédentes restent exécutées.
    intégralement ignoré ; une ancienne sauvegarde sans trajets reste acceptée.
 8. Vérifier archives/corbeille/restauration et duplication : aucune réactivation
    ni copie de lien vers les activités du voyage original.
+
+## 2.6e.1 — Options du formulaire
+
+Les journées sont triées par date locale ; les activités proposées réutilisent
+DayPlanning : début croissant pour les activités horaires, puis À organiser avec
+son ordre manuel stable et ses critères historiques. Les heures de début connues
+figurent dans les libellés. Les idées et activités d'autres voyages ne sont pas
+proposées. Le tri est mémorisé jusqu'à une modification de la liste d'activités.
+
+Chaque liste exclut immédiatement l'identifiant choisi dans l'autre. Changer
+un champ libère l'ancienne option sans réinitialiser l'autre sélection, les notes,
+la durée, le coût ou la devise. Une option explicite indique l'absence d'autre
+activité ; avec une seule activité, l'enregistrement reste désactivé. La validation
+métier continue à refuser une liaison d'une activité à elle-même.
+
+La suite activities.html inclut transferFormActivities.browser.tsx : tri par date
+et heure, égalités, ordre sans horaire/historique, libellés, exclusions réciproques,
+création/édition, valeurs et version conservées, actualisation de liste sans perte
+de saisie et cas à une seule activité. Les anciennes vérifications CRUD réelles
+restent exécutées. Manuellement, sur téléphone et au clavier, vérifier les listes
+natives Départ/Arrivée, le préremplissage en édition et le message sans alternative.
