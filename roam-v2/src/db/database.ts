@@ -1,3 +1,4 @@
+import type { TripParticipant, ExpenseShare } from '../money/expenseSharing'
 import type { ManualTransfer } from './transferModel'
 
 import Dexie, { type EntityTable } from 'dexie'
@@ -14,6 +15,8 @@ export type Trip = {
   endDate: string
   travelers: number
   image: string
+  participants?: TripParticipant[]
+  expenseShares?: ExpenseShare[]
   // Missing on legacy records: EUR logically, without rewriting stored data.
   referenceCurrency?: string
   manualTransfers?: ManualTransfer[]

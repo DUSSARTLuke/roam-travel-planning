@@ -8,7 +8,7 @@ export const transferModes = {
 export type TransferMode = keyof typeof transferModes
 export type TransferInput = {
   fromActivityId: string; toActivityId: string; mode: TransferMode
-  durationMinutes?: number; estimatedCost?: number; currency: string; notes?: string
+  durationMinutes?: number; paidAmount?: number; estimatedCost?: number; currency: string; notes?: string
 }
 export type ManualTransfer = TransferInput & { id: string; createdAt: string; updatedAt: string }
 function object(value: unknown): Record<string, unknown> {
@@ -23,15 +23,16 @@ export function validateTransferInput(value: unknown): TransferInput {
   identity(input.fromActivityId); identity(input.toActivityId)
   if (input.fromActivityId === input.toActivityId) throw new Error('Choisis deux activités différentes.')
   if (typeof input.mode !== 'string' || !Object.hasOwn(transferModes, input.mode)) throw new Error('Mode de déplacement invalide.')
-  for (const key of ['durationMinutes', 'estimatedCost'] as const) {
+  for (const key of ['durationMinutes', 'estimatedCost', 'paidAmount'] as const) {
     if (input[key] !== undefined && (typeof input[key] !== 'number' || !Number.isFinite(input[key]) || input[key] < 0)) {
-      throw new Error(key === 'durationMinutes' ? 'La durée doit être un nombre positif ou nul de minutes.' : 'Le coût doit être un montant positif ou nul.')
+      throw new Error(key === 'durationMinutes' ? 'La durée doit être un nombre positif ou nul de minutes.' : key === 'paidAmount' ? 'Le montant payé doit être positif ou nul et fini.' : 'Le coût doit être un montant positif ou nul.')
     }
   }
   if (input.notes !== undefined && typeof input.notes !== 'string') throw new Error('Notes de déplacement invalides.')
   return { fromActivityId: input.fromActivityId, toActivityId: input.toActivityId, mode: input.mode as TransferMode,
     currency: validateCurrency(input.currency),
     ...(input.durationMinutes !== undefined ? { durationMinutes: input.durationMinutes as number } : {}),
+    ...(input.paidAmount !== undefined ? { paidAmount: input.paidAmount as number } : {}),
     ...(input.estimatedCost !== undefined ? { estimatedCost: input.estimatedCost as number } : {}),
     ...(typeof input.notes === 'string' && input.notes.trim() ? { notes: input.notes.trim() } : {}) }
 }

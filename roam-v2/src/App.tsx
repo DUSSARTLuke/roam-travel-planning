@@ -295,6 +295,7 @@ async function duplicateTrip(trip: Trip) {
     await db.trips.add({
       id: createId(),
       destination: `${trip.destination} (copie)`,
+      ...(trip.participants ? { participants: trip.participants.map((participant) => ({ ...participant, id: createId() })) } : {}),
       referenceCurrency: tripReferenceCurrency(trip),
       ...(trip.manualExchangeRates !== undefined ? { manualExchangeRates: validateManualRates(trip.manualExchangeRates) } : {}),
       country: trip.country,

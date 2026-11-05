@@ -23,7 +23,7 @@ export function createTransferRepository(database: RoamDatabase = db) {
         if (!from || !to || from.tripId !== tripId || to.tripId !== tripId) throw new Error('Choisis deux activités existantes de ce voyage.')
         if (from.date === null || from.date !== to.date) throw new Error('Les activités doivent appartenir à la même journée datée.')
         const now = new Date().toISOString()
-        const transfer = { ...fields, id: existing?.id ?? createId(), createdAt: existing?.createdAt ?? now, updatedAt: now }
+        const transfer = { ...fields, ...(!Object.hasOwn(input, 'paidAmount') && existing?.paidAmount !== undefined ? { paidAmount: existing.paidAmount } : {}), id: existing?.id ?? createId(), createdAt: existing?.createdAt ?? now, updatedAt: now }
         await database.trips.update(tripId, { manualTransfers: existing ? transfers.map((item) => item.id === id ? transfer : item) : [...transfers, transfer] })
         return transfer
       })
@@ -33,7 +33,7 @@ export function createTransferRepository(database: RoamDatabase = db) {
         const trip = await parent(tripId)
         const existing = trip.manualTransfers?.find((item) => item.id === id)
         if (!existing || transferKey(existing) !== expected) throw new Error('Ce déplacement a changé ou a été supprimé. Actualise la fiche.')
-        await database.trips.update(tripId, { manualTransfers: trip.manualTransfers!.filter((item) => item.id !== id) })
+        await database.trips.update(tripId, { manualTransfers: trip.manualTransfers!.filter((item) => item.id !== id), ...(trip.expenseShares ? { expenseShares: trip.expenseShares.filter((item) => item.kind !== 'transfer' || item.expenseId !== id) } : {}) })
       })
     },
   }

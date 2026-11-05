@@ -208,3 +208,26 @@ Les anciennes sauvegardes sans trajets restent acceptées sans réécriture.
 Un voyage déjà présent est toujours ignoré intégralement, trajets compris.
 Les anciennes versions de Roam ne connaissent pas cette fonctionnalité : utiliser
 la version actuelle pour modifier les activités et maintenir leurs liens.
+
+### Partage des dépenses (2.8d, extension optionnelle du format 1)
+
+Les voyages peuvent contenir `participants: [{id, name}]` et
+`expenseShares: [{kind, expenseId, payerId, shares: [{participantId, weight}], amount,
+currency, updatedAt}]`. `kind` distingue `activity` et `transfer` même si leurs
+identifiants se ressemblent. `amount`/`currency` sont l’instantané du paiement confirmé
+lors de l’activation du partage, pas une estimation ni un paiement supplémentaire.
+Les transferts peuvent désormais avoir un `paidAmount` optionnel, conservé lors de
+leurs modifications, utilisé par le partage ; le périmètre de calcul 2.8a–c est inchangé.
+
+La validation export/import contrôle la structure, les identifiants uniques, noms
+non vides normalisés (80 caractères), les participants référencés du même voyage,
+les parts entières positives (maximum 1 000 000), le montant fini non négatif, la
+devise ISO normalisée et la date ISO. Les références activité/transfert doivent
+exister dans le voyage. Un instantané devenu obsolète par modification du paiement
+reste sauvegardable et restaurable : le moteur l’exclut des soldes jusqu’à confirmation,
+sans réécrire ses données. Les archives et la corbeille conservent ces informations.
+
+Les anciens voyages sans ces champs restent inchangés et sans partage activé.
+Aucune table, index ou migration supplémentaire : Dexie V4 et ZIP format 1 restent
+inchangés. Les fichiers JSON sauvegardent les champs optionnels et les identifiants
+originaux ; les imports atomiques et les règles de non-écrasement restent en place.

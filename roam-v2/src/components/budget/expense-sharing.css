@@ -1,0 +1,16 @@
+.expense-sharing { margin: 28px 0; padding: 18px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); min-width: 0; overflow-wrap: anywhere; }
+.sharing-participants, .sharing-expenses { list-style: none; padding: 0; }
+.sharing-participants li, .sharing-expenses li { display: grid; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.sharing-participants li > div, .sharing-expenses li > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.sharing-source-picker { display: grid; gap: 10px; margin: 20px 0; }
+.expense-sharing label, .expense-sharing-dialog label { display: grid; gap: 7px; min-width: 0; }
+.expense-sharing select, .expense-sharing-dialog input:not([type="checkbox"]), .expense-sharing-dialog select { width: 100%; max-width: 100%; min-width: 0; min-height: 44px; box-sizing: border-box; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 9px; padding: 10px; font: inherit; font-size: 16px; }
+.expense-sharing-dialog { overflow-y: auto; }
+.expense-sharing-dialog form, .sharing-confirm, .sharing-discard { padding: 20px; display: grid; gap: 16px; }
+.expense-sharing-dialog footer { display: flex; flex-wrap: wrap; gap: 10px; }
+.expense-sharing-dialog button { min-height: 44px; max-width: 100%; white-space: normal; }
+.expense-sharing-dialog fieldset { min-width: 0; padding: 12px; border: 1px solid var(--border); }
+.sharing-weight { display: grid; grid-template-columns: minmax(0, 1fr) minmax(80px, 1fr); gap: 12px; align-items: center; margin-top: 14px; }
+.sharing-weight > label:first-child { display: flex; align-items: center; flex-wrap: wrap; }
+.sharing-weight input[type="checkbox"] { width: 24px; height: 24px; }
+@media (max-width: 640px) { .expense-sharing { padding: 14px; } .sharing-weight { grid-template-columns: minmax(0, 1fr); } }

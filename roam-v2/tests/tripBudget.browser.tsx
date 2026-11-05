@@ -93,7 +93,7 @@ export async function testTripBudget(report: (message: string) => void) {
     const storedB = await activities.createActivity(trip.id, b)
     let storedTransfer = await transfers.saveTransfer(trip.id, { ...transfer, fromActivityId: storedA.id, toActivityId: storedB.id })
     await wait(() => amount('Total estimé').includes('130') && amount('Total payé').includes('45'))
-    assert(amount('Reste à payer connu').includes('65') && host.textContent?.includes('sans montant payé'), 'Reste ou limites du modèle transferts non affichés.')
+    assert(amount('Reste à payer connu').includes('65') && host.textContent?.includes('leurs paiements éventuels'), 'Reste ou limites du modèle transferts non affichés.')
     assert(host.scrollWidth <= host.clientWidth + 1, 'Budget déborde à 320 px.')
     storedA = await activities.updateActivity(trip.id, storedA.id, { ...storedA, paidAmount: 70 })
     await wait(() => amount('Total payé').includes('75') && amount('Reste à payer connu').includes('35'))

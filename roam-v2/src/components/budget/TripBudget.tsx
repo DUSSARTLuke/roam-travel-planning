@@ -1,3 +1,4 @@
+import { ExpenseSharing } from './ExpenseSharing'
 import { BudgetDayChart } from './BudgetDayChart'
 import { BudgetCategoryChart } from './BudgetCategoryChart'
 import { useMemo, useState } from 'react'
@@ -66,8 +67,9 @@ export function TripBudget({ trip, readActivities = listActivities }: { trip: Tr
       </table></div></section>
       {budget.remaining.estimated.excluded.length > 0 && <p className="budget-warning">Le reste connu exclut aussi {budget.remaining.estimated.excluded.length} élément(s) dont la devise ou la conversion est indisponible.</p>}
     </>}
+    <ExpenseSharing trip={trip} activities={result.activities} />
     <BudgetDayChart budget={budget} mode={distributionMode} onModeChange={setDistributionMode} />
-    <p className="budget-meta">Les déplacements ne disposent actuellement que d’un coût estimé, sans montant payé. Une réservation confirmée ou annulée ne modifie pas les montants enregistrés et ne prouve pas un paiement.</p>
+    <p className="budget-meta">Les synthèses ci-dessus utilisent uniquement le coût estimé des déplacements ; leurs paiements éventuels sont suivis dans le partage. Une réservation confirmée ou annulée ne modifie pas les montants enregistrés et ne prouve pas un paiement.</p>
     {exclusions.length > 0 && <details className="budget-exclusions" open><summary>Montants non intégrés aux totaux ({exclusions.length})</summary><ul>
       {exclusions.map((excluded) => { const item = entries.get(excluded.id)!; return <li key={`${excluded.id}:${excluded.kind}`}><strong>{item.kind === 'activity' ? 'Activité' : 'Déplacement'} · {item.label}</strong>
         <p>{excluded.label} : {originalAmount(item, excluded.kind)}</p><p className="budget-warning">{exclusionReason(excluded.result)}</p></li> })}

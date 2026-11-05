@@ -47,6 +47,6 @@ export function BudgetCategoryChart({ budget, mode, onModeChange }: { budget: Tr
     {Boolean(total?.absentCount) && <p className="budget-meta">{total!.absentCount} montant(s) {modeLabel} non renseigné(s), exclus de la répartition sans être considérés comme zéro.</p>}
     {Boolean(total?.excluded.length) && <p className="budget-warning">{total!.excluded.length} montant(s) {modeLabel} non intégré(s). Les valeurs d’origine et les causes figurent dans « Montants non intégrés aux totaux ».</p>}
     <p className="budget-meta">Les visites et sorties sont regroupées dans Activités, les repas dans Restauration, les activités de transport et transferts manuels dans Transport, les repos et autres dans Autres. Le modèle actuel ne distingue pas l’hébergement ; aucun lieu n’est reclassé d’après son nom.</p>
-    {mode === 'paid' && <p className="budget-meta">Les transferts ne disposent pas encore de montant payé : aucun paiement n’est déduit de leur estimation.</p>}
+    {mode === 'paid' && <p className="budget-meta">Les paiements des transferts restent suivis dans le partage entre voyageurs ; ils ne sont pas ajoutés à cette répartition.</p>}
   </section>
 }

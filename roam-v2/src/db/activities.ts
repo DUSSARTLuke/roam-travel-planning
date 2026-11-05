@@ -121,6 +121,10 @@ export function createActivityRepository(database: RoamDatabase = db) {
         // Explicit cascade: permanent activity deletion also removes its links.
         // trips belongs to this transaction, so no orphan or partial deletion.
         const trip = await database.trips.get(tripId)
+        if (trip?.expenseShares) {
+          const removedTransfers = new Set((trip.manualTransfers ?? []).filter((item) => item.fromActivityId === id || item.toActivityId === id).map((item) => item.id))
+          await database.trips.update(tripId, { expenseShares: trip.expenseShares.filter((item) => item.kind === 'activity' ? item.expenseId !== id : !removedTransfers.has(item.expenseId)) })
+        }
         if (trip?.manualTransfers?.some((item) => item.fromActivityId === id || item.toActivityId === id)) {
           await database.trips.update(tripId, { manualTransfers: trip.manualTransfers.filter((item) => item.fromActivityId !== id && item.toActivityId !== id) })
         }
