@@ -85,8 +85,47 @@ Sur l'adresse HTTP locale habituelle, recharger normalement puis :
    dans le navigateur du téléphone sans créer de données dans la base utilisateur.
 
 Ce repli d'identifiants ne rend pas HTTP équivalent à HTTPS pour les fonctionnalités
-qui nécessitent un contexte sécurisé (service worker, crypto.subtle des ZIP).
+qui nécessitent un contexte sécurisé (notamment le service worker). Les ZIP
+disposent désormais de leur propre repli SHA-256 local, indépendant des identifiants.
 
 Références plateforme :
 https://developer.mozilla.org/en-US/docs/Web/API/Crypto/randomUUID
 https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues
+
+
+## Audit étendu des actions HTTP (déplacements et autres identifiants)
+
+Le correctif initial ne couvrait que les activités, documents et liens. Cinq appels
+natifs restaient dans quatre fichiers : création/duplication des voyages dans App,
+création des déplacements, tokens d’actualisation des taux et demandes PWA. Ils
+utilisent maintenant tous `createId`, comme les activités. Les identifiants existants,
+transactions, verrous de concurrence, montants et données enregistrées ne changent pas.
+Aucune migration et aucune réécriture de données.
+
+`node tests/crypto-context.mjs` contrôle tous les fichiers de production sous `src/`
+et échoue si un accès à randomUUID réapparaît en dehors du helper. Cela complète
+les tests du générateur natif et du repli fiable (aucun Math.random).
+
+`activitySave.browser.ts`, également exécuté par `/tests/activity-save.html`, masque
+l’API native puis teste les repositories réels : création/modification/suppression
+et persistance de déplacements, rollback sans source aléatoire, actualisation des
+taux avec son générateur de token par défaut et une réponse réseau simulée, cache
+journalier, identifiants distincts pour les voyages et copies et protocole PWA
+avec le même générateur (worker simulé, jamais d’activation/rechargement).
+Le test des identifiants de voyages n’est pas un test complet des formulaires App.
+La page isolée fonctionne aussi sur une vraie origine HTTP non sécurisée.
+
+À vérifier dans l’application sur le téléphone après rechargement normal : créer
+un voyage, le dupliquer, créer/modifier un déplacement, actualiser les taux et
+relancer un export ZIP. Vérifier les identifiants indépendants et la persistance,
+sans vider les données. L’installation/service worker PWA nécessite toujours un
+contexte sécurisé ; ce correctif ne tente pas de contourner cette restriction.
+
+Validation PowerShell :
+
+```powershell
+node tests/crypto-context.mjs
+npm.cmd run lint
+npm.cmd run build
+npm.cmd run test:pwa
+```

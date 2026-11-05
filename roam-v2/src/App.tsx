@@ -1,3 +1,4 @@
+import { createId } from './utils/createId'
 import { tripMapNavigation, programNavigationFromMap, type TripMapNavigation } from './maps/tripMapNavigation'
 import { TripMap } from './components/map/TripMap'
 import type { ProgramNavigation } from './components/program/programNavigation'
@@ -289,7 +290,7 @@ async function duplicateTrip(trip: Trip) {
 
   try {
     await db.trips.add({
-      id: crypto.randomUUID(),
+      id: createId(),
       destination: `${trip.destination} (copie)`,
       referenceCurrency: tripReferenceCurrency(trip),
       ...(trip.manualExchangeRates !== undefined ? { manualExchangeRates: validateManualRates(trip.manualExchangeRates) } : {}),
@@ -368,7 +369,7 @@ async function saveTrip(event: React.FormEvent<HTMLFormElement>) {
     if (editingTripId !== null) {
       await saveTripWithRates(editingTripId, fields, rateBaseline.current, desiredRates, db, tripFieldsBaseline.current ?? undefined)
     } else {
-      await db.trips.add({ ...fields, ...(desiredRates.length ? { manualExchangeRates: desiredRates } : {}), id: crypto.randomUUID(), archived: false })
+      await db.trips.add({ ...fields, ...(desiredRates.length ? { manualExchangeRates: desiredRates } : {}), id: createId(), archived: false })
       if (showArchived || showTrash) {
         setShowArchived(false)
         setShowTrash(false)

@@ -1,3 +1,4 @@
+import { createId } from '../utils/createId'
 import { db, type RoamDatabase, type Trip } from './database'
 import { tripReferenceCurrency, validateCurrency } from './currency'
 import type { TripActivity } from './activityModel'
@@ -24,7 +25,7 @@ export function createAutomaticRateService(database: RoamDatabase = db, dependen
   const fetcher = dependencies.fetcher ?? ((...args: Parameters<typeof fetch>) => fetch(...args))
   const now = dependencies.now ?? (() => new Date().toISOString())
   const online = dependencies.online ?? (() => typeof navigator === 'undefined' || navigator.onLine !== false)
-  const token = dependencies.token ?? (() => crypto.randomUUID())
+  const token = dependencies.token ?? (() => createId())
   const result = (status: RefreshResult['status']): RefreshResult => ({ status, fetched: 0, unavailable: 0, errors: 0 })
   async function refresh(tripId: string, force = false): Promise<RefreshResult> {
     if (!online()) return result('offline')

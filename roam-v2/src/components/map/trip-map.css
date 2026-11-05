@@ -32,3 +32,13 @@
 .trip-map-filters select { min-height: 44px; max-width: 100%; width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; color: var(--text); background: var(--surface); font: inherit; }
 .trip-map-filters select:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 @media (max-width: 640px) { .trip-map-filters label { width: 100%; } }
+.trip-map-transfers { margin: 24px 0; min-width: 0; }
+.trip-transfer-list { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 12px; }
+.trip-transfer-list li { min-width: 0; }
+.trip-transfer-summary { display: grid; gap: 8px; text-align: left; overflow-wrap: anywhere; white-space: normal; }
+.trip-transfer-list button { width: 100%; padding: 14px; border: 1px solid var(--border); border-radius: 12px; }
+.trip-transfer-list button[aria-pressed="true"] { border-color: var(--accent); }
+.trip-transfer-swatch { display: inline-block; width: 24px; height: 4px; border-radius: 2px; margin-right: 8px; vertical-align: middle; }
+.trip-transfer-preview h3 { margin: 0; }
+.trip-transfer-preview fieldset { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.trip-transfer-notes { white-space: pre-wrap; }

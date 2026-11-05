@@ -221,3 +221,62 @@ Ouvrir `/tests/activities.html`, lancer la suite. Avec MapLibre réel, vérifier
 - Modifier la date d’une activité depuis un autre onglet : disparition du filtre
   et fermeture de sa sélection, sans recentrer les marqueurs restants.
 - Journées vides/sans GPS, voyage court, petits écrans, clavier et hors connexion.
+
+### 2.7d — Déplacements manuels sur la carte
+
+`tripMapTransfers.ts` produit des vues et des géométries sans écriture : seuls les
+transferts déjà enregistrés sont considérés. Les deux activités doivent figurer dans
+le filtre actif, appartenir au voyage, avoir des GPS valides et affichables en Web
+Mercator, et être consécutives dans le bon sens dans une même journée datée.
+Les avertissements de `transferPlacement` (autre journée, inversion, activité
+intercalée) excluent la liaison de la carte. Les liens absents, auto-référencés,
+malformés ou aux identifiants dupliqués sont également masqués. Ces exclusions ne
+suppriment aucune donnée : les déplacements restent gérables dans le Programme.
+
+Les segments en pointillés représentent **des liaisons indicatives à vol d’oiseau,
+pas des itinéraires routiers ou piétons**. Il n’y a ni appel de routage, ni estimation
+de distance, de durée ou de coût. Les valeurs absentes restent absentes et zéro est
+affiché. Aucune conversion ni addition aux montants des activités n’est réalisée.
+Les onze modes utilisent des couleurs distinctes, complétées par leurs libellés.
+Les passages de l’antiméridien suivent le petit arc et sont découpés à ±180°.
+Deux activités aux mêmes coordonnées produisent un halo, sans faux parcours.
+Les coordonnées stockées ne sont jamais modifiées.
+
+`tripTransferLayer.ts` ajoute une source GeoJSON et des couches MapLibre au chargement
+du style, sans attendre les tuiles. La zone de clic est élargie, les liaisons
+superposées proposent un choix et les segments/copies du monde sont dédupliqués.
+La source est actualisée après modification ou suppression sans recréer/recentrer
+la carte. Les événements tardifs sont ignorés et les écouteurs retirés au démontage.
+La documentation de référence est l’[API MapLibre Map](https://maplibre.org/maplibre-gl-js/docs/API/classes/Map/).
+
+La liste « Déplacements manuels » fournit les mêmes aperçus au clavier et hors
+connexion, avec Échap et retour du focus. Une sélection de liaison et une sélection
+d’activité sont exclusives ; aucune ne déplace la caméra. Les filtres, la fiche
+activité et la navigation de 2.7a–c restent inchangés. Le rendu réutilise la requête
+réactive des activités et les transferts de l’objet voyage. La vérification du parent
+par `listActivities` peut normalement invalider sa requête lorsqu’un voyage change ;
+aucune requête dédiée aux liaisons n’est ajoutée.
+
+Tests automatisés dans `tests/tripMapTransfers.browser.tsx` via `/tests/activities.html` :
+- validation, onze modes, données facultatives/zéro, isolation et filtres ;
+- ordre/journée incohérents, GPS incomplets/invalides/polaires, doublons d’identifiant ;
+- mêmes coordonnées, passages ±180°, immutabilité ;
+- adaptateur MapLibre simulé : style différé sans tuiles, source/couches, sélection,
+  suppression, rechargement du style, erreurs et nettoyage des écouteurs ;
+- session différée et événements après démontage ;
+- base isolée : modifications/suppression réactives, sélection et chevauchement des
+  liaisons, filtres, retour de fiche, caméra stable, clavier/Échap, offline et 375 px.
+
+Contrôles manuels avec MapLibre réel :
+1. Deux activités GPS consécutives et un transfert : ligne en pointillés, aperçu au
+   clic/toucher, mode/durée/coût identiques au Programme.
+2. Plusieurs transferts superposés : choisir chacun ; vérifier aussi la liste au clavier.
+3. Deux activités au même lieu : halo visible autour du marqueur, accès via la liste.
+4. Activités à 179° et −179° : liaison courte au passage de date, pas de traversée du monde.
+5. Changer le filtre, zoomer/déplacer puis ouvrir/fermer une fiche : mêmes règles de caméra.
+6. Modifier un GPS, une heure ou un transfert dans un second onglet : mise à jour ou
+   masquage sans suppression des données ; supprimer un transfert sélectionné ferme son aperçu.
+7. Téléphone/375 px, tuiles indisponibles et hors connexion : liste et détails restent lisibles.
+
+Validation PowerShell : `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd run test:pwa`,
+puis `npm.cmd run dev` et lancer `/tests/activities.html`.

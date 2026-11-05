@@ -1,3 +1,4 @@
+import { createId } from '../utils/createId'
 import { db, type RoamDatabase } from './database'
 import { transferKey, validateTransferInput, type TransferInput, type ManualTransfer } from './transferModel'
 
@@ -22,7 +23,7 @@ export function createTransferRepository(database: RoamDatabase = db) {
         if (!from || !to || from.tripId !== tripId || to.tripId !== tripId) throw new Error('Choisis deux activités existantes de ce voyage.')
         if (from.date === null || from.date !== to.date) throw new Error('Les activités doivent appartenir à la même journée datée.')
         const now = new Date().toISOString()
-        const transfer = { ...fields, id: existing?.id ?? crypto.randomUUID(), createdAt: existing?.createdAt ?? now, updatedAt: now }
+        const transfer = { ...fields, id: existing?.id ?? createId(), createdAt: existing?.createdAt ?? now, updatedAt: now }
         await database.trips.update(tripId, { manualTransfers: existing ? transfers.map((item) => item.id === id ? transfer : item) : [...transfers, transfer] })
         return transfer
       })

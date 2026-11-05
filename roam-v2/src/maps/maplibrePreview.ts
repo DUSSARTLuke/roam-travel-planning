@@ -1,3 +1,4 @@
+import { mountTransferLayer } from './tripTransferLayer'
 import { coordinateKey, createTripMapController, displayedLongitude, tripMapBounds, type TripMapPoint } from './tripMapModel'
 import type { TripMapHandle, TripMapState } from './tripMapSession'
 import { Map as LibreMap, Marker, NavigationControl, setWorkerUrl, setWorkerCount, setMaxParallelImageRequests } from 'maplibre-gl'
@@ -70,7 +71,7 @@ export function mountMapPreview(container: HTMLElement, point: MapPoint, notify:
 
 // Global trip renderer shares MapLibre, worker, provider and request policy with
 // the existing individual preview. Its update path never changes the camera.
-export function mountTripMap(container: HTMLElement, initial: readonly TripMapPoint[], notify: (state: TripMapState) => void, onSelect?: (ids: string[]) => void): TripMapHandle {
+export function mountTripMap(container: HTMLElement, initial: readonly TripMapPoint[], notify: (state: TripMapState) => void, onSelect?: (ids: string[]) => void, onTransferSelect?: (ids: string[]) => void): TripMapHandle {
   let removed = false; let failed = false; let points = initial
   const markers = new Map<string, { marker: Marker; button: HTMLButtonElement; click: (event: MouseEvent) => void }>()
   let selected: string | null = null
@@ -89,12 +90,15 @@ export function mountTripMap(container: HTMLElement, initial: readonly TripMapPo
       'CooperativeGesturesHandler.WindowsHelpText': 'Utilise les boutons pour zoomer', 'CooperativeGesturesHandler.MacHelpText': 'Utilise les boutons pour zoomer',
       'CooperativeGesturesHandler.MobileHelpText': 'Déplace la carte avec deux doigts' },
   })
+  const transferLayer = mountTransferLayer(map, (ids) => onTransferSelect?.(ids), () => {
+    if (!removed) notify({ phase: 'error', interactive: true, message: 'Les liaisons ne peuvent pas s’afficher. Leur liste reste accessible.' })
+  })
   function dispose() {
     if (removed) return; removed = true
     if (frame !== undefined) cancelAnimationFrame(frame)
     observer?.disconnect()
     for (const entry of markers.values()) { entry.button.removeEventListener('click', entry.click); entry.marker.remove() }
-    markers.clear(); map.remove()
+    transferLayer.dispose(); markers.clear(); map.remove()
   }
   try {
     map.addControl(new NavigationControl({ showCompass: false }), 'top-right')
@@ -141,6 +145,6 @@ export function mountTripMap(container: HTMLElement, initial: readonly TripMapPo
     })
     if (typeof ResizeObserver !== 'undefined') { observer = new ResizeObserver(() => { if (!removed) map.resize() }); observer.observe(container) }
     frame = requestAnimationFrame(() => { if (!removed) map.resize() })
-    return { ...controller, select(id) { selected = id; selection() } }
+    return { ...controller, select(id) { selected = id; selection() }, transfers(links, id) { transferLayer.update(links, id) } }
   } catch (error) { dispose(); throw error }
 }

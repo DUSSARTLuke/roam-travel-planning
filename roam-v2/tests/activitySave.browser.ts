@@ -1,3 +1,7 @@
+import { createTransferRepository } from '../src/db/transfers'
+import { transferKey } from '../src/db/transferModel'
+import { createAutomaticRateService } from '../src/db/automaticRates'
+import { createUpdateCoordinator, type UpdateMessage } from '../src/pwa/updateCoordinator'
 import Dexie from 'dexie'
 import { createId } from '../src/utils/createId'
 import { RoamDatabase, type Trip } from '../src/db/database'
@@ -104,6 +108,54 @@ export async function testActivitySave(report: (message: string) => void) {
     database.close(); await database.open()
     assert((await docs.listDocuments(trip.id, attached.id)).length === 2 && (await docs.getDocument(trip.id, attached.id, metadata[0].id)).blob.size === pdf().size, 'Pièces jointes perdues/corrompues après réouverture.')
     assert((await database.activities.get(attached.id))!.paidAmount === 12 && (await database.activities.get(attached.id))!.longitude === -0.5, 'Autres champs perdus.')
+    // Exercise remaining production consumers with native randomUUID disabled.
+    const transfers = createTransferRepository(database)
+    const destination = await docs.saveActivityWithDocuments(trip.id, { ...input, title: 'Arrivée' }, null, [])
+    let transfer = await transfers.saveTransfer(trip.id, { fromActivityId: created.id, toActivityId: destination.id, mode: 'walk', currency: 'EUR', durationMinutes: 0 })
+    assert(uuid.test(transfer.id), 'Création de déplacement HTTP impossible.')
+    const firstId = transfer.id
+    transfer = await transfers.saveTransfer(trip.id, { ...transfer, mode: 'bus', durationMinutes: 15 }, transfer.id, transferKey(transfer))
+    assert(transfer.id === firstId && transfer.mode === 'bus', 'Modification du déplacement change son identité.')
+    const beforeMissingRandom = await fingerprint()
+    Object.defineProperty(crypto, 'getRandomValues', { configurable: true, value: undefined })
+    try {
+      const error = await failure(() => transfers.saveTransfer(trip.id, { fromActivityId: created.id, toActivityId: destination.id, mode: 'train', currency: 'EUR' }))
+      assert(error.message.includes('identifiant fiable') && await fingerprint() === beforeMissingRandom, 'Échec RNG du déplacement modifie les données ou masque la cause.')
+    } finally { restoreRandom() }
+    await transfers.deleteTransfer(trip.id, transfer.id, transferKey(transfer))
+    assert((await database.trips.get(trip.id))?.manualTransfers?.length === 0, 'Suppression du déplacement HTTP impossible.')
+
+    await docs.saveActivityWithDocuments(trip.id, { ...input, title: 'Prix JPY', currency: 'JPY' }, null, [])
+    let receivedToken = '', requests = 0
+    const rates = createAutomaticRateService(database, {
+      online: () => true, now: () => '2026-11-05T12:00:00.000Z',
+      fetcher: async (url) => {
+        requests++
+        receivedToken = (await database.trips.get(trip.id))?.automaticExchangeRates?.refresh?.id ?? ''
+        const source = String(url).split('/').at(-2)
+        return new Response(JSON.stringify({ date: '2026-11-05', base: source, quote: 'EUR', rate: source === 'JPY' ? 0.0056294 : 1 }), { headers: { 'content-type': 'application/json' } })
+      },
+      // Intentionally no injected token: exercise the production default.
+    })
+    const refreshed = await rates.refresh(trip.id)
+    assert(refreshed.fetched === 1 && uuid.test(receivedToken) && requests === 1, 'Actualisation HTTP échoue avant le fetch ou token invalide.')
+    assert((await rates.refresh(trip.id)).status === 'cached' && requests === 1, 'Garde quotidienne des taux perdue.')
+
+    // Same shared generator as App creation/duplication; no user DB is opened.
+    const newTripId = createId(), duplicateId = createId()
+    await database.trips.add({ ...trip, id: newTripId })
+    await database.trips.add({ ...trip, id: duplicateId, destination: `${trip.destination} (copie)` })
+    assert(uuid.test(newTripId) && uuid.test(duplicateId) && newTripId !== duplicateId, 'Identifiants voyage/copie non indépendants en HTTP.')
+    const messages: UpdateMessage[] = []
+    const worker = { postMessage(message: UpdateMessage) { messages.push(message) } }
+    const coordinator = createUpdateCoordinator({ reason: () => null, reserve: () => true, release() {}, reload() { throw new Error('Rechargement interdit dans ce test') }, token: createId,
+      timer: (callback, delay) => setTimeout(callback, delay), clear: (timer) => clearTimeout(timer) })
+    coordinator.setWaiting(worker); coordinator.request()
+    const request = messages[0]
+    assert(request.type === 'ROAM_REQUEST_UPDATE' && uuid.test(request.id!), 'Token du protocole PWA incompatible avec HTTP.')
+    coordinator.message({ type: 'ROAM_UPDATE_RELEASE', id: request.id }, worker)
+    assert(!coordinator.hasReservation(), 'Réservation de test PWA non libérée.')
+    report('Actions HTTP sans UUID natif : déplacements création/modification/suppression et rollback RNG, token réel des taux (réponse simulée)/cache, identifiants voyage/copie et protocole PWA sans activation.')
     report('Sauvegarde activité HTTP : UUID v4 natif/repli fiable, création/édition avec ou sans fichiers, documents existants préservés, scopes réduits, quota/abort/erreur technique/lecture/RNG et rollback intégral, persistance.')
   } finally {
     restoreRandom()

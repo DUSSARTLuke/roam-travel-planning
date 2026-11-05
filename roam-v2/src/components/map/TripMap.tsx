@@ -1,3 +1,5 @@
+import { TripMapTransfers } from './TripMapTransfers'
+import { tripMapTransfers, type MapTransfer } from '../../maps/tripMapTransfers'
 import { filterMapActivities, tripMapNavigation, type TripMapNavigation } from '../../maps/tripMapNavigation'
 import { ActivityDetailPanel } from '../program/ActivityDetailPanel'
 import { ActivityFormPanel } from '../program/ActivityFormPanel'
@@ -15,22 +17,25 @@ import { loadTripMap, startTripMap, type TripMapHandle, type TripMapLoader, type
 import { formatDate, getTripDays } from '../program/dates'
 import './trip-map.css'
 
-function MapCanvas({ points, load, selected, onSelect, filterRevision }: { filterRevision: number; points: readonly TripMapPoint[]; load: TripMapLoader; selected: string | null; onSelect: (ids: string[]) => void }) {
+function MapCanvas({ points, load, selected, onSelect, filterRevision, transfers, selectedTransfer, onTransferSelect }: { transfers: readonly MapTransfer[]; selectedTransfer: string | null; onTransferSelect: (ids: string[]) => void; filterRevision: number; points: readonly TripMapPoint[]; load: TripMapLoader; selected: string | null; onSelect: (ids: string[]) => void }) {
   const container = useRef<HTMLDivElement>(null)
   const session = useRef<TripMapHandle | null>(null)
   const initial = useRef(points)
   const framedFilter = useRef(filterRevision)
+  const transferSelectRef = useRef(onTransferSelect)
+  useEffect(() => { transferSelectRef.current = onTransferSelect }, [onTransferSelect])
   const selectRef = useRef(onSelect)
   useEffect(() => { selectRef.current = onSelect }, [onSelect])
   const [attempt, retry] = useState(0)
   const [state, setState] = useState<TripMapState>({ phase: 'loading', message: 'Chargement de la carte du voyage…' })
   useEffect(() => {
-    const handle = startTripMap(container.current!, initial.current, setState, load, 20000, (ids) => selectRef.current(ids))
+    const handle = startTripMap(container.current!, initial.current, setState, load, 20000, (ids) => selectRef.current(ids), (ids) => transferSelectRef.current(ids))
     session.current = handle
     return () => { handle.dispose(); session.current = null }
   }, [attempt, load])
   useEffect(() => { initial.current = points; session.current?.update(points) }, [points])
   useEffect(() => { session.current?.select?.(selected) }, [selected, points, attempt])
+  useEffect(() => { session.current?.transfers?.(transfers, selectedTransfer) }, [transfers, selectedTransfer, attempt])
   useEffect(() => {
     if (framedFilter.current === filterRevision) return
     framedFilter.current = filterRevision
@@ -60,10 +65,13 @@ function TripMapContent({ trip, initialNavigation, onNavigationChange, readActiv
     setNavigation(next)
     setFilterRevision((value) => value + 1)
     setSelection([])
+    setTransferSelection([])
     setDetailId(null)
     setEditing(false)
     onNavigationChange?.(next)
   }
+  const [transferSelection, setTransferSelection] = useState<string[]>([])
+  const transferPreviewRef = useRef<HTMLButtonElement>(null)
   const [selection, setSelection] = useState<string[]>([])
   const [detailId, setDetailId] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
@@ -72,9 +80,22 @@ function TripMapContent({ trip, initialNavigation, onNavigationChange, readActiv
   const selectionOrigin = useRef<HTMLButtonElement | null>(null)
   function choose(ids: string[]) {
     selectionOrigin.current = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null
+    setTransferSelection([])
     setSelection(ids)
     if (selectionFrame.current !== null) cancelAnimationFrame(selectionFrame.current)
     selectionFrame.current = requestAnimationFrame(() => openRef.current?.focus())
+  }
+  function chooseTransfer(ids: string[]) {
+    selectionOrigin.current = document.activeElement instanceof HTMLButtonElement ? document.activeElement : null
+    setSelection([])
+    setTransferSelection(ids)
+    if (selectionFrame.current !== null) cancelAnimationFrame(selectionFrame.current)
+    selectionFrame.current = requestAnimationFrame(() => transferPreviewRef.current?.focus())
+  }
+  function closeTransfer() {
+    if (selectionFrame.current !== null) cancelAnimationFrame(selectionFrame.current)
+    setTransferSelection([])
+    selectionOrigin.current?.focus({ preventScroll: true })
   }
   function closePreview() {
     if (selectionFrame.current !== null) cancelAnimationFrame(selectionFrame.current)
@@ -90,6 +111,8 @@ function TripMapContent({ trip, initialNavigation, onNavigationChange, readActiv
     () => ({ tripId: trip.id, activities: [] as TripActivity[], error: 'Impossible de charger les lieux de ce voyage.' }),
   ), [trip.id, attempt, readActivities])
   const activities = useMemo(() => filterMapActivities(result?.tripId === trip.id ? result.activities : [], trip.id, currentNavigation), [result, trip.id, currentNavigation])
+  const transfers = useMemo(() => tripMapTransfers(trip.manualTransfers ?? [], activities, trip.id), [trip.manualTransfers, activities, trip.id])
+  const selectedTransfer = transferSelection.find((id) => transfers.some((link) => link.transfer.id === id)) ?? null
   const points = useMemo(() => tripMapPoints(activities, trip.id), [activities, trip.id])
   const visible = useMemo(() => drawablePoints(points), [points])
   const byId = new Map(points.map((point) => [point.id, point]))
@@ -102,6 +125,9 @@ function TripMapContent({ trip, initialNavigation, onNavigationChange, readActiv
   // No delayed effect may resurrect an old selection when switching back.
   if (ready && selection.some((id) => !activities.some((activity) => activity.id === id))) {
     setSelection(selection.filter((id) => activities.some((activity) => activity.id === id)))
+  }
+  if (ready && transferSelection.some((id) => !transfers.some((link) => link.transfer.id === id))) {
+    setTransferSelection(transferSelection.filter((id) => transfers.some((link) => link.transfer.id === id)))
   }
   if (ready && detailId !== null && !detail) { setDetailId(null); setEditing(false) }
   return <section className="trip-map-page" aria-labelledby="trip-map-title">
@@ -121,7 +147,7 @@ function TripMapContent({ trip, initialNavigation, onNavigationChange, readActiv
       {points.length === 0 ? <div className="trip-map-empty"><h2>{currentNavigation.mode === 'all' ? 'Aucun lieu géolocalisé pour ce voyage' : activities.length ? 'Aucun lieu géolocalisé pour cette journée' : 'Aucune activité pour cette journée'}</h2><p>Ajoute des coordonnées GPS aux activités depuis le Programme pour les retrouver ici.</p></div>
         : <figure className="trip-map-figure"><figcaption>Les lieux de tes activités</figcaption>
           {network.offline ? <p role="status">Carte indisponible hors connexion. La liste des lieux et les coordonnées restent accessibles ci-dessous.</p>
-            : visible.length ? <MapCanvas key={trip.id} points={visible} load={load} selected={selected?.id ?? null} onSelect={choose} filterRevision={filterRevision} /> : <p role="status">Ces coordonnées polaires ne sont pas couvertes par le fond cartographique. Elles restent disponibles dans la liste.</p>}
+            : visible.length ? <MapCanvas key={trip.id} points={visible} load={load} selected={selected?.id ?? null} onSelect={choose} filterRevision={filterRevision} transfers={transfers} selectedTransfer={selectedTransfer} onTransferSelect={chooseTransfer} /> : <p role="status">Ces coordonnées polaires ne sont pas couvertes par le fond cartographique. Elles restent disponibles dans la liste.</p>}
           <p className="trip-map-attribution">© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">contributeurs OpenStreetMap</a> · <a href="https://www.openstreetmap.org/fixthemap" target="_blank" rel="noopener noreferrer">Signaler un problème</a></p>
           <p className="activity-meta">Fond en ligne, sans disponibilité hors connexion garantie. Aucun accès à ta position. Au même point, un marqueur indique toutes les activités concernées.</p>
           {visible.length < points.length && <p className="activity-meta">{points.length - visible.length} activité(s) proche(s) des pôles ne peuvent pas être représentées sur ce fond ; les GPS d’origine sont conservés dans la liste.</p>}
@@ -136,6 +162,7 @@ function TripMapContent({ trip, initialNavigation, onNavigationChange, readActiv
         {selected.location && <p>{selected.location}</p>}{selected.address && <p>{selected.address}</p>}
         <button ref={openRef} type="button" className="primary-button" onClick={() => { setEditing(false); setDetailId(selected.id) }}>Voir l’activité</button>
       </section>}
+      <TripMapTransfers links={transfers} selectedIds={transferSelection} onSelect={chooseTransfer} onClose={closeTransfer} previewRef={transferPreviewRef} />
       <section aria-labelledby="trip-map-places"><h2 id="trip-map-places">Lieux des activités ({activities.length})</h2>
         {!activities.length ? <p>{currentNavigation.mode === 'all' ? 'Aucune activité enregistrée pour ce voyage.' : 'Aucune activité enregistrée pour cette journée.'}</p> : <ul className="trip-map-places">
           {activities.map((activity) => { const point = byId.get(activity.id); return <li key={activity.id} className={selected?.id === activity.id ? 'is-selected' : undefined}>

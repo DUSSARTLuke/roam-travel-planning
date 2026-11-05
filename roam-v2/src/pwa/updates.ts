@@ -1,9 +1,10 @@
+import { createId } from '../utils/createId'
 import { createUpdateCoordinator } from './updateCoordinator'
 import { releaseReload, reloadBlockReason, reserveReload } from './reloadSafety'
 
 export const updates = createUpdateCoordinator({
   reason: reloadBlockReason, reserve: reserveReload, release: releaseReload,
-  reload: () => window.location.reload(), token: () => crypto.randomUUID(),
+  reload: () => window.location.reload(), token: () => createId(),
   timer: (callback, delay) => setTimeout(callback, delay), clear: (timer) => clearTimeout(timer),
 })
 let observing: ServiceWorkerRegistration | null = null
