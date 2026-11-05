@@ -1,3 +1,4 @@
+import { TripOverview } from './components/dashboard/TripOverview'
 import { copyPlannedBudget, initialBudgetView, type BudgetViewState } from './money/budgetTracking'
 import { TripBudget } from './components/budget/TripBudget'
 import type { TripMapView } from './maps/tripMapView'
@@ -512,31 +513,12 @@ if (!databaseReady || trips === undefined) {
     <MapPin size={48} />
   </div>
 )}      <div className="trip-hero-content">
-        <p className="eyebrow">MON PROCHAIN VOYAGE</p>
+        <p className="eyebrow">MON VOYAGE</p>
         <h1>{selectedTrip.destination}</h1>
         <p>{formatTripDates(selectedTrip)} · {selectedTrip.travelers} voyageurs</p>
       </div>
     </div>
 
-    <button
-      type="button"
-      className="back-button"
-      disabled={writeBusy}
-      onClick={(event) => {
-        event.stopPropagation()
-        void setTripArchived(selectedTrip, true)
-      }}
-    >
-      <Archive size={18} />
-      {archivingTripId === selectedTrip.id ? 'Archivage…' : 'Archiver ce voyage'}
-    </button>
-
-    <button type="button" className="back-button danger-text" disabled={writeBusy}
-      onClick={(event) => { event.stopPropagation(); requestTrashAction(selectedTrip, 'trash') }}>
-      <Trash2 size={18} /> Mettre à la corbeille
-    </button>
-
-    <BackupExport key={selectedTrip.id} scope={{ mode: 'trip', tripId: selectedTrip.id }} />
     <h2 className="dashboard-title">Organiser mon voyage</h2>
 
     <div className="dashboard-grid">
@@ -577,6 +559,28 @@ if (!databaseReady || trips === undefined) {
         </button>
       ))}
     </div>
+    <TripOverview key={selectedTrip.id} trip={selectedTrip} navigate={setActiveTab} />
+    <details className="trip-management"><summary>Gérer et sauvegarder ce voyage</summary>
+    <button
+      type="button"
+      className="back-button"
+      disabled={writeBusy}
+      onClick={(event) => {
+        event.stopPropagation()
+        void setTripArchived(selectedTrip, true)
+      }}
+    >
+      <Archive size={18} />
+      {archivingTripId === selectedTrip.id ? 'Archivage…' : 'Archiver ce voyage'}
+    </button>
+
+    <button type="button" className="back-button danger-text" disabled={writeBusy}
+      onClick={(event) => { event.stopPropagation(); requestTrashAction(selectedTrip, 'trash') }}>
+      <Trash2 size={18} /> Mettre à la corbeille
+    </button>
+
+    <BackupExport key={selectedTrip.id} scope={{ mode: 'trip', tripId: selectedTrip.id }} />
+    </details>
   </section>
 ) : activeTab === 'home' ? (
           <>

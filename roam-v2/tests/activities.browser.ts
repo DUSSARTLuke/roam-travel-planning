@@ -1,3 +1,4 @@
+import { testTripOverview } from './tripOverview.browser'
 import { testBudgetTracking } from './budgetTracking.browser'
 import { testExpenseSharing } from './expenseSharing.browser'
 import { testBudgetDays } from './budgetDays.browser'
@@ -194,6 +195,7 @@ button.addEventListener('click', async () => {
   results.textContent = ''
   try {
     await testActivitySave((message) => { results.textContent += `✓ ${message}\n` })
+    await testTripOverview((message) => { results.textContent += `✓ ${message}\n` })
     await testBudgetTracking((message) => { results.textContent += `✓ ${message}\n` })
     await testExpenseSharing((message) => { results.textContent += `✓ ${message}\n` })
     await testBudgetDays((message) => { results.textContent += `✓ ${message}\n` })

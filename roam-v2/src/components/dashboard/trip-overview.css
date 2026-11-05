@@ -1,0 +1,21 @@
+.trip-overview { min-width: 0; margin: 24px 0; overflow-wrap: anywhere; }
+.overview-progress, .overview-card { min-width: 0; border: 1px solid var(--border); background: var(--surface); border-radius: 16px; padding: 20px; margin-bottom: 18px; }
+.overview-progress { border-color: var(--accent); }
+.overview-countdown { font-size: clamp(22px, 5vw, 32px); font-weight: 750; margin: 10px 0; }
+.overview-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 18px; }
+.overview-card h2 { font-size: 20px; margin-top: 0; }
+.overview-card p { line-height: 1.6; }
+.overview-card button, .overview-card summary { min-height: 44px; max-width: 100%; white-space: normal; }
+.overview-card summary { cursor: pointer; padding: 12px 0; }
+.overview-card button + button { margin: 10px 0 0; }
+.overview-card :focus-visible, .overview-progress :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.overview-reservation-counts, .overview-money { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); }
+.overview-reservation-counts div, .overview-money div { min-width: 0; }
+.overview-reservation-counts dt, .overview-money dt { color: var(--muted); }
+.overview-reservation-counts dd, .overview-money dd { margin: 6px 0; font-size: 20px; font-weight: 700; }
+.overview-reservations { list-style: none; padding: 0; }
+.overview-reservations li { display: grid; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.overview-budget .budget-plan { margin: 20px 0; }
+.trip-management { margin: 24px 0; border-top: 1px solid var(--border); padding: 12px 0; }
+.trip-management > summary { min-height: 44px; cursor: pointer; display: list-item; padding: 12px 0; }
+@media (max-width: 640px) { .overview-card, .overview-progress { padding: 14px; } .overview-grid { gap: 0; } }
