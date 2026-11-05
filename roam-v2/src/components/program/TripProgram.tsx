@@ -1,3 +1,5 @@
+import { MultiDayProgram } from './MultiDayProgram'
+import { initialProgramNavigation, normalizeProgramNavigation, type ProgramNavigation } from './programNavigation'
 import { TransferFormPanel } from './TransferFormPanel'
 import { TransferCard } from './TransferCard'
 import { transferPlacement } from './transferPlanning'
@@ -7,7 +9,7 @@ import { useReloadBlocker } from '../../pwa/useReloadBlocker'
 import { ActivityOrganizationPanel } from './ActivityOrganization'
 import type { OrderDirection } from '../../db/activityOrganization'
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { CalendarDays, Lightbulb, List, Plus, Route } from 'lucide-react'
+import { CalendarDays, Lightbulb, List, Plus, Route, Columns3 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { listActivities, reorderActivity } from '../../db/activities'
 import type { TripActivity } from '../../db/activityModel'
@@ -55,17 +57,20 @@ function DayStrip({ days, selectedDate, onSelect }: { days: string[]; selectedDa
   )
 }
 
-export function TripProgram({ trip }: { trip: Trip }) {
+export function TripProgram({ trip, initialNavigation, onNavigationChange, readActivities = listActivities }: {
+  trip: Trip; readActivities?: typeof listActivities; initialNavigation?: ProgramNavigation; onNavigationChange?: (state: ProgramNavigation) => void
+}) {
   const days = useMemo(() => getTripDays(trip.startDate, trip.endDate), [trip.startDate, trip.endDate])
   const months = useMemo(() => getTripMonths(trip.startDate, trip.endDate), [trip.startDate, trip.endDate])
-  const [mode, setMode] = useState<'day' | 'calendar' | 'ideas'>('day')
-  const [selectedDate, setSelectedDate] = useState(trip.startDate)
-  const [month, setMonth] = useState(trip.startDate.slice(0, 7))
-  // Keep views, panels and drafts mounted when trip dates change. Only an
-  // out-of-range day/month is reconciled; changing trips still resets via key.
-  if (days.length > 0 && !days.includes(selectedDate)) setSelectedDate(days[0])
-  if (months.length > 0 && !months.includes(month)) setMonth(months[0])
-  const addButtonRef = useRef<HTMLButtonElement>(null)
+  const [navigation, setNavigation] = useState(() => initialNavigation ?? initialProgramNavigation(trip.startDate))
+  const currentNavigation = normalizeProgramNavigation(navigation, days, months)
+  const { mode, selectedDate, month } = currentNavigation
+  function navigate(patch: Partial<ProgramNavigation>) {
+    const next = { ...currentNavigation, ...patch }
+    setNavigation(next)
+    onNavigationChange?.(next)
+  }
+  const programFocusRef = useRef<HTMLButtonElement>(null)
   const detailOriginRef = useRef<HTMLButtonElement>(null)
   const [detailId, setDetailId] = useState<string | null>(null)
   const [editor, setEditor] = useState<{ activity: TripActivity | null; date: string | null } | null>(null)
@@ -73,12 +78,12 @@ export function TripProgram({ trip }: { trip: Trip }) {
   const [ordering, setOrdering] = useState(false)
   const orderingLock = useRef(false)
   const [organizationError, setOrganizationError] = useState('')
-  const [transferEditor, setTransferEditor] = useState<{ transfer: ManualTransfer | null; trigger: HTMLButtonElement } | null>(null)
+  const [transferEditor, setTransferEditor] = useState<{ transfer: ManualTransfer | null; trigger: HTMLButtonElement; date: string } | null>(null)
   const [reload, setReload] = useState(0)
-  const result = useLiveQuery(() => listActivities(trip.id).then(
+  const result = useLiveQuery(() => readActivities(trip.id).then(
     (activities) => ({ activities, error: '' }),
     () => ({ activities: [] as TripActivity[], error: 'Impossible de charger les activités de ce voyage.' }),
-  ), [trip.id, reload])
+  ), [trip.id, reload, readActivities])
   const activities = result?.activities ?? []
   const detailActivity = activities.find((activity) => activity.id === detailId && activity.tripId === trip.id) ?? null
   // Invalidate the selection before rendering if the live query loses access
@@ -94,7 +99,7 @@ export function TripProgram({ trip }: { trip: Trip }) {
   if (transferEditor && (!ready || (transferEditor.transfer && !transfers.some((item) => item.id === transferEditor.transfer!.id)))) setTransferEditor(null)
   const transferPlacements = new Map(transfers.map((item) => [item.id, transferPlacement(item, activities)]))
   const invalidTransfers = transfers.filter((item) => transferPlacements.get(item.id)?.day === null)
-  function editTransfer(transfer: ManualTransfer, trigger: HTMLButtonElement) { if (ready) setTransferEditor({ transfer, trigger }) }
+  function editTransfer(transfer: ManualTransfer, trigger: HTMLButtonElement) { if (ready) setTransferEditor({ transfer, trigger, date: activities.find((item) => item.id === transfer.fromActivityId)?.date ?? selectedDate }) }
   function afterActivity(activity: TripActivity) {
     return transfers.filter((item) => item.fromActivityId === activity.id && transferPlacements.get(item.id)?.day !== null)
       .map((item) => <TransferCard key={item.id} transfer={item} activities={activities} onEdit={editTransfer} disabled={!ready} />)
@@ -134,14 +139,17 @@ export function TripProgram({ trip }: { trip: Trip }) {
     // Editing from the detail panel returns to it without changing the source
     // day/list. Its data comes from the live query, not the editor snapshot.
     if (detailId !== null) return
-    if (activity.date === null) setMode('ideas')
+    if (activity.date === null) navigate({ mode: 'ideas' })
     else if (activity.date >= trip.startDate && activity.date <= trip.endDate) selectDay(activity.date)
   }
 
-  function selectDay(date: string) {
-    setSelectedDate(date)
-    setMonth(date.slice(0, 7))
-    setMode('day')
+  function selectDay(date: string, returnToDay = false) {
+    navigate({ selectedDate: date, month: date.slice(0, 7), mode: !returnToDay && mode === 'multi' ? 'multi' : 'day' })
+  }
+  function addForDay(date: string) {
+    if (!ready) return
+    selectDay(date)
+    setEditor({ activity: null, date })
   }
 
   return (
@@ -155,29 +163,32 @@ export function TripProgram({ trip }: { trip: Trip }) {
         <p className="eyebrow">{trip.destination}</p>
         <h1>Programme</h1>
         <p className="subtitle">{days.length} journée{days.length > 1 ? 's' : ''} pour profiter du voyage.</p>
-        <button type="button" ref={addButtonRef} className="primary-button program-add" disabled={!ready} onClick={addActivity}>
-          <Plus size={18} />{mode === 'ideas' ? 'Ajouter une idée' : 'Ajouter une activité'}
-        </button>
-        <button type="button" className="secondary-button program-add-transfer" disabled={!ready || activities.filter((item) => item.date !== null).length < 2}
-          aria-haspopup="dialog" onClick={(event) => setTransferEditor({ transfer: null, trigger: event.currentTarget })}><Route size={18} aria-hidden="true" />Ajouter un déplacement</button>
       </header>
       {transfers.length > 0 && <p className="activity-meta">Les déplacements sont manuels et ne sont pas déduits des créneaux libres entre horaires.</p>}
       {result === undefined && <p role="status">Chargement des activités…</p>}
       {result?.error && <div role="alert"><p>{result.error}</p><button type="button" className="secondary-button" onClick={() => setReload((value) => value + 1)}>Réessayer</button></div>}
       {days.length === 0 ? <p className="empty-state" role="status">Les dates de ce voyage ne permettent pas d’afficher le programme. Vérifie les dates de départ et de retour.</p> : <>
         <div className="program-mode-switch" role="group" aria-label="Mode d’affichage du programme">
-          <button type="button" aria-pressed={mode === 'day'} onClick={() => setMode('day')}><List size={18} /> Jour par jour</button>
-          <button type="button" aria-pressed={mode === 'calendar'} onClick={() => { setMonth(selectedDate.slice(0, 7)); setMode('calendar') }}><CalendarDays size={18} /> Calendrier</button>
-          <button type="button" aria-pressed={mode === 'ideas'} onClick={() => setMode('ideas')}><Lightbulb size={18} /> Idées à planifier ({ideas.length})</button>
+          <button type="button" ref={mode === 'day' ? programFocusRef : undefined} aria-pressed={mode === 'day'} onClick={() => navigate({ mode: 'day' })}><List size={18} /> Jour</button>
+          <button type="button" ref={mode === 'multi' ? programFocusRef : undefined} aria-pressed={mode === 'multi'} onClick={() => navigate({ mode: 'multi' })}><Columns3 size={18} /> Multi-jours</button>
+          <button type="button" ref={mode === 'calendar' ? programFocusRef : undefined} aria-pressed={mode === 'calendar'} onClick={() => navigate({ month: selectedDate.slice(0, 7), mode: 'calendar' })}><CalendarDays size={18} /> Calendrier</button>
+          <button type="button" ref={mode === 'ideas' ? programFocusRef : undefined} aria-pressed={mode === 'ideas'} onClick={() => navigate({ mode: 'ideas' })}><Lightbulb size={18} /> Idées à planifier ({ideas.length})</button>
         </div>
+        {mode !== 'multi' && <div className="program-view-actions" role="group" aria-label="Actions de la vue du programme">
+          {(mode === 'calendar' || (mode === 'ideas' ? ideas.length > 0 : dayActivities.length > 0)) && <button type="button" className="primary-button program-add" disabled={!ready} onClick={addActivity}>
+            <Plus size={18} aria-hidden="true" />{mode === 'ideas' ? 'Ajouter une idée' : 'Ajouter une activité'}</button>}
+          {mode !== 'ideas' && <button type="button" className="secondary-button program-add-transfer" disabled={!ready || activities.filter((item) => item.date !== null).length < 2}
+            aria-haspopup="dialog" onClick={(event) => setTransferEditor({ transfer: null, trigger: event.currentTarget, date: selectedDate })}><Route size={18} aria-hidden="true" />Ajouter un déplacement</button>}
+        </div>}
         {mode === 'day' ? <>
           <DayStrip days={days} selectedDate={selectedDate} onSelect={selectDay} />
           {result && !result.error && <DayDetails date={selectedDate} activities={dayActivities} afterActivity={afterActivity} onAdd={ready ? addActivity : undefined} onEdit={editActivity} onOpen={openActivity} />}
-        </> : mode === 'ideas' ? <section className="program-day-detail" aria-labelledby="program-ideas-title">
+        </> : mode === 'multi' ? (result && !result.error && <MultiDayProgram days={days} selectedDate={selectedDate} activities={activities} onSelect={selectDay}
+          onAdd={ready ? addForDay : undefined} onAddTransfer={ready ? (date, trigger) => setTransferEditor({ transfer: null, trigger, date }) : undefined} onEdit={editActivity} onOpen={openActivity} afterActivity={afterActivity} />) : mode === 'ideas' ? <section className="program-day-detail" aria-labelledby="program-ideas-title">
           <h2 id="program-ideas-title">Idées à planifier</h2>
           {result && !result.error && <ActivityList activities={ideas} ideas onAdd={ready ? addActivity : undefined} onEdit={editActivity} onOpen={openActivity} />}
         </section> : <TripCalendar months={months} month={month} startDate={trip.startDate} endDate={trip.endDate}
-          selectedDate={selectedDate} activityCounts={counts} onMonthChange={setMonth} onSelect={selectDay} />}
+          selectedDate={selectedDate} activityCounts={counts} onMonthChange={(value) => navigate({ month: value })} onSelect={(date) => selectDay(date, true)} />}
       </>}
       {outsideDays.length > 0 && <section className="program-day-detail" aria-labelledby="program-outside-title">
         <h2 id="program-outside-title">Autres dates ({outsideDays.length})</h2>
@@ -188,15 +199,15 @@ export function TripProgram({ trip }: { trip: Trip }) {
         <h2 id="transfer-corrections">Déplacements à vérifier ({invalidTransfers.length})</h2>
         {invalidTransfers.map((item) => <TransferCard key={item.id} transfer={item} activities={activities} onEdit={editTransfer} disabled={!ready} />)}
       </section>}
-      {transferEditor && ready && <TransferFormPanel trip={trip} activities={activities} transfer={transferEditor.transfer} initialDate={selectedDate}
-        trigger={transferEditor.trigger} fallbackFocusRef={addButtonRef} onClose={() => setTransferEditor(null)} />}
+      {transferEditor && ready && <TransferFormPanel trip={trip} activities={activities} transfer={transferEditor.transfer} initialDate={transferEditor.date}
+        trigger={transferEditor.trigger} fallbackFocusRef={programFocusRef} onClose={() => setTransferEditor(null)} />}
       {organization && ready && activities.some((item) => item.id === organization.activity.id) && <ActivityOrganizationPanel
-        fallbackFocusRef={addButtonRef} activity={organization.activity} trip={trip} mode={organization.mode} trigger={organization.trigger} onClose={() => setOrganization(null)} />}
+        fallbackFocusRef={programFocusRef} activity={organization.activity} trip={trip} mode={organization.mode} trigger={organization.trigger} onClose={() => setOrganization(null)} />}
       {!transferEditor && !organization && !editor && ready && detailActivity && <ActivityDetailPanel trip={trip} activity={detailActivity}
-        returnFocusRef={detailOriginRef} fallbackFocusRef={addButtonRef}
+        returnFocusRef={detailOriginRef} fallbackFocusRef={programFocusRef}
         onClose={() => setDetailId(null)} onEdit={() => editActivity(detailActivity)} />}
       {editor && <ActivityFormPanel referenceCurrency={tripReferenceCurrency(trip)} tripId={trip.id} activity={editor.activity} initialDate={editor.date}
-        fallbackDate={selectedDate} fallbackFocusRef={addButtonRef} onClose={() => setEditor(null)} onSaved={activitySaved} />}
+        fallbackDate={selectedDate} fallbackFocusRef={programFocusRef} onClose={() => setEditor(null)} onSaved={activitySaved} />}
     </section></OrganizationContext>
   )
 }

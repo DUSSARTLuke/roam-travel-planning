@@ -842,3 +842,38 @@
   .program-transfer { padding: 12px; }
   .transfer-confirmation button { flex: 1 1 130px; }
 }
+
+/* Multi-day scrolling is confined to this region, never the page. */
+.program-multi { min-width: 0; margin-top: 8px; }
+.program-multi-nav { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 14px; }
+.program-multi-nav button, .program-multi-day-header button { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.program-multi-nav p { margin: 0; color: var(--muted); font-size: 13px; }
+.program-multi-columns { position: relative; display: grid; align-items: start; gap: 16px; overflow-x: auto; overscroll-behavior-x: contain; max-width: 100%; min-width: 0; justify-content: start; padding: 6px 0 18px; margin-top: 14px; scrollbar-color: var(--border) var(--bg); }
+.program-multi-columns:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.program-multi-day { min-width: 0; padding: 14px; border: 1px solid var(--border); border-radius: 16px; background: var(--bg); }
+.program-multi-day.selected { border-color: var(--accent); }
+.program-multi-day-header { display: flex; flex-direction: column; gap: 10px; }
+.program-multi-day-header h2 { font-size: 18px; line-height: 1.5; margin: 0 0 6px; overflow-wrap: anywhere; }
+.program-multi-day-header h2::first-letter { text-transform: uppercase; }
+.program-multi-selected { align-self: flex-start; color: var(--accent); font-size: 12px; line-height: 1.5; }
+.program-multi-day-header h2:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+.program-multi-day .activity-card { flex-direction: column; align-items: stretch; padding: 12px; }
+.program-multi-day .activity-card-actions { flex: auto; width: 100%; align-items: stretch; }
+.program-multi-day .activity-organization { justify-content: flex-start; }
+.program-multi-day .activity-organization button { flex: 1 1 100px; }
+.program-multi-day .activity-edit { min-height: 44px; justify-content: center; }
+.program-multi-day .day-timeline-item { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.program-multi-day .day-timeline-time { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; padding: 0 0 8px; border-right: 0; border-bottom: 1px solid var(--border); }
+.program-multi-day .day-timeline-time > span, .program-multi-day .day-timeline-time small { margin: 0; }
+.program-multi-day .day-timeline-free { margin-left: 0; }
+.program-multi-day .program-empty { padding: 24px 12px; }
+/* Empty DayTimeline returns ActivityList directly, without .day-planning. */
+.program-multi-day > .program-empty { margin-top: 20px; }
+@media (max-width: 640px) {
+  .program-multi-nav p { order: 3; flex-basis: 100%; text-align: center; }
+  .program-multi-columns { gap: 12px; }
+  .program-multi-day { padding: 10px; }
+}
+
+.program-view-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 20px; }
+.program-view-actions .program-add, .program-view-actions .program-add-transfer { margin: 0; min-height: 44px; }

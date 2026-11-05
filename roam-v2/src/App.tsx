@@ -1,3 +1,4 @@
+import type { ProgramNavigation } from './components/program/programNavigation'
 
 import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -84,6 +85,7 @@ function formatTripDates(trip: Trip) {
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabId>('home')
+  const [programNavigation, setProgramNavigation] = useState(() => new globalThis.Map<string, ProgramNavigation>())
 const trips = useLiveQuery(
   () => db.trips.toArray(),
   [],
@@ -739,7 +741,8 @@ if (!databaseReady || trips === undefined) {
         ) : activeTab === 'more' ? (
           <BackupPage tripId={selectedTrip?.id} />
         ) : activeTab === 'program' && selectedTrip ? (
-          <TripProgram key={selectedTrip.id} trip={selectedTrip} />
+          <TripProgram key={selectedTrip.id} trip={selectedTrip} initialNavigation={programNavigation.get(selectedTrip.id)}
+            onNavigationChange={(state) => setProgramNavigation((previous) => new globalThis.Map(previous).set(selectedTrip.id, state))} />
         ) : (
           <section className="placeholder-page">
             <div className="placeholder-icon">
