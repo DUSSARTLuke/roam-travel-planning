@@ -82,3 +82,18 @@
 .budget-day-picker { display: grid; gap: 7px; margin: 12px 0; max-width: 100%; min-width: 0; color: var(--muted); }
 .budget-day-picker select { width: 100%; max-width: 100%; min-width: 0; min-height: 44px; padding: 10px; border-radius: 9px; border: 1px solid var(--border); color: var(--text); background: var(--surface); font: inherit; font-size: 16px; }
 .budget-day-detail-link { margin-top: 12px; white-space: normal; max-width: 100%; }
+
+.budget-plan, .budget-explorer { margin: 24px 0; min-width: 0; }
+.budget-explorer { padding: 18px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
+.budget-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 200px), 1fr)); gap: 14px; margin: 16px 0; }
+.budget-filters label, .budget-plan-fields label { display: grid; gap: 8px; min-width: 0; }
+.budget-filters select { width: 100%; min-width: 0; min-height: 44px; font: inherit; font-size: 16px; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 9px; padding: 10px; }
+.budget-plan-fields { display: grid; gap: 16px; min-width: 0; }
+.budget-explorer .budget-day-expenses { list-style: none; padding: 0; }
+.budget-explorer .budget-day-expenses li { padding: 14px 0; border-bottom: 1px solid var(--border); }
+@media (max-width: 640px) {
+  .budget-explorer { padding: 14px; }
+  .trip-budget-page .sharing-participants li > div, .trip-budget-page .sharing-expenses li > div { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .trip-budget-page .expense-sharing button { white-space: normal; max-width: 100%; }
+  .trip-budget-page .sharing-weight > label:first-child { min-height: 44px; }
+}

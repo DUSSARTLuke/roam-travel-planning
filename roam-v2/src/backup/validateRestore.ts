@@ -1,3 +1,4 @@
+import { validatePlannedBudget } from '../money/budgetTracking'
 import { validateTripSharing } from '../money/expenseSharing'
 import { sha256 as hash } from './sha256'
 import { validateTripTransfers } from '../db/transferModel'
@@ -104,7 +105,7 @@ export async function validateRestoreArchive(archive: Blob, progress: (message: 
     validateActivity(activity as unknown as TripActivity, activity as unknown as TripActivity)
   }
   const transferActivities = new Map(activityRows.map((activity) => [activity.id as string, activity as unknown as TripActivity]))
-  for (const trip of tripRows) { validateTripTransfers(trip.manualTransfers, trip.id as string, transferActivities); validateTripSharing(trip as unknown as Trip, transferActivities) }
+  for (const trip of tripRows) { validateTripTransfers(trip.manualTransfers, trip.id as string, transferActivities); validateTripSharing(trip as unknown as Trip, transferActivities); validatePlannedBudget(trip.plannedBudget) }
   const perActivity = new Map<string, number>()
   const payloads: ActivityDocumentBlob[] = []
   const extension: Record<string, string> = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }

@@ -1,3 +1,5 @@
+import { BudgetExpenseExplorer, PlannedBudgetPanel } from './BudgetTracking'
+import { initialBudgetView, type BudgetViewState } from '../../money/budgetTracking'
 import { ExpenseSharing } from './ExpenseSharing'
 import { BudgetDayChart } from './BudgetDayChart'
 import { BudgetCategoryChart } from './BudgetCategoryChart'
@@ -24,8 +26,12 @@ function Summary({ title, total, currency, missing = total.absentCount }: { titl
   </article>
 }
 
-export function TripBudget({ trip, readActivities = listActivities }: { trip: Trip; readActivities?: typeof listActivities }) {
-  const [distributionMode, setDistributionMode] = useState<BudgetDistributionMode>('estimated')
+export function TripBudget({ trip, readActivities = listActivities, view, onViewChange }: { trip: Trip; readActivities?: typeof listActivities; view?: BudgetViewState; onViewChange?: (view: BudgetViewState) => void }) {
+  const [localView, setLocalView] = useState(initialBudgetView)
+  const navigation = view ?? localView
+  const changeView = (next: BudgetViewState) => { setLocalView(next); onViewChange?.(next) }
+  const distributionMode = navigation.mode
+  const setDistributionMode = (mode: BudgetDistributionMode) => changeView({ ...navigation, mode })
   const [attempt, retry] = useState(0)
   const result = useLiveQuery(() => readActivities(trip.id).then(
     (activities) => ({ tripId: trip.id, activities, error: '' }),
@@ -45,6 +51,7 @@ export function TripBudget({ trip, readActivities = listActivities }: { trip: Tr
   return <section className="trip-budget-page" aria-labelledby="trip-budget-title">
     <header><p className="eyebrow">{trip.destination}</p><h1 id="trip-budget-title"><Wallet size={27} aria-hidden="true" /> Budget du voyage</h1>
       <p className="budget-meta">Synthèse en {currency}, calculée localement à partir des montants renseignés. Les conversions restent indicatives.</p></header>
+    <PlannedBudgetPanel trip={trip} budget={budget} />
     {!budget.hasAmounts && budget.issues.length === 0 && <div className="budget-empty"><Receipt size={30} aria-hidden="true" /><h2>Aucune dépense renseignée</h2><p>Ajoute un prix estimé ou un montant payé dans les activités, ou un coût estimé dans les déplacements du Programme.</p></div>}
     {budget.hasAmounts && <>
       <div className="budget-summary-grid" aria-live="polite">
@@ -67,8 +74,9 @@ export function TripBudget({ trip, readActivities = listActivities }: { trip: Tr
       </table></div></section>
       {budget.remaining.estimated.excluded.length > 0 && <p className="budget-warning">Le reste connu exclut aussi {budget.remaining.estimated.excluded.length} élément(s) dont la devise ou la conversion est indisponible.</p>}
     </>}
-    <ExpenseSharing trip={trip} activities={result.activities} />
-    <BudgetDayChart budget={budget} mode={distributionMode} onModeChange={setDistributionMode} />
+    <BudgetExpenseExplorer budget={budget} view={navigation} onChange={changeView} />
+    <ExpenseSharing trip={trip} activities={result.activities} chosenExpense={navigation.sharingExpense} onChosenExpenseChange={(sharingExpense) => changeView({ ...navigation, sharingExpense })} />
+    <BudgetDayChart budget={budget} mode={distributionMode} onModeChange={setDistributionMode} selectedDay={navigation.selectedDay} onSelectedDayChange={(selectedDay) => changeView({ ...navigation, selectedDay })} />
     <p className="budget-meta">Les synthèses ci-dessus utilisent uniquement le coût estimé des déplacements ; leurs paiements éventuels sont suivis dans le partage. Une réservation confirmée ou annulée ne modifie pas les montants enregistrés et ne prouve pas un paiement.</p>
     {exclusions.length > 0 && <details className="budget-exclusions" open><summary>Montants non intégrés aux totaux ({exclusions.length})</summary><ul>
       {exclusions.map((excluded) => { const item = entries.get(excluded.id)!; return <li key={`${excluded.id}:${excluded.kind}`}><strong>{item.kind === 'activity' ? 'Activité' : 'Déplacement'} · {item.label}</strong>

@@ -231,3 +231,13 @@ Les anciens voyages sans ces champs restent inchangés et sans partage activé.
 Aucune table, index ou migration supplémentaire : Dexie V4 et ZIP format 1 restent
 inchangés. Les fichiers JSON sauvegardent les champs optionnels et les identifiants
 originaux ; les imports atomiques et les règles de non-écrasement restent en place.
+
+### Prévisionnel facultatif (2.8e)
+
+`Trip.plannedBudget?: { amount: number, currency: string }` conserve le budget
+prévisionnel dans sa devise d'origine (ISO normalisée, montant fini non négatif).
+Absence et zéro restent distincts. Les anciennes archives sans champ restent
+acceptées ; export et restauration valident tout champ présent. Aucun index,
+nouvelle table ou changement de version : Dexie V4, ZIP format 1 inchangés.
+Le prévisionnel n'est pas une dépense et n'entre dans aucun total d'activité.
+La duplication copie le montant/devise sans copier les dépenses.

@@ -8,10 +8,10 @@ import './expense-sharing.css'
 
 type Repository = ReturnType<typeof createExpenseSharingRepository>
 type Source = ReturnType<typeof sharingSources>[number]
-function SharingDialog({ title, onClose, dirty = false, busy, children }: { title: string; onClose: () => void; dirty?: boolean; busy: boolean; children: (close: () => void) => ReactNode }) {
+export function SharingDialog({ title, onClose, dirty = false, busy, children }: { title: string; onClose: () => void; dirty?: boolean; busy: boolean; children: (close: () => void) => ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null), backdrop = useRef(false)
   const [discard, setDiscard] = useState(false)
-  useReloadBlocker(dirty || busy, 'Un formulaire de partage des dépenses est en cours.')
+  useReloadBlocker(dirty || busy, 'Un formulaire budgétaire est en cours.')
   useEffect(() => {
     const dialog = ref.current!, previous = document.activeElement, overflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'; dialog.showModal()
@@ -58,10 +58,11 @@ function ShareEditor({ source, existing, participants, busy, error, save, onClos
     <footer><button type="button" className="secondary-button" disabled={busy} onClick={close}>Annuler</button><button className="primary-button" disabled={busy}>{busy ? 'Enregistrement…' : 'Enregistrer le partage'}</button></footer>
   </form>}</SharingDialog>
 }
-export function ExpenseSharing({ trip, activities, repository = expenseSharingRepository }: { trip: Trip; activities: readonly TripActivity[]; repository?: Repository }) {
+export function ExpenseSharing({ trip, activities, repository = expenseSharingRepository, chosenExpense, onChosenExpenseChange }: { trip: Trip; activities: readonly TripActivity[]; repository?: Repository; chosenExpense?: string; onChosenExpenseChange?: (value: string) => void }) {
   const result = useMemo(() => calculateExpenseSharing(trip, activities), [trip, activities])
   const sources = sharingSources(trip, activities), participants = trip.participants ?? [], shares = trip.expenseShares ?? []
-  const [chosen, setChosen] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState(''), [message, setMessage] = useState('')
+  const [localChosen, setChosen] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState(''), [message, setMessage] = useState('')
+  const chosen = chosenExpense ?? localChosen
   const lock = useRef(false)
   const [dialog, setDialog] = useState<{ kind: 'participant'; participant?: TripParticipant } | { kind: 'expense'; source: Source; existing?: ExpenseShare; version: string } | { kind: 'delete'; participant: TripParticipant } | { kind: 'remove'; share: ExpenseShare; label: string } | null>(null)
   useReloadBlocker(busy, 'Enregistrement du partage des dépenses.')
@@ -80,7 +81,7 @@ export function ExpenseSharing({ trip, activities, repository = expenseSharingRe
       <button type="button" className="secondary-button" disabled={busy} onClick={() => { setError(''); setDialog({ kind: 'participant', participant }) }}>Modifier {participant.name}</button>
       <button type="button" className="secondary-button" disabled={busy} onClick={() => { setError(''); setDialog({ kind: 'delete', participant }) }}>Supprimer {participant.name}</button></div></li>)}</ul>
     <button type="button" className="secondary-button" disabled={busy} onClick={() => { setError(''); setDialog({ kind: 'participant' }) }}>Ajouter un participant</button>
-    {participants.length > 0 && <div className="sharing-source-picker"><label>Dépense à partager<select value={sources.some((item) => expenseReferenceKey(item) === chosen) ? chosen : ''} onChange={(event) => setChosen(event.target.value)}><option value="">Choisir une activité ou un déplacement</option>{sources.map((source) => <option key={expenseReferenceKey(source)} value={expenseReferenceKey(source)}>{source.kind === 'activity' ? 'Activité' : 'Déplacement'} · {source.label}</option>)}</select></label>
+    {participants.length > 0 && <div className="sharing-source-picker"><label>Dépense à partager<select value={sources.some((item) => expenseReferenceKey(item) === chosen) ? chosen : ''} onChange={(event) => { setChosen(event.target.value); onChosenExpenseChange?.(event.target.value) }}><option value="">Choisir une activité ou un déplacement</option>{sources.map((source) => <option key={expenseReferenceKey(source)} value={expenseReferenceKey(source)}>{source.kind === 'activity' ? 'Activité' : 'Déplacement'} · {source.label}</option>)}</select></label>
       <button type="button" className="secondary-button" disabled={busy || !sources.some((item) => expenseReferenceKey(item) === chosen)} onClick={() => { const source = sources.find((item) => expenseReferenceKey(item) === chosen); if (source) openExpense(source) }}>Configurer le partage</button></div>}
     {result.status === 'invalid' ? <p role="alert" className="budget-warning">{result.reason}</p> : <>
       <p className="budget-meta">{result.included} partage(s) calculable(s) · {result.unshared} dépense(s) non activée(s) · soldes en {result.currency}. Les paiements partiels partagent uniquement la somme déjà payée.</p>

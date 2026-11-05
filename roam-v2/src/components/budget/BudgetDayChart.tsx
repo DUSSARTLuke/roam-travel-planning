@@ -3,7 +3,7 @@ import { budgetDayDistribution, type BudgetDistributionMode, type BudgetEntry, t
 import { budgetTotalText, budgetOriginalAmount, budgetExclusionReason } from '../../money/budgetPresentation'
 import { formatDate } from '../program/dates'
 
-function ExpenseList({ entries, budget, mode, currency }: { entries: readonly BudgetEntry[]; budget: TripBudget; mode: BudgetDistributionMode; currency: string }) {
+export function ExpenseList({ entries, budget, mode, currency }: { entries: readonly BudgetEntry[]; budget: TripBudget; mode: BudgetDistributionMode; currency: string }) {
   return !entries.length ? <p>Aucune activité ni aucun déplacement affecté à cette journée.</p> : <ul className="budget-day-expenses">
     {entries.map((entry) => {
       const financial = budget.entryTotals.get(entry.id)
@@ -19,14 +19,15 @@ function ExpenseList({ entries, budget, mode, currency }: { entries: readonly Bu
     })}
   </ul>
 }
-export function BudgetDayChart({ budget, mode, onModeChange }: { budget: TripBudget; mode: BudgetDistributionMode; onModeChange: (mode: BudgetDistributionMode) => void }) {
+export function BudgetDayChart({ budget, mode, onModeChange, selectedDay, onSelectedDayChange }: { budget: TripBudget; mode: BudgetDistributionMode; onModeChange: (mode: BudgetDistributionMode) => void; selectedDay?: string | null; onSelectedDayChange?: (day: string) => void }) {
   const id = useId(), detailRef = useRef<HTMLElement>(null), scrollRef = useRef<HTMLDivElement>(null)
   const [selection, setSelection] = useState<string | null>(null)
   const distribution = budgetDayDistribution(budget, mode)
-  const selected = distribution.rows.find((day) => day.date === selection) ?? distribution.rows[0]
+  const selected = distribution.rows.find((day) => day.date === (selectedDay === undefined ? selection : selectedDay)) ?? distribution.rows[0]
   const currency = distribution.currency ?? ''
   function select(date: string) {
     setSelection(date)
+    onSelectedDayChange?.(date)
     scrollRef.current?.querySelector<HTMLElement>(`[data-budget-day="${date}"]`)?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   }
   const fullDate = (date: string) => formatDate(date, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })

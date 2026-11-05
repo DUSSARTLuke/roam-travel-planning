@@ -1,3 +1,4 @@
+import { copyPlannedBudget, initialBudgetView, type BudgetViewState } from './money/budgetTracking'
 import { TripBudget } from './components/budget/TripBudget'
 import type { TripMapView } from './maps/tripMapView'
 import { createId } from './utils/createId'
@@ -89,6 +90,7 @@ function formatTripDates(trip: Trip) {
 
 
 function App() {
+  const [budgetViews, setBudgetViews] = useState(() => new globalThis.Map<string, BudgetViewState>())
   const [activeTab, setActiveTab] = useState<TabId>('home')
   const [mapViews, setMapViews] = useState(() => new globalThis.Map<string, TripMapView>())
   const [mapNavigation, setMapNavigation] = useState(() => new globalThis.Map<string, TripMapNavigation>())
@@ -295,6 +297,7 @@ async function duplicateTrip(trip: Trip) {
     await db.trips.add({
       id: createId(),
       destination: `${trip.destination} (copie)`,
+      ...copyPlannedBudget(trip),
       ...(trip.participants ? { participants: trip.participants.map((participant) => ({ ...participant, id: createId() })) } : {}),
       referenceCurrency: tripReferenceCurrency(trip),
       ...(trip.manualExchangeRates !== undefined ? { manualExchangeRates: validateManualRates(trip.manualExchangeRates) } : {}),
@@ -760,7 +763,7 @@ if (!databaseReady || trips === undefined) {
               setProgramNavigation((previous) => new globalThis.Map(previous).set(selectedTrip.id, programNavigationFromMap(selectedTrip, state, previous.get(selectedTrip.id))))
             }} />
         ) : activeTab === 'budget' && selectedTrip ? (
-          <TripBudget key={selectedTrip.id} trip={selectedTrip} />
+          <TripBudget key={selectedTrip.id} trip={selectedTrip} view={budgetViews.get(selectedTrip.id) ?? initialBudgetView} onViewChange={(view) => setBudgetViews((previous) => new globalThis.Map(previous).set(selectedTrip.id, view))} />
         ) : (
           <section className="placeholder-page">
             <div className="placeholder-icon">

@@ -1,3 +1,4 @@
+import type { PlannedBudget } from '../money/budgetTracking'
 import type { TripParticipant, ExpenseShare } from '../money/expenseSharing'
 import type { ManualTransfer } from './transferModel'
 
@@ -15,6 +16,7 @@ export type Trip = {
   endDate: string
   travelers: number
   image: string
+  plannedBudget?: PlannedBudget
   participants?: TripParticipant[]
   expenseShares?: ExpenseShare[]
   // Missing on legacy records: EUR logically, without rewriting stored data.
