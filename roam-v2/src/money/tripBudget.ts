@@ -1,3 +1,4 @@
+import { activityBudgetCategory, budgetCategories, type BudgetCategory } from './budgetCategories'
 import type { TripActivity } from '../db/activityModel'
 import type { Trip } from '../db/database'
 import { tripReferenceCurrency } from '../db/currency'
@@ -5,7 +6,7 @@ import { validateTransfer, type ManualTransfer } from '../db/transferModel'
 import { createTripRateResolver } from './automaticRates'
 import { calculateFinancialTotals, type FinancialItem, type FinancialTotals, type RateResolution, type RateResolver } from './conversion'
 
-export type BudgetEntry = FinancialItem & { kind: 'activity' | 'transfer'; label: string }
+export type BudgetEntry = FinancialItem & { kind: 'activity' | 'transfer'; category: BudgetCategory; label: string }
 export type BudgetIssue = { label: string; reason: string }
 export type RemainingUnknown = { id: string; reason: 'missing-estimate' | 'missing-paid' | 'missing-both' | 'invalid-amount' }
 export type BudgetRate = Extract<RateResolution, { status: 'available' }> & { sourceCurrency: string; targetCurrency: string }
@@ -41,9 +42,9 @@ function totalsFor(items: readonly FinancialItem[], target: string, resolve: Rat
 // Pure snapshot calculation. No currency filling, writes, fetching or rounding.
 export function buildTripBudget(trip: Trip, activities: readonly TripActivity[]) {
   const issues: BudgetIssue[] = []
-  const local = unique(activities.filter((item) => item.tripId === trip.id), sameMoney, issues)
+  const local = unique(activities.filter((item) => item.tripId === trip.id), (a, b) => sameMoney(a, b) && a.category === b.category, issues)
   const byId = new Map(local.map((item) => [item.id, item]))
-  const entries: BudgetEntry[] = local.map((item) => ({ id: `activity:${item.id}`, kind: 'activity', label: item.title,
+  const entries: BudgetEntry[] = local.map((item) => ({ id: `activity:${item.id}`, kind: 'activity', category: activityBudgetCategory(item.category), label: item.title,
     currency: item.currency, estimatedCost: item.estimatedCost, paidAmount: item.paidAmount }))
   const transfers = unique(trip.manualTransfers ?? [], (a: ManualTransfer, b: ManualTransfer) => sameMoney(a, b) && a.fromActivityId === b.fromActivityId && a.toActivityId === b.toActivityId, issues)
   for (const raw of transfers) {
@@ -53,7 +54,7 @@ export function buildTripBudget(trip: Trip, activities: readonly TripActivity[])
       if (!from || !to) throw new Error('Une activité liée est absente ou appartient à un autre voyage.')
       // Date/order/GPS changes do not erase an existing expense. The map's
       // display eligibility is intentionally unrelated to financial inclusion.
-      entries.push({ id: `transfer:${item.id}`, kind: 'transfer', label: `${from.title} → ${to.title}`,
+      entries.push({ id: `transfer:${item.id}`, kind: 'transfer', category: 'transport', label: `${from.title} → ${to.title}`,
         estimatedCost: item.estimatedCost, currency: item.currency })
     } catch (error) { issues.push({ label: `Déplacement ${raw.id}`, reason: error instanceof Error ? error.message : 'Données du déplacement invalides.' }) }
   }
@@ -84,8 +85,35 @@ export function buildTripBudget(trip: Trip, activities: readonly TripActivity[])
   return {
     entries, issues, totals, remaining, unknownRemaining, overpaidCount, usedRates,
     hasAmounts: entries.some((item) => item.estimatedCost !== undefined || item.paidAmount !== undefined),
+    categoryTotals: budgetCategories.map((category) => ({ ...category, totals: totalsFor(entries.filter((item) => item.category === category.id), target, resolve) })),
     activityTotals: totalsFor(entries.filter((item) => item.kind === 'activity'), target, resolve),
     transferTotals: totalsFor(entries.filter((item) => item.kind === 'transfer'), target, resolve),
   }
 }
 export type TripBudget = ReturnType<typeof buildTripBudget>
+
+export type BudgetDistributionMode = 'estimated' | 'paid'
+// This projection never converts or rounds money: it uses the exact same ledger,
+// resolver snapshot and totalsFor calculations as the dashboard.
+export function budgetCategoryDistribution(budget: TripBudget, mode: BudgetDistributionMode) {
+  const total = budget.totals.status === 'calculated' ? budget.totals[mode] : null
+  const amount = total?.amount ?? null
+  const drawable = total?.status !== 'invalid' && amount !== null && amount > 0
+  const rows = budget.categoryTotals.map((category) => {
+    const value = category.totals.status === 'calculated' ? category.totals[mode] : null
+    const percentage = drawable && value?.amount !== null && value?.amount !== undefined && value.status !== 'invalid'
+      ? (value.amount / amount!) * 100 : null
+    return { ...category, value, percentage }
+  })
+  // Close only the SVG's floating-point seam. Financial amounts/percentages above
+  // remain unrounded, and percentages always refer to the dashboard's known sum.
+  const positive = rows.filter((row) => row.percentage !== null && row.percentage > 0)
+  let offset = 0
+  const segments = positive.map((row, index) => {
+    const size = index === positive.length - 1 ? Math.max(0, 100 - offset) : Math.max(0, Math.min(100 - offset, row.percentage!))
+    const segment = { id: row.id, color: row.color, offset, size }
+    offset += size
+    return segment
+  })
+  return { mode, total, rows, segments, drawable, currency: budget.totals.status === 'calculated' ? budget.totals.currency : null }
+}

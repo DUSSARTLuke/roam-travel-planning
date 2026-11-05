@@ -25,3 +25,31 @@
   .budget-summary { padding: 16px; }
   .budget-table-wrap th, .budget-table-wrap td { padding: 10px 6px; font-size: 13px; }
 }
+.budget-category-section { min-width: 0; margin: 28px 0; padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
+.budget-category-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.budget-category-heading h2 { margin: 0; font-size: 20px; }
+.budget-category-toggle { display: flex; flex-wrap: wrap; gap: 8px; max-width: 100%; min-width: 0; }
+.budget-category-toggle button { white-space: normal; }
+.budget-category-toggle button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+.budget-category-chart { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); align-items: center; gap: 24px; min-width: 0; }
+.budget-donut-figure { margin: 0; min-width: 0; text-align: center; }
+.budget-donut-stage { position: relative; max-width: 280px; margin: 0 auto; }
+.budget-donut-stage svg { display: block; width: 100%; height: auto; }
+.budget-donut-track { stroke: var(--border); }
+.budget-donut-center { position: absolute; inset: 28%; display: flex; flex-direction: column; justify-content: center; gap: 5px; font-size: 12px; color: var(--muted); overflow-wrap: anywhere; }
+.budget-donut-center strong { font-size: clamp(15px, 2.5vw, 22px); color: var(--text); }
+.budget-donut-empty { padding: 24px 16px; border: 1px dashed var(--border); border-radius: 14px; line-height: 1.6; color: var(--muted); }
+.budget-category-legend { margin: 0; min-width: 0; }
+.budget-category-legend > div { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.budget-category-legend dt { display: flex; align-items: center; gap: 9px; font-weight: 650; }
+.budget-category-badge { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 24px; height: 24px; border-radius: 6px; color: #101b2d; font-size: 12px; }
+.budget-category-legend dd { margin: 7px 0 0 33px; line-height: 1.5; overflow-wrap: anywhere; }
+.budget-category-values { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; }
+.budget-category-percentage { color: var(--muted); }
+@media (max-width: 720px) {
+  .budget-category-section { padding: 14px; }
+  .budget-category-chart { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .budget-donut-stage { width: min(100%, 250px); }
+  .budget-category-toggle { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  .budget-category-toggle button { min-width: 0; padding: 10px 8px; }
+}

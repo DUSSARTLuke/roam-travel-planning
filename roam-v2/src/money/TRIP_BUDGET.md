@@ -105,3 +105,64 @@ Ouvrir `/tests/activities.html`, puis lancer la suite. Contrôles manuels :
 7. Vérifier 320/375 px, les sections dépliables au clavier et les allers-retours vers
    Carte/Programme (caméra, filtres et sélections de 2.7 inchangés).
 8. Export/restauration ZIP : aucun nouveau champ ni format, les montants restent originaux.
+
+## Répartition par catégorie — 2.8b
+
+`budgetCategories.ts` définit uniquement des groupes de présentation : aucun champ
+n’est ajouté aux activités ni aux sauvegardes. Le modèle actuel possède les catégories
+`visit`, `meal`, `transport`, `outing`, `rest`, `other`. Leur regroupement est explicite :
+
+| Groupe affiché | Sources existantes |
+| --- | --- |
+| Hébergement | Non distingué dans le modèle actuel ; aucun montant supposé |
+| Transport | Activités `transport` et transferts manuels |
+| Restauration | Activités `meal` |
+| Activités | Activités `visit` et `outing` |
+| Autres | Activités `rest` et `other` |
+
+Un repos n’est pas assimilé à un hôtel. Aucun nom de lieu, titre ou note ne sert à
+deviner l’hébergement. Ses montants éventuellement enregistrés restent dans leur
+catégorie réelle ; ils ne disparaissent pas du budget. Ajouter une catégorie stockée
+spécifique n’entre pas dans cette étape sans modification de modèle autorisée.
+
+`BudgetEntry` porte désormais son groupe (vue transitoire). `buildTripBudget` produit
+les sous-totaux par groupe avec le même `totalsFor`, le même ledger dédupliqué et le
+même instantané `RateResolver` que 2.8a. Les transferts entrent une fois dans Transport ;
+leurs estimations ne créent jamais de paiements. Un doublon contradictoire sur la
+catégorie d’une même activité est signalé, sans classement arbitraire.
+
+`budgetCategoryDistribution` ne reconvertit aucun montant. Son dénominateur est
+exactement le total connu et convertible du tableau de bord pour le mode choisi.
+Un pourcentage vaut `(montant de catégorie / total connu) × 100`, sans arrondi de
+calcul. L’affichage arrondit au dixième de pourcentage ; les libellés arrondis peuvent
+par exemple totaliser 99,9 %. La dernière tranche SVG ferme uniquement les écarts
+infimes de représentation flottante, sans modifier les montants ou pourcentages.
+
+Les montants absents, invalides ou non convertibles n’entrent pas dans le dénominateur.
+Les compteurs globaux et par catégorie les distinguent. Une catégorie sans montant
+connu n’affiche ni zéro ni 0 %. Un vrai zéro, avec un total positif, affiche 0 % sans
+tranche artificielle. Si le total connu vaut zéro, aucun anneau ni pourcentage n’est
+inventé : la légende conserve les vrais montants à zéro. En absence de montant
+convertible ou en dépassement numérique, un état explicite remplace l’anneau.
+
+`BudgetCategoryChart.tsx` utilise du SVG natif, sans dépendance ni appel réseau.
+Le sélecteur Estimés/Payés est accessible au clavier et reste dans le mode choisi
+lors des mises à jour. Le SVG possède un titre et une description ; une légende
+textuelle indique les cinq groupes, montants, pourcentages et données manquantes,
+sans dépendre de la couleur. La grille s’adapte à la largeur réelle de son conteneur,
+y compris 320/375 px. Le graphique ne produit aucune écriture et n’ajoute aucune
+requête Dexie lors de la bascule. Les cartes, le reste connu et les exclusions de
+2.8a conservent leurs règles.
+
+Tests `tests/budgetCategories.browser.tsx`, intégrés à `/tests/activities.html` :
+regroupements réels, hébergement non inventé, transferts/doublons, estimé/payé,
+priorité manuelle/cache, taux manquant, absence/zéro, dénominateur et arrondis,
+anneau sans total positif, overflow, immutabilité, mises à jour de catégorie,
+paiement/taux/transfert, mode conservé, clavier, hors connexion et géométrie
+320/375/desktop. La suite de 2.8a et celle de la carte restent exécutées.
+
+Contrôles manuels complémentaires : vérifier l’anneau et la légende sur téléphone,
+basculer estimé/payé au clavier, modifier une catégorie et un montant dans un autre
+onglet, retirer un taux puis le rétablir, consulter hors connexion. Pour une activité
+repos nommée « Hôtel », vérifier le classement explicite dans Autres et l’indication
+« Hébergement : non distingué ». Aucun classement automatique n’est attendu.

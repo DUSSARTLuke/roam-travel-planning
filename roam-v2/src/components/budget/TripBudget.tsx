@@ -1,3 +1,4 @@
+import { BudgetCategoryChart } from './BudgetCategoryChart'
 import { useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Wallet, Receipt, CircleHelp } from 'lucide-react'
@@ -68,6 +69,7 @@ export function TripBudget({ trip, readActivities = listActivities }: { trip: Tr
         <Summary title="Total payé" total={paid} currency={currency} />
         <Summary title="Reste à payer connu" total={budget.remaining.estimated} currency={currency} missing={budget.unknownRemaining.length} />
       </div>
+      <BudgetCategoryChart budget={budget} />
       <p className="budget-note"><CircleHelp size={19} aria-hidden="true" />Le reste connu est calculé par élément : estimation moins montant payé, sans descendre sous zéro. Une valeur absente reste inconnue ; elle ne vaut pas zéro.</p>
       {budget.overpaidCount > 0 && <p className="budget-meta">{budget.overpaidCount} paiement(s) dépassent leur estimation. Ces dépassements ne compensent pas les autres montants restant à payer.</p>}
       <section aria-labelledby="budget-origin-title"><h2 id="budget-origin-title">Origine des montants</h2><div className="budget-table-wrap" role="region" aria-label="Montants par origine" tabIndex={0}><table>
