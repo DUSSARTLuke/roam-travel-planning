@@ -13,11 +13,12 @@ type Props = {
   activity: TripActivity
   returnFocusRef: RefObject<HTMLButtonElement | null>
   fallbackFocusRef: RefObject<HTMLButtonElement | null>
+  closeLabel?: string
   onClose: () => void
   onEdit: () => void
 }
 
-export function ActivityDetailPanel({ trip, activity, returnFocusRef, fallbackFocusRef, onClose, onEdit }: Props) {
+export function ActivityDetailPanel({ trip, activity, returnFocusRef, fallbackFocusRef, onClose, onEdit, closeLabel = 'Fermer la fiche et revenir au Programme' }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const backdropRef = useRef(false)
 
@@ -47,7 +48,7 @@ export function ActivityDetailPanel({ trip, activity, returnFocusRef, fallbackFo
         backdropRef.current = false
       }}>
       <header className="activity-panel-header activity-detail-header">
-        <button type="button" className="secondary-button activity-edit" autoFocus onClick={onClose} aria-label="Fermer la fiche et revenir au Programme">
+        <button type="button" className="secondary-button activity-edit" autoFocus onClick={onClose} aria-label={closeLabel}>
           <ArrowLeft size={18} /> Retour
         </button>
         <p className="eyebrow">FICHE ACTIVITÉ</p>

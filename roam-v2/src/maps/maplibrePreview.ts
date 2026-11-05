@@ -1,6 +1,6 @@
 import { coordinateKey, createTripMapController, displayedLongitude, tripMapBounds, type TripMapPoint } from './tripMapModel'
 import type { TripMapHandle, TripMapState } from './tripMapSession'
-import { Map as LibreMap, Marker, Popup, NavigationControl, setWorkerUrl, setWorkerCount, setMaxParallelImageRequests } from 'maplibre-gl'
+import { Map as LibreMap, Marker, NavigationControl, setWorkerUrl, setWorkerCount, setMaxParallelImageRequests } from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { osmRasterStyle, osmMapRequest } from './osmRaster'
@@ -70,14 +70,18 @@ export function mountMapPreview(container: HTMLElement, point: MapPoint, notify:
 
 // Global trip renderer shares MapLibre, worker, provider and request policy with
 // the existing individual preview. Its update path never changes the camera.
-export function mountTripMap(container: HTMLElement, initial: readonly TripMapPoint[], notify: (state: TripMapState) => void): TripMapHandle {
+export function mountTripMap(container: HTMLElement, initial: readonly TripMapPoint[], notify: (state: TripMapState) => void, onSelect?: (ids: string[]) => void): TripMapHandle {
   let removed = false; let failed = false; let points = initial
   const markers = new Map<string, { marker: Marker; button: HTMLButtonElement; click: (event: MouseEvent) => void }>()
-  const popup = new Popup({ closeButton: true, closeOnClick: true, maxWidth: '280px' })
+  let selected: string | null = null
   let observer: ResizeObserver | undefined
   let frame: number | undefined
-  let popupOrigin: HTMLButtonElement | null = null
-  const popupKeyboard = (event: KeyboardEvent) => { if (event.key === 'Escape' && popup.isOpen()) { event.preventDefault(); popup.remove(); popupOrigin?.focus({ preventScroll: true }) } }
+  function selection() {
+    for (const [id, entry] of markers) {
+      entry.button.setAttribute('aria-pressed', String(id === selected))
+      entry.button.classList.toggle('is-selected', id === selected)
+    }
+  }
   const map = new LibreMap({ container, style: osmRasterStyle(), center: [0, 0], zoom: 1, minZoom: -2, maxZoom: 18,
     attributionControl: false, renderWorldCopies: true, fadeDuration: 0, maxTileCacheSize: 32,
     cooperativeGestures: true, dragRotate: false, pitchWithRotate: false, scrollZoom: false, transformRequest: osmMapRequest,
@@ -88,7 +92,7 @@ export function mountTripMap(container: HTMLElement, initial: readonly TripMapPo
   function dispose() {
     if (removed) return; removed = true
     if (frame !== undefined) cancelAnimationFrame(frame)
-    observer?.disconnect(); popup.remove(); container.removeEventListener('keydown', popupKeyboard)
+    observer?.disconnect()
     for (const entry of markers.values()) { entry.button.removeEventListener('click', entry.click); entry.marker.remove() }
     markers.clear(); map.remove()
   }
@@ -97,10 +101,9 @@ export function mountTripMap(container: HTMLElement, initial: readonly TripMapPo
     map.on('error', () => { failed = true; if (!removed) notify({ phase: 'error', interactive: true, message: 'Certaines tuiles cartographiques sont indisponibles. La liste des lieux reste utilisable.' }) })
     map.on('idle', () => { if (!removed && !failed && map.isSourceLoaded('osm')) notify({ phase: 'ready', interactive: true, message: 'Carte du voyage chargée.' }) })
     map.getCanvas().setAttribute('aria-label', 'Carte interactive du voyage. Flèches pour déplacer la carte, boutons pour zoomer. Les lieux sont également listés sous la carte.')
-    container.addEventListener('keydown', popupKeyboard)
     const controller = createTripMapController(initial, {
       markers(next) {
-        points = next; popup.remove()
+        points = next
         const ids = new Set(next.map((point) => point.id))
         for (const [id, entry] of markers) if (!ids.has(id)) { entry.button.removeEventListener('click', entry.click); entry.marker.remove(); markers.delete(id) }
         const west = tripMapBounds(next)?.[0][0] ?? -180
@@ -114,15 +117,8 @@ export function mountTripMap(container: HTMLElement, initial: readonly TripMapPo
               event.stopPropagation()
               const current = points.find((item) => item.id === point.id)
               if (!current) return
-              const content = document.createElement('div'); const heading = document.createElement('strong')
               const coincident = points.filter((item) => coordinateKey(item) === coordinateKey(current))
-              heading.textContent = coincident.length > 1 ? `${coincident.length} activités à cet endroit` : 'Activité à cet endroit'; content.append(heading)
-              const list = document.createElement('ul')
-              for (const item of coincident) { const row = document.createElement('li'); row.textContent = item.name ? `${item.title} — ${item.name}` : item.title; list.append(row) }
-              content.append(list)
-              popupOrigin = button
-              popup.setLngLat([displayedLongitude(current, tripMapBounds(points)?.[0][0] ?? -180), current.latitude]).setDOMContent(content).addTo(map)
-              popup.getElement()?.querySelector<HTMLButtonElement>('.maplibregl-popup-close-button')?.addEventListener('click', () => button.focus({ preventScroll: true }), { once: true })
+              onSelect?.(coincident.map((item) => item.id))
             }
             button.addEventListener('click', click)
             entry = { button, click, marker: new Marker({ element: button, anchor: 'center' }).setLngLat([displayedLongitude(point, west), point.latitude]).addTo(map) }; markers.set(point.id, entry)
@@ -133,6 +129,7 @@ export function mountTripMap(container: HTMLElement, initial: readonly TripMapPo
           entry.button.title = entry.button.getAttribute('aria-label')!
           entry.marker.setLngLat([displayedLongitude(point, west), point.latitude])
         })
+        selection()
       },
       fit(next) {
         const bounds = tripMapBounds(next); if (!bounds) return
@@ -144,6 +141,6 @@ export function mountTripMap(container: HTMLElement, initial: readonly TripMapPo
     })
     if (typeof ResizeObserver !== 'undefined') { observer = new ResizeObserver(() => { if (!removed) map.resize() }); observer.observe(container) }
     frame = requestAnimationFrame(() => { if (!removed) map.resize() })
-    return controller
+    return { ...controller, select(id) { selected = id; selection() } }
   } catch (error) { dispose(); throw error }
 }

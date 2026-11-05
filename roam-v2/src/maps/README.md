@@ -156,3 +156,21 @@ Restent à tester avec WebGL et tuiles réels, sur desktop et téléphone 375 px
 5. Build/preview : aucun MapLibre/worker avant ouverture d'une carte avec GPS ;
    aucun cache applicatif de tuiles, aucune écriture IndexedDB, exclusion des
    ressources MapLibre du précache. Tester aussi le sous-chemin de déploiement.
+
+### 2.7b — Sélection sur la carte du voyage
+
+Les boutons marqueurs transmettent les identifiants du point sélectionné à React.
+L’aperçu et la liste partagent une sélection, sans requête IndexedDB supplémentaire.
+Les points identiques (y compris ±180°) proposent un choix explicite d’activité.
+La carte reste montée derrière la fiche et le formulaire existants : ouvrir,
+fermer ou modifier une activité ne déclenche aucun cadrage. Seul Recentrer le fait.
+La sélection est réinitialisée au changement de voyage et les détails sont dérivés
+à chaque actualisation de la requête réactive ; une activité disparue n’a plus de fiche.
+
+Tests : `/tests/activities.html` couvre sélection, doublons, liste, ouverture/retour,
+caméra sans nouveau montage, focus/Échap, modifications et suppression pendant la fiche.
+Le moteur cartographique est simulé dans ces tests d’interface.
+Vérifier aussi avec MapLibre réel sur desktop et téléphone (375 px) : toucher et
+Entrée/Espace sur les marqueurs, choix des activités superposées, style sélectionné,
+zoom/déplacement puis fiche → Retour, fiche → Modifier → Enregistrer, hors connexion
+via la liste, changement de voyage et modification/suppression depuis un autre onglet.

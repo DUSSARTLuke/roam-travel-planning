@@ -19,3 +19,11 @@
 .trip-map-places li { min-width: 0; overflow-wrap: anywhere; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
 .trip-map-places h3 { margin-top: 0; }
 @media (max-width: 640px) { .trip-map-figure { padding: 12px; } .trip-map-canvas { height: 360px; } }
+.trip-map-marker.is-selected { z-index: 3; outline: 4px solid var(--accent); outline-offset: 4px; background: #fff; }
+.trip-map-preview { margin: 20px 0; padding: 16px; border: 1px solid var(--accent); border-radius: 16px; background: var(--surface); overflow-wrap: anywhere; }
+.trip-map-preview .trip-map-toolbar { justify-content: space-between; }
+.trip-map-preview h2 { margin: 0; }
+.trip-map-preview fieldset { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.trip-map-places li.is-selected { border-color: var(--accent); }
+.trip-map-place-select { background: none; border: 0; padding: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; width: 100%; overflow-wrap: anywhere; }
+.trip-map-place-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }

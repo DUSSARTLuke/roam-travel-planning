@@ -67,10 +67,10 @@ export async function testTripMap(report: (message: string) => void) {
   let loads = 0; let rendererDisposals = 0; let cameraFits = 0; let reads = 0
   let notify!: (state: TripMapState) => void
   const markerSnapshots: (readonly TripMapPoint[])[] = []
-  const load: TripMapLoader = async () => { loads++; return { mountTripMap(container, initial, reportState) {
+  const load: TripMapLoader = async () => { loads++; return { mountTripMap(container, initial, reportState, onSelect) {
     notify = reportState
     return createTripMapController(initial, {
-      markers(next) { markerSnapshots.push(next); container.replaceChildren(...next.map((point) => { const button = document.createElement('button'); button.textContent = point.title; button.setAttribute('aria-label', point.title); return button })) },
+      markers(next) { markerSnapshots.push(next); container.replaceChildren(...next.map((point) => { const button = document.createElement('button'); button.textContent = point.title; button.setAttribute('aria-label', point.title); button.onclick = () => onSelect?.(next.filter((item) => coordinateKey(item) === coordinateKey(point)).map((item) => item.id)); return button })) },
       fit() { cameraFits++; reportState({ phase: 'ready', interactive: true, message: 'Carte simulée prête' }) },
       dispose() { rendererDisposals++; container.replaceChildren() },
     })
@@ -91,9 +91,35 @@ export async function testTripMap(report: (message: string) => void) {
     const duplicate = await repo.createActivity(trip.id, { ...valid, title: 'Même point' })
     await waitFor(() => markerSnapshots.at(-1)?.length === 2)
     assert(Number(cameraFits) === 1 && markerSnapshots.at(-1)?.[0].longitude === 0, 'Ajout au même point a recentré ou déplacé les GPS.')
+    const marker = host.querySelector<HTMLButtonElement>('.trip-map-canvas button')!
+    flushSync(() => marker.click())
+    await waitFor(() => Boolean(host.querySelector('.trip-map-preview')))
+    assert(host.querySelectorAll('.trip-map-preview fieldset button').length === 2, 'Choix des coordonnées identiques absent.')
+    const chooseDuplicate = [...host.querySelectorAll<HTMLButtonElement>('.trip-map-preview fieldset button')].find((button) => button.textContent === 'Même point')!
+    flushSync(() => chooseDuplicate.click())
+    assert(host.querySelector('.trip-map-preview h2')?.textContent === 'Même point', 'Choix du doublon ignoré.')
+    const listFirst = [...host.querySelectorAll<HTMLButtonElement>('.trip-map-place-select')].find((button) => button.textContent === 'Point zéro')!
+    flushSync(() => listFirst.click())
+    assert(listFirst.getAttribute('aria-pressed') === 'true' && host.querySelector('.trip-map-preview')?.textContent?.includes('Adresse test'), 'Liste et aperçu non synchronisés.')
+    const openDetail = host.querySelector<HTMLButtonElement>('.trip-map-preview .primary-button')!
+    openDetail.focus()
+    flushSync(() => openDetail.click())
+    assert(host.querySelector('dialog[open] #activity-detail-title')?.textContent === 'Point zéro', 'Fiche non ouverte depuis la carte.')
+    flushSync(() => host.querySelector<HTMLButtonElement>('button[aria-label="Fermer la fiche et revenir à la carte"]')!.click())
+    assert(!host.querySelector('dialog[open]') && Number(cameraFits) === 1 && Number(loads) === 1 && document.activeElement === openDetail, 'Retour fiche perd la caméra/le focus ou remonte la carte.')
     await repo.updateActivity(trip.id, first.id, { ...first, latitude: -20, longitude: 179, title: 'Lieu déplacé' })
     await waitFor(() => markerSnapshots.at(-1)?.some((point) => point.title === 'Lieu déplacé' && point.latitude === -20) === true)
     assert(Number(cameraFits) === 1 && Number(loads) === 1, 'Modification recrée/recentre la carte.')
+    assert(host.querySelector('.trip-map-preview h2')?.textContent === 'Lieu déplacé', 'Aperçu obsolète après modification.')
+    flushSync(() => host.querySelector<HTMLButtonElement>('.trip-map-preview button[aria-label="Fermer l’aperçu"]')!.click())
+    assert(!host.querySelector('.trip-map-preview'), 'Sélection impossible à fermer.')
+    const selectFromList = host.querySelector<HTMLButtonElement>('.trip-map-place-select')!
+    selectFromList.focus()
+    flushSync(() => selectFromList.click())
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+    assert(document.activeElement === host.querySelector('.trip-map-preview .primary-button'), 'Focus clavier absent de l’aperçu.')
+    flushSync(() => host.querySelector('.trip-map-preview')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })))
+    assert(!host.querySelector('.trip-map-preview') && document.activeElement === selectFromList, 'Échap ne ferme pas ou ne restaure pas le focus.')
     const recenter = [...host.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent?.includes('Recentrer'))!
     recenter.focus(); assert(document.activeElement === recenter && recenter.getBoundingClientRect().height >= 44, 'Recentrage non accessible/tactile.')
     flushSync(() => recenter.click()); assert(Number(cameraFits) === 2, 'Bouton Recentrer sans effet.')
@@ -119,9 +145,14 @@ export async function testTripMap(report: (message: string) => void) {
     await repo.updateActivity(other.id, otherActivity.id, { ...otherActivity, latitude: 90, longitude: 0 })
     await waitFor(() => host.textContent?.includes('coordonnées polaires') === true)
     assert(host.textContent?.includes('1 activité avec GPS') && host.textContent.includes('GPS : 90 ; 0') && !host.querySelector('.trip-map-canvas'), 'Pôle compté ou conservé incorrectement.')
+    flushSync(() => host.querySelector<HTMLButtonElement>('.trip-map-place-select')!.click())
+    assert(host.querySelector('.trip-map-preview'), 'Sélection hors fond Mercator inaccessible.')
+    flushSync(() => host.querySelector<HTMLButtonElement>('.trip-map-preview .primary-button')!.click())
+    assert(host.querySelector('dialog[open]'), 'Fiche avant suppression absente.')
     await repo.deleteActivity(other.id, otherActivity.id)
     await waitFor(() => host.textContent?.includes('Aucun lieu géolocalisé') === true)
-    assert(!host.querySelector('.trip-map-canvas') && host.textContent?.includes('Aucune activité enregistrée'), 'Carte conservée après suppression du dernier point.')
-    report('Carte globale UI : requête unique, marqueurs réactifs ajout/modification/suppression, doublons, compteur, caméra préservée/recentrage, erreurs/retry, offline, isolation et mobile (moteur simulé).')
+    assert(!host.querySelector('.trip-map-preview') && !host.querySelector('.trip-map-canvas') && host.textContent?.includes('Aucune activité enregistrée'), 'Carte conservée après suppression du dernier point.')
+    assert(!host.querySelector('dialog[open]'), 'Fiche conservée après suppression de l’activité sélectionnée.')
+    report('Carte globale UI : sélection marqueur/liste, doublons, fiche/retour caméra et focus, Échap, suppression sélectionnée ; requête unique, marqueurs réactifs ajout/modification/suppression, doublons, compteur, caméra préservée/recentrage, erreurs/retry, offline, isolation et mobile (moteur simulé).')
   } finally { flushSync(() => root.unmount()); host.remove(); await database.delete(); window.dispatchEvent(new Event(previousOffline ? 'offline' : 'online')) }
 }
