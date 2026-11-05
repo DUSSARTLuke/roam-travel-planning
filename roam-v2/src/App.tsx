@@ -1,3 +1,4 @@
+import { TripLibrary } from './components/reservations/TripLibrary'
 import { copyPreparationTasks } from './db/preparation'
 import { TripOverview } from './components/dashboard/TripOverview'
 import { copyPlannedBudget, initialBudgetView, type BudgetViewState } from './money/budgetTracking'
@@ -93,6 +94,8 @@ function formatTripDates(trip: Trip) {
 
 function App() {
   const [budgetViews, setBudgetViews] = useState(() => new globalThis.Map<string, BudgetViewState>())
+  const [libraryTripId, setLibraryTripId] = useState<string | null>(null)
+  const libraryTrigger = useRef<HTMLButtonElement>(null)
   const [activeTab, setActiveTab] = useState<TabId>('home')
   const [mapViews, setMapViews] = useState(() => new globalThis.Map<string, TripMapView>())
   const [mapNavigation, setMapNavigation] = useState(() => new globalThis.Map<string, TripMapNavigation>())
@@ -524,6 +527,7 @@ if (!databaseReady || trips === undefined) {
     <h2 className="dashboard-title">Organiser mon voyage</h2>
 
     <div className="dashboard-grid">
+      <button type="button" className="dashboard-tile" ref={libraryTrigger} aria-expanded={libraryTripId === selectedTrip.id} onClick={() => setLibraryTripId(selectedTrip.id)}><ClipboardList size={24} /><strong>Réservations et documents</strong><span>Retrouver les informations et fichiers du voyage</span></button>
       {[
         {
           id: 'program' as TabId,
@@ -545,8 +549,8 @@ if (!databaseReady || trips === undefined) {
         },
         {
           id: 'more' as TabId,
-          label: 'Préparatifs et plus',
-          description: 'Réservations et informations',
+          label: 'Sauvegardes et plus',
+          description: 'Gérer les sauvegardes locales',
           icon: ClipboardList,
         },
       ].map(({ id, label, description, icon: Icon }) => (
@@ -561,7 +565,7 @@ if (!databaseReady || trips === undefined) {
         </button>
       ))}
     </div>
-    <TripOverview key={selectedTrip.id} trip={selectedTrip} navigate={setActiveTab} />
+    <>{libraryTripId === selectedTrip.id ? <TripLibrary key={selectedTrip.id} trip={selectedTrip} onClose={() => { setLibraryTripId(null); libraryTrigger.current?.focus({ preventScroll: true }) }} /> : <TripOverview key={selectedTrip.id} trip={selectedTrip} navigate={setActiveTab} />}</>
     <details className="trip-management"><summary>Gérer et sauvegarder ce voyage</summary>
     <button
       type="button"

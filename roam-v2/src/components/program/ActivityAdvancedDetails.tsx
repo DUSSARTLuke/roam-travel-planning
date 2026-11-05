@@ -1,7 +1,8 @@
+import { hasReservationInformation } from '../../reservations/library'
 import { isSafeActivityUrl, type TripActivity } from '../../db/activityModel'
 import type { Trip } from '../../db/database'
 import { ActivityMoneyDetails } from './ActivityMoneyDetails'
-import { reservationLabels } from './activityPresentation'
+import { reservationLabels, reservationTypeLabels } from './activityPresentation'
 import { formatDate } from './dates'
 
 function ActivityLink({ title, url }: { title: string; url: string }) {
@@ -11,13 +12,13 @@ function ActivityLink({ title, url }: { title: string; url: string }) {
 }
 
 export function ActivityAdvancedDetails({ activity, trip }: { activity: TripActivity; trip: Trip }) {
-  const reservation = activity.reservationStatus !== undefined || activity.reservationReference || activity.reservationProvider ||
-    activity.reservationPeople !== undefined || activity.reservationDeadline || activity.reservationNotes
+  const reservation = hasReservationInformation(activity)
   const links = activity.links ?? []
   return <>
     {reservation && <section aria-labelledby="activity-detail-reservation">
       <h3 id="activity-detail-reservation">Réservation</h3>
       <dl className="activity-detail-fields">
+        {activity.reservationType && <div><dt>Type</dt><dd>{reservationTypeLabels[activity.reservationType]}</dd></div>}
         <div><dt>Statut</dt><dd>{activity.reservationStatus ? reservationLabels[activity.reservationStatus] : 'Non renseigné'}</dd></div>
         {activity.reservationReference && <div><dt>Référence de confirmation</dt><dd>{activity.reservationReference}</dd></div>}
         {activity.reservationProvider && <div><dt>Prestataire</dt><dd>{activity.reservationProvider}</dd></div>}

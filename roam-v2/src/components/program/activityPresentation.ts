@@ -20,3 +20,5 @@ export const reservationLabels = {
   to_book: 'À réserver', confirmed: 'Réservée', not_required: 'Non nécessaire', cancelled: 'Annulée',
   pending: 'En attente (ancien statut)',
 } satisfies Record<import('../../db/activityModel').ReservationStatus, string>
+
+export const reservationTypeLabels = { transport: 'Transport', accommodation: 'Hébergement', activity: 'Activité', other: 'Autre' } satisfies Record<import('../../db/activityModel').ReservationType, string>

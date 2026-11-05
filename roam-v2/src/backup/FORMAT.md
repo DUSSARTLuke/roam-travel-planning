@@ -258,3 +258,16 @@ préserve les identifiants, coches, échéances, notes et dates de modification.
 La duplication d'un voyage crée de nouveaux IDs de tâches, remet les coches à
 false, conserve les échéances (aucun décalage inventé), titres, catégories,
 priorités et notes, avec de nouvelles dates de création/modification.
+
+### Classement des réservations (2.9c)
+
+`TripActivity.reservationType?: 'transport' | 'accommodation' | 'activity' | 'other'`
+est un classement facultatif de la réservation de l'activité existante. Il ne
+représente ni une nouvelle réservation ni un statut de confirmation/paiement.
+Le champ est vérifié à l'export et à la restauration et conservé lors des éditions
+partielles. Les anciennes sauvegardes sans champ restent valides. Aucun changement
+de table/index, de version Dexie V4 ou de format ZIP 1.
+L'espace central ne persiste aucune liste ni copie de fichier : il consulte les
+activités et les métadonnées existantes, puis les Blob d'origine à la demande.
+Le comportement de duplication des voyages reste inchangé : sans copie d'activités,
+aucune réservation ni pièce jointe de l'original n'apparaît dans le voyage copié.

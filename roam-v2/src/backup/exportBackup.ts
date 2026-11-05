@@ -1,3 +1,4 @@
+import { validateReservationType } from '../db/activityModel'
 import { validatePreparationTasks } from '../preparation/tasks'
 import { validatePlannedBudget } from '../money/budgetTracking'
 import { validateTripSharing } from '../money/expenseSharing'
@@ -47,6 +48,7 @@ export async function buildExportArchive(snapshot: ExportSnapshot, onProgress: (
   if (activities.some((activity) => !tripIds.has(activity.tripId)) || documents.some((document) => !activityIds.has(document.activityId))) {
     throw new Error('Des données n’ont plus de parent. Export interrompu pour éviter une sauvegarde incomplète.')
   }
+  for (const activity of activities) validateReservationType(activity.reservationType)
   const transferActivities = new Map(activities.map((activity) => [activity.id, activity]))
   for (const trip of trips) { validateTripTransfers(trip.manualTransfers, trip.id, transferActivities); validateTripSharing(trip, transferActivities); validatePlannedBudget(trip.plannedBudget); validatePreparationTasks(trip.preparationTasks) }
   const blobs = new Map<string, Blob>()

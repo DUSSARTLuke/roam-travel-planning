@@ -1,3 +1,4 @@
+import { hasReservationInformation } from '../../reservations/library'
 import type { Trip } from '../../db/database'
 import type { TripActivity, ReservationStatus } from '../../db/activityModel'
 import { parseDate } from '../program/dates'
@@ -23,7 +24,7 @@ export function buildTripOverview(trip: Trip, activities: readonly TripActivity[
   const exact = scheduled.filter((activity) => activity.scheduleType === 'exact' && /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(activity.startTime) && (activity.date! > clock.date || activity.startTime >= clock.time))
     .sort((a, b) => a.date!.localeCompare(b.date!) || a.startTime!.localeCompare(b.startTime!) || (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id.localeCompare(b.id))
   const flexible = scheduled.filter((activity) => activity.scheduleType !== 'exact').sort((a, b) => a.date!.localeCompare(b.date!) || (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.id.localeCompare(b.id))
-  const reservations = local.filter((activity) => activity.reservationStatus !== undefined || activity.reservationReference || activity.reservationProvider || activity.reservationPeople !== undefined || activity.reservationDeadline || activity.reservationNotes)
+  const reservations = local.filter(hasReservationInformation)
   const counts: Record<ReservationStatus | 'unknown', number> = { confirmed: 0, to_book: 0, pending: 0, not_required: 0, cancelled: 0, unknown: 0 }
   for (const activity of reservations) counts[activity.reservationStatus !== undefined && Object.hasOwn(counts, activity.reservationStatus) ? activity.reservationStatus : 'unknown']++
   return { progress: tripProgress(trip, clock.date), next: exact[0] ?? null, flexible: flexible[0] ?? null,

@@ -1,5 +1,5 @@
 import { coordinateFormValue, coordinateInput } from '../../db/activityLocation'
-import type { ActivityCategory, ActivityLink, ReservationStatus, ActivityPeriod, ActivitySchedule, TripActivity, TripActivityInput } from '../../db/activityModel'
+import type { ActivityCategory, ActivityLink, ReservationType, ReservationStatus, ActivityPeriod, ActivitySchedule, TripActivity, TripActivityInput } from '../../db/activityModel'
 
 export type ActivityFormValues = {
   title: string
@@ -15,6 +15,7 @@ export type ActivityFormValues = {
   latitude: string
   longitude: string
   notes: string
+  reservationType: ReservationType | ''
   reservationStatus: ReservationStatus | ''
   reservationReference: string
   reservationProvider: string
@@ -37,6 +38,7 @@ export function initialActivityValues(activity: TripActivity | null, date: strin
     address: activity?.address ?? '', latitude: coordinateFormValue(activity?.latitude),
     longitude: coordinateFormValue(activity?.longitude),
     location: activity?.location ?? '', notes: activity?.notes ?? '',
+    reservationType: activity?.reservationType ?? '',
     reservationStatus: activity?.reservationStatus ?? '',
     reservationReference: activity?.reservationReference ?? '', reservationProvider: activity?.reservationProvider ?? '',
     reservationPeople: activity?.reservationPeople === undefined ? '' : String(activity.reservationPeople),
@@ -77,7 +79,7 @@ export function activityFormInput(form: ActivityFormValues, existing: TripActivi
     location: form.location, notes: form.notes, sortOrder: existing?.sortOrder ?? 0,
     estimatedCost: form.estimatedCost.trim() === '' ? undefined : Number(form.estimatedCost),
     paidAmount: form.paidAmount.trim() === '' ? undefined : Number(form.paidAmount),
-    currency: form.currency || undefined, reservationStatus: form.reservationStatus || undefined,
+    currency: form.currency || undefined, reservationType: form.reservationType || undefined, reservationStatus: form.reservationStatus || undefined,
     reservationReference: form.reservationReference || undefined, reservationProvider: form.reservationProvider || undefined,
     reservationPeople: form.reservationPeople.trim() === '' ? undefined : Number(form.reservationPeople),
     reservationDeadline: form.reservationDeadline || undefined, reservationNotes: form.reservationNotes || undefined,

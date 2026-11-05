@@ -3,9 +3,9 @@ import { getDocument } from '../../db/documents'
 import { NativePdfPreview } from './NativePdfPreview'
 import type { ActivityDocument } from '../../db/documentModel'
 
-type Props = { tripId: string; activityId: string; document: ActivityDocument; fallbackFocusRef: RefObject<HTMLElement | null>; onClose: () => void }
+type Props = { tripId: string; activityId: string; document: ActivityDocument; fallbackFocusRef: RefObject<HTMLElement | null>; onClose: () => void; readDocument?: typeof getDocument }
 
-export function DocumentViewer({ tripId, activityId, document, fallbackFocusRef, onClose }: Props) {
+export function DocumentViewer({ tripId, activityId, document, fallbackFocusRef, onClose, readDocument = getDocument }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const [resource, setResource] = useState<{ url: string; name: string } | null>(null)
   const [error, setError] = useState('')
@@ -16,19 +16,21 @@ export function DocumentViewer({ tripId, activityId, document, fallbackFocusRef,
 
   useEffect(() => {
     const dialog = dialogRef.current!
-    const previous = window.document.activeElement
+    const previous = window.document.activeElement, fallback = fallbackFocusRef.current, overflow = window.document.body.style.overflow
+    window.document.body.style.overflow = 'hidden'
     dialog.showModal()
     return () => {
       dialog.close()
-      if (previous instanceof HTMLElement && previous.isConnected) previous.focus()
-      else fallbackFocusRef.current?.focus()
+      window.document.body.style.overflow = overflow
+      if (previous instanceof HTMLElement && previous.isConnected) previous.focus({ preventScroll: true })
+      else fallback?.focus({ preventScroll: true })
     }
   }, [fallbackFocusRef])
 
   useEffect(() => {
     let active = true
     let url: string | null = null
-    getDocument(tripId, activityId, document.id).then((stored) => {
+    readDocument(tripId, activityId, document.id).then((stored) => {
       if (!active) return
       url = URL.createObjectURL(stored.blob)
       setResource({ url, name: stored.metadata.name })
@@ -36,7 +38,7 @@ export function DocumentViewer({ tripId, activityId, document, fallbackFocusRef,
       if (active) setError(caught instanceof Error && caught.name === 'Error' ? caught.message : 'Impossible de lire ce document dans le stockage local.')
     })
     return () => { active = false; if (url) URL.revokeObjectURL(url) }
-  }, [tripId, activityId, document.id])
+  }, [tripId, activityId, document.id, readDocument])
 
   function download() {
     if (!resource || downloading.current) return

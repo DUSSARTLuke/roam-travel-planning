@@ -3,13 +3,19 @@ import { validateCurrency } from './currency'
 
 export type ActivityCategory = 'visit' | 'meal' | 'transport' | 'outing' | 'rest' | 'other'
 export type ActivityPeriod = 'morning' | 'afternoon' | 'evening'
+export type ReservationType = 'transport' | 'accommodation' | 'activity' | 'other'
+export function validateReservationType(value: unknown): ReservationType | undefined {
+  if (value === undefined) return undefined
+  if (typeof value !== 'string' || !['transport', 'accommodation', 'activity', 'other'].includes(value)) throw new Error('Le type de réservation est invalide.')
+  return value as ReservationType
+}
 export type ReservationStatus = 'not_required' | 'to_book' | 'pending' | 'confirmed' | 'cancelled'
 
 export type ActivityLink = { id: string; title: string; url: string }
 
 export const advancedActivityKeys = [
   'location', 'address', 'latitude', 'longitude',
-  'estimatedCost', 'paidAmount', 'currency', 'reservationStatus', 'reservationReference',
+  'estimatedCost', 'paidAmount', 'currency', 'reservationType', 'reservationStatus', 'reservationReference',
   'reservationProvider', 'reservationPeople', 'reservationDeadline', 'reservationNotes', 'url', 'links',
 ] as const
 
@@ -41,6 +47,7 @@ export type TripActivityInput = ActivitySchedule & {
   links?: ActivityLink[]
   estimatedCost?: number
   currency?: string
+  reservationType?: ReservationType
   reservationStatus?: ReservationStatus
   url?: string
   sortOrder?: number
@@ -118,6 +125,7 @@ export function validateActivity(input: TripActivityInput, existing?: TripActivi
       return { id, title, url }
     })
   }
+  const reservationType = validateReservationType(input.reservationType)
   if (input.reservationStatus !== undefined &&
       !['not_required', 'to_book', 'pending', 'confirmed', 'cancelled'].includes(input.reservationStatus)) {
     throw new Error('Le statut de réservation est invalide.')
@@ -155,7 +163,7 @@ export function validateActivity(input: TripActivityInput, existing?: TripActivi
     ...schedule, title, category: input.category, date: input.date, sortOrder: input.sortOrder,
     ...coordinates, address: optionalText(input.address, 'L’adresse'),
     location: optionalText(input.location, 'Le lieu'), notes: optionalText(input.notes, 'Les notes'),
-    estimatedCost: input.estimatedCost, paidAmount: input.paidAmount, currency, reservationStatus: input.reservationStatus, url,
+    estimatedCost: input.estimatedCost, paidAmount: input.paidAmount, currency, reservationType, reservationStatus: input.reservationStatus, url,
     reservationReference, reservationProvider, reservationPeople: input.reservationPeople,
     reservationDeadline: input.reservationDeadline, reservationNotes, links,
   }

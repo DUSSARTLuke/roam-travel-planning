@@ -2,8 +2,8 @@ import { createId } from '../../utils/createId'
 import { CurrencySelector } from '../currency/CurrencySelector'
 import { useRef } from 'react'
 import type { ActivityFormValues } from './activityFormModel'
-import type { ReservationStatus } from '../../db/activityModel'
-import { reservationLabels } from './activityPresentation'
+import type { ReservationStatus, ReservationType } from '../../db/activityModel'
+import { reservationLabels, reservationTypeLabels } from './activityPresentation'
 
 type Props = { form: ActivityFormValues; onChange: (form: ActivityFormValues) => void }
 
@@ -20,6 +20,9 @@ export function ActivityAdvancedFields({ form, onChange }: Props) {
   return <>
     <details className="activity-extra">
       <summary>Réservation</summary>
+      <label>Type de réservation<select value={form.reservationType} onChange={(event) => field('reservationType', event.target.value as ReservationType | '')}>
+        <option value="">Selon la catégorie de l’activité</option>{Object.entries(reservationTypeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+      </select></label>
       <label>Statut<select value={form.reservationStatus} onChange={(event) => field('reservationStatus', event.target.value as ReservationStatus | '')}>
         <option value="">Non renseigné</option>
         {Object.entries(reservationLabels).filter(([value]) => value !== 'pending' || form.reservationStatus === 'pending')
