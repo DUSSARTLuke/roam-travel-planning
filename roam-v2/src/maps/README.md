@@ -280,3 +280,76 @@ Contrôles manuels avec MapLibre réel :
 
 Validation PowerShell : `npm.cmd run lint`, `npm.cmd run build`, `npm.cmd run test:pwa`,
 puis `npm.cmd run dev` et lancer `/tests/activities.html`.
+
+### 2.7e — Mobile et repli hors connexion
+
+La surface cartographique est isolée dans `TripMapCanvas.tsx`. « Agrandir » reste
+dans le flux de la page : aucun écran superposé ni verrou de défilement, la
+navigation reste accessible. Sa hauteur est calculée avec `dvh` et la zone de
+sécurité ; les contrôles, les explications et le statut réservent leur propre
+place. « Réduire » ou Échap revient au format normal sans remonter MapLibre.
+Le redimensionnement appelle `resize`, jamais un cadrage. Un bouton « Revenir à
+la carte » dans les aperçus déplace le focus/la page, sans changer la caméra.
+L’attribution OSM est lisible directement dans la carte dans les deux formats.
+
+Gestes : un doigt fait défiler la page ; deux doigts déplacent/zooment la carte.
+Les boutons de zoom restent disponibles (44 px) et le double-clic/double-toucher
+sur la carte ne provoque pas de zoom accidentel. La rotation tactile est désactivée.
+Aucun gestionnaire tactile global ne bloque le défilement du navigateur. Les
+marqueurs conservent leur cible 44 px et les transferts leurs zones de sélection
+élargies ; les listes offrent une alternative tactile et clavier.
+Le ratio de pixels est plafonné à 2 pour limiter les coûts GPU sur téléphone,
+avec un cache mémoire de 32 tuiles et annulation des requêtes devenues obsolètes
+pendant le zoom. Les statuts identiques ne provoquent pas de nouveaux rendus React.
+
+`tripMapView.ts` définit un instantané de vue par voyage et par filtre : caméra,
+sélection de lieu/transfert et agrandissement. `App` le conserve seulement pendant
+la session (aucune écriture IndexedDB/ZIP). Le déplacement de caméra est mémorisé
+à `moveend` et à la destruction. Au retour d’un onglet, après une coupure réseau
+ou un nouvel essai explicite, cette caméra remplace le cadrage initial.
+Changer volontairement de filtre conserve le cadrage attendu de 2.7c ; une vue
+mémorisée pour une autre journée n’est jamais réappliquée à la nouvelle journée.
+Les sélections devenues invalides sont toujours nettoyées par la requête réactive.
+Quitter la carte détruit WebGL, les marqueurs, couches, observateurs et écouteurs :
+aucune carte cachée ne continue à charger en arrière-plan. Les fiches restent
+superposées à la même carte montée, sans perte de caméra au retour.
+
+Offline : aucune importation MapLibre à l’ouverture hors connexion, ni pour un
+voyage sans GPS affichable. Les listes et les aperçus des lieux/transferts restent
+utilisables. Une erreur de module/WebGL/tuiles conserve toutes les données locales
+avec un message et un nouvel essai volontaire. Le retour d’un signal réseau ne
+prouve pas l’accessibilité du fournisseur ; il est annoncé comme tel. Une première
+ouverture hors connexion peut ne pas disposer du module optionnel de carte, ce
+qui n’empêche pas les listes. Aucune carte complètement hors ligne n’est promise.
+
+Politique de tuiles : URL HTTPS OSM, Referer et cache HTTP du navigateur conservés,
+attribution visible et lien de signalement. Aucun téléchargement groupé, cache de
+tuiles PWA, préchargement de zones ou contournement des en-têtes HTTP. Voir la
+[politique officielle OSM](https://operations.osmfoundation.org/policies/tiles/).
+
+Tests : `tripMapMobile.browser.tsx` est inclus dans `/tests/activities.html`.
+Il couvre les largeurs 320/375 et desktop, hauteur/attribution/navigation du mode
+agrandi, conservation de l’élément carte, resize sans cadrage/lecture superflue,
+Échap/focus, retour fiche, onglets, mémorisation de caméra/sélections, erreurs et
+retry, ouverture offline sans import, reconnexion et changement volontaire de filtre.
+Le contrôleur, les instantanés et les options tactiles/GPU sont testés séparément.
+Le moteur de carte des tests d’interface est simulé : les gestes natifs doivent
+encore être vérifiés avec MapLibre réel sur téléphone.
+
+Vérifications manuelles de clôture :
+1. Sur 320/375 px et en paysage, agrandir/réduire : pas de débordement horizontal,
+   attribution lisible, navigation accessible et bouton de retour toujours disponible.
+2. Un doigt sur la carte fait défiler la page ; deux doigts déplacent/pincent ;
+   boutons +/−, marqueurs et transferts répondent sans gestes involontaires.
+3. Déplacer/zoomer, sélectionner, ouvrir une fiche et revenir, puis changer d’onglet :
+   même filtre et caméra, sélection conservée si elle existe encore.
+4. Passer offline puis online : listes/aperçus disponibles, caméra restaurée et
+   aucune promesse de disponibilité des tuiles. Bloquer les tuiles via DevTools :
+   message explicite, aucune donnée locale masquée, retry manuel possible.
+5. Dans Network, seuls les besoins du viewport sont demandés, aucune prélecture
+   massive ; dans Application/Cache Storage, aucune tuile OSM mise en cache PWA.
+6. Relancer export/restauration ZIP en HTTP local : le repli SHA-256 reste inchangé.
+
+PowerShell depuis `roam-v2/` : `npm.cmd run lint`, `npm.cmd run build`,
+`npm.cmd run test:pwa`, `node tests/crypto-context.mjs`, puis `npm.cmd run dev`
+et `/tests/activities.html`. Aucun déploiement requis.

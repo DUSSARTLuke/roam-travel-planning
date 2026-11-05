@@ -13,8 +13,8 @@ function TransferSummary({ link }: { link: MapTransfer }) {
       ? `${new Intl.NumberFormat('fr-FR', { style: 'currency', currency: transfer.currency }).format(transfer.estimatedCost)} (${transfer.currency}) estimés` : 'Coût non renseigné'}</span>
   </>
 }
-export function TripMapTransfers({ links, selectedIds, onSelect, onClose, previewRef }: {
-  links: readonly MapTransfer[]; selectedIds: readonly string[]; onSelect: (ids: string[]) => void; onClose: () => void; previewRef: RefObject<HTMLButtonElement | null>
+export function TripMapTransfers({ links, selectedIds, onSelect, onClose, previewRef, onReturnMap }: {
+  onReturnMap?: () => void; links: readonly MapTransfer[]; selectedIds: readonly string[]; onSelect: (ids: string[]) => void; onClose: () => void; previewRef: RefObject<HTMLButtonElement | null>
 }) {
   const selected = selectedIds.map((id) => links.find((link) => link.transfer.id === id)).filter((link): link is MapTransfer => Boolean(link))
   const current = selected[0]
@@ -33,6 +33,7 @@ export function TripMapTransfers({ links, selectedIds, onSelect, onClose, previe
       <p>{formatDate(current.day, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
       {current.geometry.type === 'Point' && <p>Les deux activités partagent les mêmes coordonnées : un halo représente leur liaison, sans inventer de parcours.</p>}
       {current.transfer.notes && <p className="trip-transfer-notes">{current.transfer.notes}</p>}
+      {onReturnMap && <button type="button" className="secondary-button trip-map-return" onClick={onReturnMap}>Revenir à la carte</button>}
     </section>}
     {!links.length ? <p>Aucun déplacement représentable pour ce filtre.</p> : <ul className="trip-transfer-list">
       {links.map((link) => <li key={link.transfer.id}><button type="button" className="secondary-button trip-transfer-summary" aria-pressed={current?.transfer.id === link.transfer.id}

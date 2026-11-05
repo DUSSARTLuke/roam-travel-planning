@@ -36,9 +36,9 @@ export function displayedLongitude(point: TripMapPoint, west: number): number {
 
 export type TripMapSurface = { markers: (points: readonly TripMapPoint[]) => void; fit: (points: readonly TripMapPoint[]) => void; dispose: () => void }
 // Camera ownership is explicit and testable: updates never reframe the map.
-export function createTripMapController(initial: readonly TripMapPoint[], surface: TripMapSurface) {
+export function createTripMapController(initial: readonly TripMapPoint[], surface: TripMapSurface, frameInitially = true) {
   let points = initial; let live = true
-  surface.markers(points); surface.fit(points)
+  surface.markers(points); if (frameInitially) surface.fit(points)
   return {
     update(next: readonly TripMapPoint[]) { if (!live) return; points = next; surface.markers(points) },
     recenter() { if (live) surface.fit(points) },

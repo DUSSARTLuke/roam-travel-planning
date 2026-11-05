@@ -1,3 +1,4 @@
+import { validMapCamera, tripMapInteractionOptions, type TripMapOptions } from './tripMapView'
 import { mountTransferLayer } from './tripTransferLayer'
 import { coordinateKey, createTripMapController, displayedLongitude, tripMapBounds, type TripMapPoint } from './tripMapModel'
 import type { TripMapHandle, TripMapState } from './tripMapSession'
@@ -71,8 +72,9 @@ export function mountMapPreview(container: HTMLElement, point: MapPoint, notify:
 
 // Global trip renderer shares MapLibre, worker, provider and request policy with
 // the existing individual preview. Its update path never changes the camera.
-export function mountTripMap(container: HTMLElement, initial: readonly TripMapPoint[], notify: (state: TripMapState) => void, onSelect?: (ids: string[]) => void, onTransferSelect?: (ids: string[]) => void): TripMapHandle {
+export function mountTripMap(container: HTMLElement, initial: readonly TripMapPoint[], notify: (state: TripMapState) => void, onSelect?: (ids: string[]) => void, onTransferSelect?: (ids: string[]) => void, options: TripMapOptions = {}): TripMapHandle {
   let removed = false; let failed = false; let points = initial
+  const restored = validMapCamera(options.camera) ? options.camera : undefined
   const markers = new Map<string, { marker: Marker; button: HTMLButtonElement; click: (event: MouseEvent) => void }>()
   let selected: string | null = null
   let observer: ResizeObserver | undefined
@@ -83,18 +85,25 @@ export function mountTripMap(container: HTMLElement, initial: readonly TripMapPo
       entry.button.classList.toggle('is-selected', id === selected)
     }
   }
-  const map = new LibreMap({ container, style: osmRasterStyle(), center: [0, 0], zoom: 1, minZoom: -2, maxZoom: 18,
-    attributionControl: false, renderWorldCopies: true, fadeDuration: 0, maxTileCacheSize: 32,
-    cooperativeGestures: true, dragRotate: false, pitchWithRotate: false, scrollZoom: false, transformRequest: osmMapRequest,
+  const map = new LibreMap({ container, style: osmRasterStyle(), center: restored ? [restored.longitude, restored.latitude] : [0, 0], zoom: restored?.zoom ?? 1, minZoom: -2, maxZoom: 18,
+    attributionControl: false, renderWorldCopies: true, fadeDuration: 0, ...tripMapInteractionOptions(window.devicePixelRatio), transformRequest: osmMapRequest,
     locale: { 'Map.Title': 'Carte du voyage', 'Popup.Close': 'Fermer les lieux', 'NavigationControl.ZoomIn': 'Zoom avant', 'NavigationControl.ZoomOut': 'Zoom arrière',
       'CooperativeGesturesHandler.WindowsHelpText': 'Utilise les boutons pour zoomer', 'CooperativeGesturesHandler.MacHelpText': 'Utilise les boutons pour zoomer',
       'CooperativeGesturesHandler.MobileHelpText': 'Déplace la carte avec deux doigts' },
   })
+  map.touchZoomRotate.disableRotation()
+  function rememberCamera() {
+    if (removed) return
+    const center = map.getCenter()
+    options.onCameraChange?.({ longitude: center.lng, latitude: center.lat, zoom: map.getZoom() })
+  }
+  map.on('moveend', rememberCamera)
   const transferLayer = mountTransferLayer(map, (ids) => onTransferSelect?.(ids), () => {
     if (!removed) notify({ phase: 'error', interactive: true, message: 'Les liaisons ne peuvent pas s’afficher. Leur liste reste accessible.' })
   })
   function dispose() {
-    if (removed) return; removed = true
+    if (removed) return
+    rememberCamera(); map.off('moveend', rememberCamera); removed = true
     if (frame !== undefined) cancelAnimationFrame(frame)
     observer?.disconnect()
     for (const entry of markers.values()) { entry.button.removeEventListener('click', entry.click); entry.marker.remove() }
@@ -142,9 +151,10 @@ export function mountTripMap(container: HTMLElement, initial: readonly TripMapPo
         if (bounds[0][0] === bounds[1][0] && bounds[0][1] === bounds[1][1]) map.jumpTo({ center: bounds[0], zoom: 14 })
         else map.fitBounds(bounds, { padding: 48, maxZoom: 14, duration: 0 })
       }, dispose,
-    })
+    }, !restored)
+    if (restored) notify({ phase: 'loading', interactive: true, message: 'Vue précédente restaurée. Chargement des tuiles…' })
     if (typeof ResizeObserver !== 'undefined') { observer = new ResizeObserver(() => { if (!removed) map.resize() }); observer.observe(container) }
     frame = requestAnimationFrame(() => { if (!removed) map.resize() })
-    return { ...controller, select(id) { selected = id; selection() }, transfers(links, id) { transferLayer.update(links, id) } }
+    return { ...controller, resize() { if (!removed) map.resize() }, select(id) { selected = id; selection() }, transfers(links, id) { transferLayer.update(links, id) } }
   } catch (error) { dispose(); throw error }
 }

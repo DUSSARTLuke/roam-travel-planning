@@ -1,3 +1,5 @@
+import { testTripBudget } from './tripBudget.browser'
+import { testTripMapMobile } from './tripMapMobile.browser'
 import { testTripMapTransfers } from './tripMapTransfers.browser'
 import { testTripMapFiltering } from './tripMapFiltering.browser'
 import { testBackupHttp } from './backupHttp.browser'
@@ -188,6 +190,8 @@ button.addEventListener('click', async () => {
   results.textContent = ''
   try {
     await testActivitySave((message) => { results.textContent += `✓ ${message}\n` })
+    await testTripBudget((message) => { results.textContent += `✓ ${message}\n` })
+    await testTripMapMobile((message) => { results.textContent += `✓ ${message}\n` })
     await testTripMapTransfers((message) => { results.textContent += `✓ ${message}\n` })
     await testTripMapFiltering((message) => { results.textContent += `✓ ${message}\n` })
     await testTripMap((message) => { results.textContent += `✓ ${message}\n` })

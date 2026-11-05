@@ -1,0 +1,27 @@
+.trip-budget-page { min-width: 0; overflow-wrap: anywhere; }
+.trip-budget-page h1 { display: flex; align-items: center; gap: 10px; }
+.trip-budget-page button, .trip-budget-page summary { min-height: 44px; }
+.trip-budget-page summary { cursor: pointer; padding: 12px 0; }
+.trip-budget-page :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.budget-summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr)); gap: 16px; margin: 24px 0; }
+.budget-summary { min-width: 0; padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
+.budget-summary h2 { font-size: 16px; margin: 0 0 14px; }
+.budget-amount { font-size: clamp(24px, 4vw, 34px); font-weight: 750; line-height: 1.25; margin: 0 0 12px; }
+.budget-meta { color: var(--muted); font-size: 14px; line-height: 1.6; }
+.budget-warning { color: var(--accent); line-height: 1.6; }
+.budget-note { display: flex; align-items: flex-start; gap: 8px; line-height: 1.6; }
+.budget-note svg { flex-shrink: 0; margin-top: 4px; }
+.budget-empty { padding: 24px; margin: 24px 0; border: 1px dashed var(--border); border-radius: 16px; line-height: 1.6; }
+.budget-table-wrap { overflow-x: auto; max-width: 100%; }
+.budget-table-wrap table { width: 100%; border-collapse: collapse; text-align: left; }
+.budget-table-wrap caption { text-align: left; color: var(--muted); padding-bottom: 12px; font-size: 13px; }
+.budget-table-wrap th, .budget-table-wrap td { padding: 12px 10px; border-bottom: 1px solid var(--border); overflow-wrap: anywhere; }
+.budget-exclusions, .budget-rates { margin-top: 20px; border-top: 1px solid var(--border); }
+.budget-exclusions ul, .budget-rates ul { padding-left: 20px; }
+.budget-exclusions li, .budget-rates li { margin: 12px 0; line-height: 1.6; }
+@media (max-width: 640px) {
+  .trip-budget-page h1 { font-size: 27px; }
+  .budget-summary-grid { gap: 12px; margin: 18px 0; }
+  .budget-summary { padding: 16px; }
+  .budget-table-wrap th, .budget-table-wrap td { padding: 10px 6px; font-size: 13px; }
+}

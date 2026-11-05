@@ -1,3 +1,5 @@
+import { TripBudget } from './components/budget/TripBudget'
+import type { TripMapView } from './maps/tripMapView'
 import { createId } from './utils/createId'
 import { tripMapNavigation, programNavigationFromMap, type TripMapNavigation } from './maps/tripMapNavigation'
 import { TripMap } from './components/map/TripMap'
@@ -88,6 +90,7 @@ function formatTripDates(trip: Trip) {
 
 function App() {
   const [activeTab, setActiveTab] = useState<TabId>('home')
+  const [mapViews, setMapViews] = useState(() => new globalThis.Map<string, TripMapView>())
   const [mapNavigation, setMapNavigation] = useState(() => new globalThis.Map<string, TripMapNavigation>())
   const [programNavigation, setProgramNavigation] = useState(() => new globalThis.Map<string, ProgramNavigation>())
 const trips = useLiveQuery(
@@ -748,12 +751,15 @@ if (!databaseReady || trips === undefined) {
           <TripProgram key={selectedTrip.id} trip={selectedTrip} initialNavigation={programNavigation.get(selectedTrip.id)}
             onNavigationChange={(state) => setProgramNavigation((previous) => new globalThis.Map(previous).set(selectedTrip.id, state))} />
         ) : activeTab === 'map' && selectedTrip ? (
-          <TripMap key={selectedTrip.id} trip={selectedTrip}
+          <TripMap key={selectedTrip.id} trip={selectedTrip} initialView={mapViews.get(selectedTrip.id)}
+            onViewChange={(view) => { setMapViews((previous) => previous.get(selectedTrip.id) === view ? previous : new globalThis.Map(previous).set(selectedTrip.id, view)) }}
             initialNavigation={tripMapNavigation(selectedTrip, mapNavigation.get(selectedTrip.id), programNavigation.get(selectedTrip.id)?.selectedDate)}
             onNavigationChange={(state) => {
               setMapNavigation((previous) => new globalThis.Map(previous).set(selectedTrip.id, state))
               setProgramNavigation((previous) => new globalThis.Map(previous).set(selectedTrip.id, programNavigationFromMap(selectedTrip, state, previous.get(selectedTrip.id))))
             }} />
+        ) : activeTab === 'budget' && selectedTrip ? (
+          <TripBudget key={selectedTrip.id} trip={selectedTrip} />
         ) : (
           <section className="placeholder-page">
             <div className="placeholder-icon">

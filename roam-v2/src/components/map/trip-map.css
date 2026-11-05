@@ -42,3 +42,36 @@
 .trip-transfer-preview h3 { margin: 0; }
 .trip-transfer-preview fieldset { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
 .trip-transfer-notes { white-space: pre-wrap; }
+/* Mobile map surface stays in normal page flow: primary navigation is never covered. */
+.trip-map-surface, .trip-map-anchor { min-width: 0; scroll-margin-top: 8px; }
+.trip-map-anchor:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+.trip-map-stage { position: relative; min-width: 0; }
+.trip-map-canvas-attribution { position: absolute; bottom: 4px; left: 4px; z-index: 4; max-width: calc(100% - 8px); padding: 3px 6px; border-radius: 4px; background: #101b2deb; color: #f8fafc; font-size: 11px; line-height: 1.4; text-decoration: underline; }
+.trip-map-gestures { margin: 8px 0 10px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+.trip-map-surface .trip-map-toolbar { gap: 8px; margin-bottom: 8px; }
+.trip-map-surface.is-expanded { display: flex; flex-direction: column; height: calc(100dvh - 100px - env(safe-area-inset-bottom)); min-height: 0; max-height: 1000px; box-sizing: border-box; }
+.trip-map-surface.is-expanded > .trip-map-toolbar, .trip-map-surface.is-expanded > p, .trip-map-surface.is-expanded > button { flex: 0 0 auto; }
+.trip-map-surface.is-expanded .trip-map-stage { flex: 1 1 0; min-height: 150px; }
+.trip-map-surface.is-expanded .trip-map-canvas { height: 100%; }
+.trip-map-return { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; }
+.trip-map-page button { touch-action: manipulation; }
+.trip-map-preview button, .trip-map-preview fieldset { max-width: 100%; overflow-wrap: anywhere; white-space: normal; }
+@media (max-width: 640px) {
+  .trip-map-page > header h1 { font-size: clamp(24px, 7vw, 32px); margin: 8px 0; }
+  .trip-map-counts { margin: 8px 0; font-size: 13px; }
+  .trip-map-filters { margin: 12px 0; gap: 8px; display: grid; grid-template-columns: minmax(0, 1fr); }
+  .trip-map-filters select { font-size: 16px; }
+  .trip-map-figure { padding: 8px; margin: 12px 0; }
+  .trip-map-figure figcaption { margin-bottom: 8px; }
+  .trip-map-canvas { height: clamp(240px, 55dvh, 460px); }
+  .trip-map-status { font-size: 12px; margin: 8px 0; }
+  .trip-map-preview { padding: 12px; margin: 14px 0; }
+  .trip-map-preview h2 { font-size: 21px; }
+  .trip-map-preview .trip-map-toolbar { align-items: flex-start; gap: 8px; }
+  .trip-map-page .trip-map-toolbar button { padding: 9px 10px; }
+}
+
+@media (max-height: 500px) {
+  .trip-map-surface.is-expanded .trip-map-stage { min-height: 90px; }
+  .trip-map-surface.is-expanded .trip-map-gestures { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+}
