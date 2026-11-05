@@ -1,4 +1,6 @@
-import { Map as LibreMap, Marker, NavigationControl, setWorkerUrl, setWorkerCount, setMaxParallelImageRequests } from 'maplibre-gl'
+import { coordinateKey, createTripMapController, displayedLongitude, tripMapBounds, type TripMapPoint } from './tripMapModel'
+import type { TripMapHandle, TripMapState } from './tripMapSession'
+import { Map as LibreMap, Marker, Popup, NavigationControl, setWorkerUrl, setWorkerCount, setMaxParallelImageRequests } from 'maplibre-gl'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { osmRasterStyle, osmMapRequest } from './osmRaster'
@@ -63,5 +65,85 @@ export function mountMapPreview(container: HTMLElement, point: MapPoint, notify:
       },
       dispose,
     }
+  } catch (error) { dispose(); throw error }
+}
+
+// Global trip renderer shares MapLibre, worker, provider and request policy with
+// the existing individual preview. Its update path never changes the camera.
+export function mountTripMap(container: HTMLElement, initial: readonly TripMapPoint[], notify: (state: TripMapState) => void): TripMapHandle {
+  let removed = false; let failed = false; let points = initial
+  const markers = new Map<string, { marker: Marker; button: HTMLButtonElement; click: (event: MouseEvent) => void }>()
+  const popup = new Popup({ closeButton: true, closeOnClick: true, maxWidth: '280px' })
+  let observer: ResizeObserver | undefined
+  let frame: number | undefined
+  let popupOrigin: HTMLButtonElement | null = null
+  const popupKeyboard = (event: KeyboardEvent) => { if (event.key === 'Escape' && popup.isOpen()) { event.preventDefault(); popup.remove(); popupOrigin?.focus({ preventScroll: true }) } }
+  const map = new LibreMap({ container, style: osmRasterStyle(), center: [0, 0], zoom: 1, minZoom: -2, maxZoom: 18,
+    attributionControl: false, renderWorldCopies: true, fadeDuration: 0, maxTileCacheSize: 32,
+    cooperativeGestures: true, dragRotate: false, pitchWithRotate: false, scrollZoom: false, transformRequest: osmMapRequest,
+    locale: { 'Map.Title': 'Carte du voyage', 'Popup.Close': 'Fermer les lieux', 'NavigationControl.ZoomIn': 'Zoom avant', 'NavigationControl.ZoomOut': 'Zoom arrière',
+      'CooperativeGesturesHandler.WindowsHelpText': 'Utilise les boutons pour zoomer', 'CooperativeGesturesHandler.MacHelpText': 'Utilise les boutons pour zoomer',
+      'CooperativeGesturesHandler.MobileHelpText': 'Déplace la carte avec deux doigts' },
+  })
+  function dispose() {
+    if (removed) return; removed = true
+    if (frame !== undefined) cancelAnimationFrame(frame)
+    observer?.disconnect(); popup.remove(); container.removeEventListener('keydown', popupKeyboard)
+    for (const entry of markers.values()) { entry.button.removeEventListener('click', entry.click); entry.marker.remove() }
+    markers.clear(); map.remove()
+  }
+  try {
+    map.addControl(new NavigationControl({ showCompass: false }), 'top-right')
+    map.on('error', () => { failed = true; if (!removed) notify({ phase: 'error', interactive: true, message: 'Certaines tuiles cartographiques sont indisponibles. La liste des lieux reste utilisable.' }) })
+    map.on('idle', () => { if (!removed && !failed && map.isSourceLoaded('osm')) notify({ phase: 'ready', interactive: true, message: 'Carte du voyage chargée.' }) })
+    map.getCanvas().setAttribute('aria-label', 'Carte interactive du voyage. Flèches pour déplacer la carte, boutons pour zoomer. Les lieux sont également listés sous la carte.')
+    container.addEventListener('keydown', popupKeyboard)
+    const controller = createTripMapController(initial, {
+      markers(next) {
+        points = next; popup.remove()
+        const ids = new Set(next.map((point) => point.id))
+        for (const [id, entry] of markers) if (!ids.has(id)) { entry.button.removeEventListener('click', entry.click); entry.marker.remove(); markers.delete(id) }
+        const west = tripMapBounds(next)?.[0][0] ?? -180
+        const counts = new Map<string, number>()
+        for (const point of next) counts.set(coordinateKey(point), (counts.get(coordinateKey(point)) ?? 0) + 1)
+        next.forEach((point) => {
+          let entry = markers.get(point.id)
+          if (!entry) {
+            const button = document.createElement('button'); button.type = 'button'; button.className = 'trip-map-marker'
+            const click = (event: MouseEvent) => {
+              event.stopPropagation()
+              const current = points.find((item) => item.id === point.id)
+              if (!current) return
+              const content = document.createElement('div'); const heading = document.createElement('strong')
+              const coincident = points.filter((item) => coordinateKey(item) === coordinateKey(current))
+              heading.textContent = coincident.length > 1 ? `${coincident.length} activités à cet endroit` : 'Activité à cet endroit'; content.append(heading)
+              const list = document.createElement('ul')
+              for (const item of coincident) { const row = document.createElement('li'); row.textContent = item.name ? `${item.title} — ${item.name}` : item.title; list.append(row) }
+              content.append(list)
+              popupOrigin = button
+              popup.setLngLat([displayedLongitude(current, tripMapBounds(points)?.[0][0] ?? -180), current.latitude]).setDOMContent(content).addTo(map)
+              popup.getElement()?.querySelector<HTMLButtonElement>('.maplibregl-popup-close-button')?.addEventListener('click', () => button.focus({ preventScroll: true }), { once: true })
+            }
+            button.addEventListener('click', click)
+            entry = { button, click, marker: new Marker({ element: button, anchor: 'center' }).setLngLat([displayedLongitude(point, west), point.latitude]).addTo(map) }; markers.set(point.id, entry)
+          }
+          const count = counts.get(coordinateKey(point))!
+          entry.button.textContent = count > 1 ? String(count) : '●'
+          entry.button.setAttribute('aria-label', `${point.title}${point.name ? ` — ${point.name}` : ''}${count > 1 ? ` ; ${count} activités au même point` : ''}`)
+          entry.button.title = entry.button.getAttribute('aria-label')!
+          entry.marker.setLngLat([displayedLongitude(point, west), point.latitude])
+        })
+      },
+      fit(next) {
+        const bounds = tripMapBounds(next); if (!bounds) return
+        notify(failed ? { phase: 'error', interactive: true, message: 'Certaines tuiles cartographiques sont indisponibles. La liste des lieux reste utilisable.' }
+          : { phase: 'loading', interactive: true, message: 'Chargement des tuiles cartographiques…' })
+        if (bounds[0][0] === bounds[1][0] && bounds[0][1] === bounds[1][1]) map.jumpTo({ center: bounds[0], zoom: 14 })
+        else map.fitBounds(bounds, { padding: 48, maxZoom: 14, duration: 0 })
+      }, dispose,
+    })
+    if (typeof ResizeObserver !== 'undefined') { observer = new ResizeObserver(() => { if (!removed) map.resize() }); observer.observe(container) }
+    frame = requestAnimationFrame(() => { if (!removed) map.resize() })
+    return controller
   } catch (error) { dispose(); throw error }
 }

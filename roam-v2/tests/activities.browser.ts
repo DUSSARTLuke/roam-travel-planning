@@ -1,3 +1,6 @@
+import { testBackupHttp } from './backupHttp.browser'
+import { testActivitySave } from './activitySave.browser'
+import { testTripMap } from './tripMap.browser'
 import { testTransferFormActivities } from './transferFormActivities.browser'
 import { testTransferAvailability } from './transferAvailability.browser'
 import { testMultiDay } from './multiDay.browser'
@@ -182,6 +185,8 @@ button.addEventListener('click', async () => {
   button.disabled = true
   results.textContent = ''
   try {
+    await testActivitySave((message) => { results.textContent += `✓ ${message}\n` })
+    await testTripMap((message) => { results.textContent += `✓ ${message}\n` })
     await testTransferFormActivities((message) => { results.textContent += `✓ ${message}\n` })
     await testTransferAvailability((message) => { results.textContent += `✓ ${message}\n` })
     await testMultiDay((message) => { results.textContent += `✓ ${message}\n` })
@@ -207,6 +212,7 @@ button.addEventListener('click', async () => {
     await run((message) => { results.textContent += `✓ ${message}\n` })
     await testDocuments((message) => { results.textContent += `✓ ${message}\n` })
     await testCurrencies((message) => { results.textContent += `✓ ${message}\n` })
+    await testBackupHttp((message) => { results.textContent += `✓ ${message}\n` })
     await testBackups((message) => { results.textContent += `✓ ${message}\n` })
     await testRestore((message) => { results.textContent += `✓ ${message}\n` })
     results.textContent += '\nTous les tests ont réussi. Base de test supprimée.'

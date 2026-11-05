@@ -1,3 +1,4 @@
+import { sha256 as hash } from './sha256'
 import { validateTripTransfers } from '../db/transferModel'
 import { validateAutomaticCache } from '../money/automaticRates'
 import { validateManualRates } from '../money/manualRates'
@@ -39,10 +40,7 @@ function rows(value: unknown, key: string): Record<string, unknown>[] {
     return row
   })
 }
-async function hash(blob: Blob) {
-  if (!globalThis.crypto?.subtle) throw new Error('La restauration vérifiée nécessite HTTPS ou localhost.')
-  return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', await blob.arrayBuffer())), (byte) => byte.toString(16).padStart(2, '0')).join('')
-}
+
 
 export async function validateRestoreArchive(archive: Blob, progress: (message: string) => void = () => {}): Promise<ValidatedRestore> {
   const files = await readBackupZip(archive, progress)

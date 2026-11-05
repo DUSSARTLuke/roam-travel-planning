@@ -82,7 +82,7 @@ Pas de ZIP64 : moins de 65 535 entrées et archive strictement inférieure à
 L'archive est assemblée en mémoire avec des Blob ; une base volumineuse peut
 atteindre les limites mémoire du navigateur avant la limite du format. Chaque
 fichier est lu pour SHA-256 puis CRC-32 ; aucun rendu ou traitement PDF n'est effectué.
-Web Crypto nécessite HTTPS ou localhost. Rester sur l'écran pendant l'export ;
+Les empreintes SHA-256 utilisent Web Crypto en HTTPS/localhost, ou un calcul local par blocs en HTTP réseau local. Les mêmes contrôles restent appliqués à l’export et à la restauration, sans changement du format ZIP. Rester sur l'écran pendant l'export ;
 quitter l'écran abandonne le résultat dans l'interface, sans modifier la base.
 Le bouton Télécharger demande au navigateur de sauvegarder le fichier, sans
 pouvoir confirmer son écriture finale sur disque.

@@ -123,6 +123,7 @@ export function ActivityFormPanel({ referenceCurrency, tripId, initialDate, fall
       const saved = await saveActivityWithDocuments(tripId, input, latest?.id ?? null, pendingDocuments.map(({ file }) => file))
       onSaved(saved)
     } catch (caught) {
+      console.error('Échec de sauvegarde de l’activité.', caught)
       setError(caught instanceof Error && caught.name === 'QuotaExceededError'
         ? 'Espace de stockage local insuffisant. Aucun changement enregistré ; tes saisies et fichiers restent en attente.'
         : caught instanceof Error ? caught.message : 'Impossible d’enregistrer cette activité. Réessaie.')

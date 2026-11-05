@@ -1,15 +1,32 @@
+import { createId } from '../utils/createId'
 import { db, type RoamDatabase } from './database'
 import { createActivityRepository } from './activities'
 import type { TripActivityInput } from './activityModel'
 import { MAX_ACTIVITY_DOCUMENTS, detectDocumentMime, prepareDocuments, type ActivityDocument, type PreparedDocument } from './documentModel'
 
-function storageFailure(error: unknown): never {
-  const failure = error as { name?: string; failures?: { name?: string }[] }
-  if (failure?.name === 'QuotaExceededError' || failure?.failures?.some((item) => item.name === 'QuotaExceededError')) {
-    throw new Error('Espace de stockage local insuffisant. Aucun changement enregistré ; tes saisies et fichiers restent en attente.')
+function storageFailure(error: unknown, subject = 'les documents'): never {
+  const failure = error as { name?: string; inner?: { name?: string }; failures?: { name?: string }[] } | null
+  const names = [failure?.name, failure?.inner?.name,
+    ...(Array.isArray(failure?.failures) ? failure.failures.map((item) => item?.name) : [])]
+  let message: string
+  if (names.includes('QuotaExceededError')) {
+    message = 'Espace de stockage local insuffisant. Aucun changement enregistré ; tes saisies et fichiers restent en attente.'
+  } else if (error instanceof Error && error.name === 'Error') {
+    // Business validation errors stay readable and are never reclassified as I/O.
+    throw error
+  } else if (names.includes('PrematureCommitError') || names.includes('TransactionInactiveError')) {
+    // A premature commit cannot honestly be described as a confirmed rollback.
+    message = 'La transaction de stockage s’est terminée trop tôt. Vérifie la liste des activités avant de réessayer ; tes saisies sont conservées.'
+  } else if (names.includes('SecurityError') || names.includes('InvalidStateError') || names.includes('OpenFailedError')) {
+    message = `Le navigateur refuse ou ne permet pas l’accès au stockage local pour ${subject}. Aucun changement enregistré ; vérifie ses autorisations et réessaie.`
+  } else if (names.includes('NotReadableError')) {
+    message = 'Un fichier sélectionné ne peut pas être lu. Aucun changement enregistré ; sélectionne-le à nouveau.'
+  } else {
+    const code = typeof failure?.name === 'string' ? ` (${failure.name})` : ''
+    message = `Impossible d’enregistrer ${subject} dans le stockage local${code}. Aucun changement enregistré ; tes saisies sont conservées.`
   }
-  if (error instanceof Error && error.name === 'Error') throw error
-  throw new Error('Impossible d’enregistrer les documents dans le stockage local. Aucun changement enregistré ; réessaie.')
+  // Keep the original exception/stack and Dexie inner error for diagnostics.
+  throw new Error(message, { cause: error })
 }
 
 export function createDocumentRepository(database: RoamDatabase = db) {
@@ -24,10 +41,11 @@ export function createDocumentRepository(database: RoamDatabase = db) {
   }
 
   async function store(activityId: string, prepared: PreparedDocument[]): Promise<ActivityDocument[]> {
+    if (prepared.length === 0) return []
     const count = await database.activityDocuments.where('activityId').equals(activityId).count()
     if (count + prepared.length > MAX_ACTIVITY_DOCUMENTS) throw new Error('Maximum 5 documents par activité. Aucun document importé ; tes saisies sont conservées.')
     const importedAt = new Date().toISOString()
-    const metadata = prepared.map(({ name, mime, size }) => ({ id: crypto.randomUUID(), activityId, name, mime, size, importedAt }))
+    const metadata = prepared.map(({ name, mime, size }) => ({ id: createId(), activityId, name, mime, size, importedAt }))
     await database.activityDocuments.bulkAdd(metadata)
     await database.activityDocumentBlobs.bulkAdd(metadata.map((document, index) => ({ id: document.id, blob: prepared[index].blob })))
     return metadata
@@ -64,7 +82,7 @@ export function createDocumentRepository(database: RoamDatabase = db) {
         if (!metadata || metadata.activityId !== activityId) throw new Error('Document supprimé ou inaccessible pour cette activité.')
         await database.activityDocumentBlobs.delete(id)
         await database.activityDocuments.delete(id)
-      }).catch(storageFailure)
+      }).catch((error) => storageFailure(error))
     },
 
     async importDocuments(tripId: string, activityId: string, files: readonly File[]): Promise<ActivityDocument[]> {
@@ -72,21 +90,25 @@ export function createDocumentRepository(database: RoamDatabase = db) {
       return database.transaction('rw', writeTables, async () => {
         await requireAccess(tripId, activityId, true)
         return store(activityId, prepared)
-      }).catch(storageFailure)
+      }).catch((error) => storageFailure(error))
     },
 
     // Activity changes and documents commit together, or both roll back. The
     // nested activity repository transactions reuse this wider transaction.
     async saveActivityWithDocuments(tripId: string, input: TripActivityInput, activityId: string | null, files: readonly File[]) {
-      const prepared = await prepareDocuments(files)
-      return database.transaction('rw', writeTables, async () => {
+      const subject = files.length ? 'l’activité et ses documents' : 'l’activité'
+      // File reads remain outside IDB; an empty selection never touches the
+      // document stores. Existing attachments are kept, not rewritten.
+      const prepared = await prepareDocuments(files).catch((error) => storageFailure(error, subject))
+      const tables = prepared.length ? writeTables : [database.trips, database.activities]
+      return database.transaction('rw', tables, async () => {
         if (activityId !== null) await requireAccess(tripId, activityId, true)
         const activity = activityId !== null
           ? await activityRepository.updateActivity(tripId, activityId, input)
           : await activityRepository.createActivity(tripId, input)
-        await store(activity.id, prepared)
+        if (prepared.length) await store(activity.id, prepared)
         return activity
-      }).catch(storageFailure)
+      }).catch((error) => storageFailure(error, subject))
     },
   }
 }

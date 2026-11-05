@@ -1,3 +1,4 @@
+import { TripMap } from './components/map/TripMap'
 import type { ProgramNavigation } from './components/program/programNavigation'
 
 import { useEffect, useRef, useState } from 'react'
@@ -743,6 +744,8 @@ if (!databaseReady || trips === undefined) {
         ) : activeTab === 'program' && selectedTrip ? (
           <TripProgram key={selectedTrip.id} trip={selectedTrip} initialNavigation={programNavigation.get(selectedTrip.id)}
             onNavigationChange={(state) => setProgramNavigation((previous) => new globalThis.Map(previous).set(selectedTrip.id, state))} />
+        ) : activeTab === 'map' && selectedTrip ? (
+          <TripMap key={selectedTrip.id} trip={selectedTrip} />
         ) : (
           <section className="placeholder-page">
             <div className="placeholder-icon">

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="fr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Test isolé de sauvegarde HTTP Roam</title></head>
+<body>
+  <h1>Sauvegarde d’activité — HTTP mobile</h1>
+  <p>Ce test utilise uniquement une base temporaire roam-v2-test-activity-save-… et la supprime à la fin. Il ne touche pas aux données Roam existantes.</p>
+  <button type="button" id="run">Lancer le test isolé</button>
+  <pre id="results" role="status"></pre>
+  <script type="module">
+    import { testActivitySave } from './activitySave.browser.ts'
+    const button = document.querySelector('#run')
+    const results = document.querySelector('#results')
+    button.addEventListener('click', async () => {
+      button.disabled = true
+      results.textContent = `Contexte sécurisé : ${isSecureContext} ; randomUUID : ${typeof crypto.randomUUID}\n`
+      try { await testActivitySave((message) => { results.textContent += `✓ ${message}\n` }); results.textContent += 'Tous les tests ont réussi. Base de test supprimée.' }
+      catch (error) { results.textContent += `ÉCHEC : ${error}`; console.error(error) }
+      finally { button.disabled = false }
+    })
+  </script>
+</body>
+</html>

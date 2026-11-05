@@ -1,3 +1,4 @@
+import { sha256 } from './sha256'
 import { validateTripTransfers } from '../db/transferModel'
 import { beginSensitiveOperation } from '../pwa/reloadSafety'
 import { db, type RoamDatabase } from '../db/database'
@@ -31,10 +32,7 @@ function jsonBlob(value: unknown): Blob {
     return item
   }, 2)], { type: 'application/json' })
 }
-async function sha256(blob: Blob): Promise<string> {
-  if (!globalThis.crypto?.subtle) throw new Error('La vérification de sauvegarde nécessite un navigateur en HTTPS ou localhost.')
-  return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', await blob.arrayBuffer())), (byte) => byte.toString(16).padStart(2, '0')).join('')
-}
+
 
 export async function buildExportArchive(snapshot: ExportSnapshot, onProgress: (message: string) => void = () => {}) {
   const { trips, activities, documents, payloads, metadata } = snapshot

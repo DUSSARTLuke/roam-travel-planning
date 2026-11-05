@@ -1,3 +1,4 @@
+import { createId } from '../../utils/createId'
 import { CurrencySelector } from '../currency/CurrencySelector'
 import { useRef } from 'react'
 import type { ActivityFormValues } from './activityFormModel'
@@ -9,7 +10,7 @@ type Props = { form: ActivityFormValues; onChange: (form: ActivityFormValues) =>
 export function ActivityAdvancedFields({ form, onChange }: Props) {
   const addLinkRef = useRef<HTMLButtonElement>(null)
   function addLink() {
-    const id = crypto.randomUUID()
+    const id = createId()
     field('links', [...form.links, { id, title: '', url: '' }])
     requestAnimationFrame(() => document.getElementById(`activity-link-title-${id}`)?.focus())
   }

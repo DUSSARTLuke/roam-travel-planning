@@ -67,3 +67,92 @@ ouverture d'une fiche avec GPS ; Cache Storage ne doit pas contenir ces fichiers
 ni aucune tuile OSM. Retester sous un sous-chemin (--base=/roam-v2/) sur une origine
 locale de test distincte, sans vider le stockage utilisateur. Les navigateurs peuvent
 évincer leurs caches HTTP ; aucune disponibilité de fond hors ligne n'est garantie.
+
+# Carte globale du voyage — 2.7a
+
+L'onglet Carte monte TripMap uniquement pour le voyage actif. Une seule requête
+`listActivities(trip.id)` avec useLiveQuery alimente marqueurs, liste et compteurs.
+Les idées et activités hors séjour sont incluses ; aucun trajet/itinéraire/filtre
+avancé n'est ajouté. Les voyages, activités et sauvegardes ne sont pas modifiés.
+
+## Modules et cadrage
+
+- tripMapModel.ts réutilise activityMapPoint/validateCoordinates : absence, null,
+  chaînes, valeurs non finies ou hors bornes n'engendrent pas de marqueur. Zéro et
+  valeurs négatives sont valides. Chaque activité GPS conserve son propre id.
+- Le cadrage initial supprime le plus grand arc vide des longitudes : +179/-179
+  donnent une largeur de 2°, pas 358°. Les positions rendues peuvent utiliser une
+  longitude équivalente au-delà de 180°, sans changer les GPS d'origine. Les copies
+  du fond sont activées pour assurer la continuité à l'antiméridien.
+- Un point unique (ou plusieurs points identiques) utilise le zoom 14. Plusieurs
+  points sont cadrés avec une marge et un zoom maximal 14 (minimum −2 pour les
+  vues très étendues sur petit écran). La caméra n'est ensuite
+  déplacée que par l'utilisateur ou par Recentrer. Un simple ajout, déplacement,
+  changement de nom ou retrait d'un marqueur ne recentre pas la carte.
+- Un marqueur DOM par activité représentable. Les points identiques restent
+  superposés, sans coordonnées inventées ; leur bouton indique le nombre présent
+  au même endroit et ouvre une liste textuelle de toutes les activités concernées.
+  Tous les lieux restent aussi accessibles dans la liste permanente, y compris
+  au clavier. Les noms sont insérés avec textContent/setDOMContent, jamais setHTML.
+- Limite du fond Mercator réutilisé : au-delà de ±85,051129°, le GPS est valide et
+  compté mais non représenté par un marqueur sur ce fond. L'activité reste dans la
+  liste, avec ses coordonnées exactes et une explication de cette limite.
+
+## Chargement, erreurs et réseau
+
+tripMapSession.ts importe le même adaptateur maplibrePreview que l'aperçu individuel.
+Le worker/CSS MapLibre restent dans le chunk différé déjà exclu du précache PWA.
+Aucun import MapLibre n'est demandé si la carte est vide, hors connexion ou ne
+contient que des points polaires. Un import terminé après démontage/timeout ne
+monte aucune carte. Dispose nettoie carte, marqueurs, popup, observateur et frame.
+Une nouvelle session (autre voyage, retry, retour en ligne) effectue un nouveau
+cadrage initial ; la préservation de caméra concerne les mises à jour d'une
+session ouverte, pas une restauration persistée de vue entre onglets.
+
+Le délai initial/recentrage est 20 s. Les erreurs d'import, WebGL, timeout et tuiles
+ont un message et une action de retry. Les erreurs de tuiles restent visibles
+jusqu'au retry ; idle ne les efface pas. Un signal offline démonte le rendu et
+conserve la liste locale, les lieux, adresses, dates et GPS. navigator.onLine
+n'est pas une garantie d'accès au fournisseur. Aucune géolocalisation d'appareil.
+
+Le fond, cache HTTP, Referer et limites de parallélisme de l'aperçu sont réutilisés.
+Pas de préchargement massif, cache de tuiles applicatif ou téléchargement hors
+connexion. L'attribution reste visible sous la carte. Conditions officielles
+revérifiées le 5 novembre 2026 :
+https://operations.osmfoundation.org/policies/tiles/
+API MapLibre (fitBounds, marqueurs et cycle de vie) :
+https://maplibre.org/maplibre-gl-js/docs/API/classes/Map/
+
+## Tests et vérifications manuelles 2.7a
+
+Depuis roam-v2 sous PowerShell :
+
+```powershell
+npm.cmd run lint
+npm.cmd run build
+npm.cmd run test:pwa
+npm.cmd run dev
+```
+
+Ouvrir /tests/activities.html. tripMap.browser.tsx teste les GPS et arc minimal,
+points identiques/±180, cadrage initial puis explicite seulement, chargement tardif,
+erreurs/timeout/dispose, requête unique, mises à jour après CRUD réel dans une base
+isolée, compteurs, retry, offline, changement de voyage et largeur mobile. Le moteur
+est simulé : aucune tuile ou disponibilité réelle du fournisseur n'est requise.
+La suite individuelle mapPreview reste exécutée sans suppression de contrôles.
+
+Restent à tester avec WebGL et tuiles réels, sur desktop et téléphone 375 px :
+
+1. Voyage vide puis un point 0/0, plusieurs points, points négatifs et +179/-179.
+   Contrôler le cadrage initial, les marqueurs, zoom et Recentrer. Vérifier les
+   lieux identiques via popup et liste ; aucun marqueur de fausses coordonnées.
+2. Déplacer/zoomer manuellement puis modifier/ajouter/supprimer une activité dans
+   un autre onglet. Marqueurs et liste s'actualisent sans mouvement de caméra.
+   Recentrer utilise les nouveaux points. Changer de voyage : aucun ancien lieu.
+3. Tab/Entrée sur marqueurs, zoom et Recentrer ; popup fermé par bouton et Échap,
+   retour au marqueur, gestes coopératifs à deux doigts et défilement vertical.
+4. Network Offline et blocage tile.openstreetmap.org : liste toujours lisible,
+   erreur compréhensible et retry. Désactiver WebGL et vérifier le repli textuel.
+5. Build/preview : aucun MapLibre/worker avant ouverture d'une carte avec GPS ;
+   aucun cache applicatif de tuiles, aucune écriture IndexedDB, exclusion des
+   ressources MapLibre du précache. Tester aussi le sous-chemin de déploiement.

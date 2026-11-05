@@ -1,3 +1,4 @@
+import { createId } from '../utils/createId'
 import { reorderActivities, schedulingKey, type OrderDirection } from './activityOrganization'
 import { validateCoordinates } from './activityLocation'
 import { db, type RoamDatabase } from './database'
@@ -27,7 +28,7 @@ export function createActivityRepository(database: RoamDatabase = db) {
       return database.transaction('rw', database.trips, database.activities, async () => {
         await requireParent(tripId, true)
         const timestamp = new Date().toISOString()
-        const activity: TripActivity = { ...fields, id: crypto.randomUUID(), tripId, createdAt: timestamp, updatedAt: timestamp }
+        const activity: TripActivity = { ...fields, id: createId(), tripId, createdAt: timestamp, updatedAt: timestamp }
         await database.activities.add(activity)
         return activity
       })
