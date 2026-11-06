@@ -15,8 +15,8 @@ import { DocumentViewer } from '../program/DocumentViewer'
 import './trip-library.css'
 
 type Panel = { kind: 'activity' | 'edit'; activityId: string; returnToActivity?: boolean } | { kind: 'document'; document: ActivityDocument }
-export function TripLibrary({ trip, onClose, readLibrary = readTripLibrary, readDocument = getDocument }: {
-  trip: Trip; onClose: () => void; readLibrary?: typeof readTripLibrary; readDocument?: typeof getDocument
+export function TripLibrary({ trip, onClose, backLabel = 'Retour au tableau de bord', readLibrary = readTripLibrary, readDocument = getDocument }: {
+  trip: Trip; onClose: () => void; backLabel?: string; readLibrary?: typeof readTripLibrary; readDocument?: typeof getDocument
 }) {
   const [filters, setFilters] = useState(initialLibraryFilters), [attempt, retry] = useState(0), [panel, setPanel] = useState<Panel | null>(null), [notice, setNotice] = useState('')
   const fallback = useRef<HTMLButtonElement>(null), origin = useRef<HTMLButtonElement>(null), heading = useRef<HTMLHeadingElement>(null)
@@ -36,7 +36,7 @@ export function TripLibrary({ trip, onClose, readLibrary = readTripLibrary, read
   function open(next: Panel, trigger: HTMLButtonElement) { origin.current = trigger; setNotice(''); setPanel(next) }
   const date = (value: string) => formatDate(value, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
   return <section className="trip-library" aria-labelledby="trip-library-title">
-    <button type="button" className="back-button" onClick={onClose}>Retour au tableau de bord</button>
+    <button type="button" className="back-button" onClick={onClose}>{backLabel}</button>
     <h2 id="trip-library-title" ref={heading} tabIndex={-1}>Réservations et documents</h2>
     <p>Les informations et pièces jointes de tes activités, réunies ici sans créer de copies.</p>
     {!result || result.tripId !== trip.id ? <p role="status">Chargement des réservations et documents…</p> : result.error ? <div role="alert"><p>{result.error}</p><button type="button" className="secondary-button" onClick={() => retry((value) => value + 1)}>Réessayer cet espace</button></div> : <>

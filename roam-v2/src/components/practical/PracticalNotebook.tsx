@@ -64,7 +64,7 @@ function AddressAction({ address }: { address: string }) {
   try { url = addressLink(address) } catch { /* Text remains available even for an unsupported historical address. */ }
   return url ? <a className="practical-link" href={url} target="_blank" rel="noopener noreferrer" referrerPolicy="no-referrer">Ouvrir l’adresse · application ou nouvel onglet</a> : <p className="budget-meta">Adresse conservée. Copie le texte pour l’ouvrir dans l’application de ton choix.</p>
 }
-export function PracticalNotebook({ trip, onClose, repository = practicalRepository, copyText = copyPracticalText }: { trip: Trip; onClose: () => void; repository?: Repository; copyText?: typeof copyPracticalText }) {
+export function PracticalNotebook({ trip, onClose, backLabel = 'Retour au tableau de bord', repository = practicalRepository, copyText = copyPracticalText }: { trip: Trip; onClose: () => void; backLabel?: string; repository?: Repository; copyText?: typeof copyPracticalText }) {
   const [query, setQuery] = useState(''), [category, setCategory] = useState<PracticalCategory | 'all'>('all'), [attempt, retry] = useState(0)
   const [panel, setPanel] = useState<Panel | null>(null), [busy, setBusy] = useState(false), [error, setError] = useState(''), [message, setMessage] = useState('')
   const heading = useRef<HTMLHeadingElement>(null)
@@ -97,7 +97,7 @@ export function PracticalNotebook({ trip, onClose, repository = practicalReposit
   }
   function open(next: Panel, trigger?: HTMLButtonElement) { if (trigger) origin.current = trigger; setError(''); setPanel(next) }
   return <section className="practical-notebook" aria-labelledby="practical-title" aria-busy={busy}>
-    <button type="button" className="back-button" onClick={onClose}>Retour au tableau de bord</button><h2 id="practical-title" ref={heading} tabIndex={-1}>Infos pratiques</h2>
+    <button type="button" className="back-button" onClick={onClose}>{backLabel}</button><h2 id="practical-title" ref={heading} tabIndex={-1}>Infos pratiques</h2>
     <p>Contacts, adresses et notes propres à ce voyage, disponibles hors connexion.</p><p className="practical-warning">{warning}</p>
     <button ref={fallback} type="button" className="primary-button" disabled={busy || !snapshot} onClick={() => open({ kind: 'edit' })}>Ajouter une information</button>
     {!result || result.id !== trip.id ? <p role="status">Chargement du carnet…</p> : result.error ? <div role="alert"><p>{result.error}</p><button type="button" className="secondary-button" onClick={() => retry((value) => value + 1)}>Réessayer le carnet</button></div> : <>

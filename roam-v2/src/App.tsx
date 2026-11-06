@@ -1,3 +1,6 @@
+import { travelDay } from './components/travel/travelModel'
+import { localClock } from './components/dashboard/overviewModel'
+import { TravelMode } from './components/travel/TravelMode'
 import { PracticalNotebook } from './components/practical/PracticalNotebook'
 import { copyPracticalRecords } from './db/practical'
 import { TripLibrary } from './components/reservations/TripLibrary'
@@ -96,7 +99,10 @@ function formatTripDates(trip: Trip) {
 
 function App() {
   const [budgetViews, setBudgetViews] = useState(() => new globalThis.Map<string, BudgetViewState>())
-  const [homeSpace, setHomeSpace] = useState<{ tripId: string; kind: 'library' | 'practical' } | null>(null)
+  const [homeSpace, setHomeSpace] = useState<{ tripId: string; kind: 'library' | 'practical' | 'travel' } | null>(null)
+  const [travelDates, setTravelDates] = useState(() => new globalThis.Map<string, string>())
+  const [travelReturn, setTravelReturn] = useState<string | null>(null)
+  const travelTrigger = useRef<HTMLButtonElement>(null)
   const practicalTrigger = useRef<HTMLButtonElement>(null)
   const libraryTrigger = useRef<HTMLButtonElement>(null)
   const [activeTab, setActiveTab] = useState<TabId>('home')
@@ -531,8 +537,9 @@ if (!databaseReady || trips === undefined) {
     <h2 className="dashboard-title">Organiser mon voyage</h2>
 
     <div className="dashboard-grid">
-      <button type="button" className="dashboard-tile" ref={libraryTrigger} aria-expanded={homeSpace?.tripId === selectedTrip.id && homeSpace.kind === 'library'} onClick={() => setHomeSpace({ tripId: selectedTrip.id, kind: 'library' })}><ClipboardList size={24} /><strong>Réservations et documents</strong><span>Retrouver les informations et fichiers du voyage</span></button>
-      <button type="button" className="dashboard-tile" ref={practicalTrigger} aria-expanded={homeSpace?.tripId === selectedTrip.id && homeSpace.kind === 'practical'} onClick={() => setHomeSpace({ tripId: selectedTrip.id, kind: 'practical' })}><ClipboardList size={24} /><strong>Infos pratiques</strong><span>Contacts, adresses et notes du voyage</span></button>
+      <button type="button" className="dashboard-tile" ref={travelTrigger} aria-expanded={homeSpace?.tripId === selectedTrip.id && homeSpace.kind === 'travel'} onClick={() => { const date = travelDay(selectedTrip, travelDates.get(selectedTrip.id), localClock(new Date()).date).date; if (date) setTravelDates((previous) => new globalThis.Map(previous).set(selectedTrip.id, date)); setTravelReturn(null); setHomeSpace({ tripId: selectedTrip.id, kind: 'travel' }) }}><ClipboardList size={24} /><strong>Mode voyage</strong><span>La journée, ses lieux et documents à portée de main</span></button>
+      <button type="button" className="dashboard-tile" ref={libraryTrigger} aria-expanded={homeSpace?.tripId === selectedTrip.id && homeSpace.kind === 'library'} onClick={() => { setTravelReturn(null); setHomeSpace({ tripId: selectedTrip.id, kind: 'library' }) }}><ClipboardList size={24} /><strong>Réservations et documents</strong><span>Retrouver les informations et fichiers du voyage</span></button>
+      <button type="button" className="dashboard-tile" ref={practicalTrigger} aria-expanded={homeSpace?.tripId === selectedTrip.id && homeSpace.kind === 'practical'} onClick={() => { setTravelReturn(null); setHomeSpace({ tripId: selectedTrip.id, kind: 'practical' }) }}><ClipboardList size={24} /><strong>Infos pratiques</strong><span>Contacts, adresses et notes du voyage</span></button>
       {[
         {
           id: 'program' as TabId,
@@ -570,7 +577,15 @@ if (!databaseReady || trips === undefined) {
         </button>
       ))}
     </div>
-    <>{homeSpace?.tripId === selectedTrip.id && homeSpace.kind === 'practical' ? <PracticalNotebook key={selectedTrip.id} trip={selectedTrip} onClose={() => { setHomeSpace(null); practicalTrigger.current?.focus({ preventScroll: true }) }} /> : homeSpace?.tripId === selectedTrip.id && homeSpace.kind === 'library' ? <TripLibrary key={selectedTrip.id} trip={selectedTrip} onClose={() => { setHomeSpace(null); libraryTrigger.current?.focus({ preventScroll: true }) }} /> : <TripOverview key={selectedTrip.id} trip={selectedTrip} navigate={setActiveTab} />}</>
+    <>{homeSpace?.tripId === selectedTrip.id && homeSpace.kind === 'travel' ? <TravelMode key={selectedTrip.id} trip={selectedTrip} selectedDate={travelDates.get(selectedTrip.id)} onDateChange={(date) => setTravelDates((previous) => new globalThis.Map(previous).set(selectedTrip.id, date))} onClose={() => { setHomeSpace(null); setTravelReturn(null); travelTrigger.current?.focus({ preventScroll: true }) }} navigate={(target, date) => {
+      setTravelDates((previous) => new globalThis.Map(previous).set(selectedTrip.id, date))
+      if (target === 'library' || target === 'practical') { setTravelReturn(selectedTrip.id); setHomeSpace({ tripId: selectedTrip.id, kind: target }) }
+      else {
+        setProgramNavigation((previous) => new globalThis.Map(previous).set(selectedTrip.id, { mode: 'day', selectedDate: date, month: date.slice(0, 7) }))
+        if (target === 'map') setMapNavigation((previous) => new globalThis.Map(previous).set(selectedTrip.id, { mode: 'day', selectedDate: date }))
+        setActiveTab(target)
+      }
+    }} /> : homeSpace?.tripId === selectedTrip.id && homeSpace.kind === 'practical' ? <PracticalNotebook key={selectedTrip.id} backLabel={travelReturn === selectedTrip.id ? "Retour au mode voyage" : undefined} trip={selectedTrip} onClose={() => { setHomeSpace(travelReturn === selectedTrip.id ? { tripId: selectedTrip.id, kind: 'travel' } : null); practicalTrigger.current?.focus({ preventScroll: true }) }} /> : homeSpace?.tripId === selectedTrip.id && homeSpace.kind === 'library' ? <TripLibrary key={selectedTrip.id} backLabel={travelReturn === selectedTrip.id ? "Retour au mode voyage" : undefined} trip={selectedTrip} onClose={() => { setHomeSpace(travelReturn === selectedTrip.id ? { tripId: selectedTrip.id, kind: 'travel' } : null); libraryTrigger.current?.focus({ preventScroll: true }) }} /> : <TripOverview key={selectedTrip.id} trip={selectedTrip} navigate={setActiveTab} />}</>
     <details className="trip-management"><summary>Gérer et sauvegarder ce voyage</summary>
     <button
       type="button"

@@ -1,0 +1,15 @@
+.travel-mode { min-width: 0; display: grid; gap: 1rem; }
+.travel-mode h3, .travel-mode h4, .travel-mode p { margin: 0; }
+.travel-days { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .5rem; align-items: end; }
+.travel-days label { min-width: 0; display: grid; gap: .5rem; }
+.travel-days select { width: 100%; min-width: 0; min-height: 44px; background: #17191d; color: inherit; border: 1px solid #41434a; border-radius: 12px; padding: .5rem; }
+.travel-shortcuts { display: flex; flex-wrap: wrap; gap: .5rem; }
+.travel-mode button, .travel-mode a { min-height: 44px; }
+.travel-mode a { display: inline-flex; align-items: center; }
+.travel-activities, .travel-documents { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; min-width: 0; }
+.travel-activities > li { min-width: 0; border: 1px solid #34363d; border-radius: 16px; padding: 1rem; display: grid; gap: .75rem; background: #191b20; }
+.travel-activities > .travel-next { border-color: #f97316; }
+.travel-text, .travel-documents button { white-space: pre-wrap; overflow-wrap: anywhere; }
+.travel-documents button { max-width: 100%; text-align: left; }
+.travel-empty { padding: 1rem; border: 1px solid #34363d; border-radius: 16px; }
+@media (max-width: 375px) { .travel-activities > li { padding: .75rem; } .travel-shortcuts > button { flex: 1 1 40%; } }

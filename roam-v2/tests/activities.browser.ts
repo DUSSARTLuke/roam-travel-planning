@@ -1,3 +1,4 @@
+import { testTravelMode } from './travelMode.browser'
 import { testContactValidation } from './contactValidation.browser'
 import { testPractical } from './practical.browser'
 import { testTripLibrary } from './tripLibrary.browser'
@@ -199,6 +200,7 @@ button.addEventListener('click', async () => {
   results.textContent = ''
   try {
     await testActivitySave((message) => { results.textContent += `✓ ${message}\n` })
+    await testTravelMode((message) => { results.textContent += `✓ ${message}\n` })
     await testContactValidation((message) => { results.textContent += `✓ ${message}\n` })
     await testPractical((message) => { results.textContent += `✓ ${message}\n` })
     await testTripLibrary((message) => { results.textContent += `✓ ${message}\n` })
