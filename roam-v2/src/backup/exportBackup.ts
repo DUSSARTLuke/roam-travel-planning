@@ -1,3 +1,4 @@
+import { validatePracticalRecords } from '../practical/model'
 import { validateReservationType } from '../db/activityModel'
 import { validatePreparationTasks } from '../preparation/tasks'
 import { validatePlannedBudget } from '../money/budgetTracking'
@@ -50,7 +51,7 @@ export async function buildExportArchive(snapshot: ExportSnapshot, onProgress: (
   }
   for (const activity of activities) validateReservationType(activity.reservationType)
   const transferActivities = new Map(activities.map((activity) => [activity.id, activity]))
-  for (const trip of trips) { validateTripTransfers(trip.manualTransfers, trip.id, transferActivities); validateTripSharing(trip, transferActivities); validatePlannedBudget(trip.plannedBudget); validatePreparationTasks(trip.preparationTasks) }
+  for (const trip of trips) { validateTripTransfers(trip.manualTransfers, trip.id, transferActivities); validateTripSharing(trip, transferActivities); validatePlannedBudget(trip.plannedBudget); validatePreparationTasks(trip.preparationTasks); validatePracticalRecords(trip.practicalRecords) }
   const blobs = new Map<string, Blob>()
   for (const payload of payloads) {
     if (!payload || !(payload.blob instanceof Blob) || blobs.has(payload.id)) throw new Error('Un fichier est manquant ou invalide. Export interrompu.')

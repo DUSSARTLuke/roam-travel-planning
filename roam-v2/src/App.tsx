@@ -1,3 +1,5 @@
+import { PracticalNotebook } from './components/practical/PracticalNotebook'
+import { copyPracticalRecords } from './db/practical'
 import { TripLibrary } from './components/reservations/TripLibrary'
 import { copyPreparationTasks } from './db/preparation'
 import { TripOverview } from './components/dashboard/TripOverview'
@@ -94,7 +96,8 @@ function formatTripDates(trip: Trip) {
 
 function App() {
   const [budgetViews, setBudgetViews] = useState(() => new globalThis.Map<string, BudgetViewState>())
-  const [libraryTripId, setLibraryTripId] = useState<string | null>(null)
+  const [homeSpace, setHomeSpace] = useState<{ tripId: string; kind: 'library' | 'practical' } | null>(null)
+  const practicalTrigger = useRef<HTMLButtonElement>(null)
   const libraryTrigger = useRef<HTMLButtonElement>(null)
   const [activeTab, setActiveTab] = useState<TabId>('home')
   const [mapViews, setMapViews] = useState(() => new globalThis.Map<string, TripMapView>())
@@ -304,6 +307,7 @@ async function duplicateTrip(trip: Trip) {
       destination: `${trip.destination} (copie)`,
       ...copyPlannedBudget(trip),
       ...copyPreparationTasks(trip.preparationTasks),
+      ...copyPracticalRecords(trip.practicalRecords),
       ...(trip.participants ? { participants: trip.participants.map((participant) => ({ ...participant, id: createId() })) } : {}),
       referenceCurrency: tripReferenceCurrency(trip),
       ...(trip.manualExchangeRates !== undefined ? { manualExchangeRates: validateManualRates(trip.manualExchangeRates) } : {}),
@@ -527,7 +531,8 @@ if (!databaseReady || trips === undefined) {
     <h2 className="dashboard-title">Organiser mon voyage</h2>
 
     <div className="dashboard-grid">
-      <button type="button" className="dashboard-tile" ref={libraryTrigger} aria-expanded={libraryTripId === selectedTrip.id} onClick={() => setLibraryTripId(selectedTrip.id)}><ClipboardList size={24} /><strong>Réservations et documents</strong><span>Retrouver les informations et fichiers du voyage</span></button>
+      <button type="button" className="dashboard-tile" ref={libraryTrigger} aria-expanded={homeSpace?.tripId === selectedTrip.id && homeSpace.kind === 'library'} onClick={() => setHomeSpace({ tripId: selectedTrip.id, kind: 'library' })}><ClipboardList size={24} /><strong>Réservations et documents</strong><span>Retrouver les informations et fichiers du voyage</span></button>
+      <button type="button" className="dashboard-tile" ref={practicalTrigger} aria-expanded={homeSpace?.tripId === selectedTrip.id && homeSpace.kind === 'practical'} onClick={() => setHomeSpace({ tripId: selectedTrip.id, kind: 'practical' })}><ClipboardList size={24} /><strong>Infos pratiques</strong><span>Contacts, adresses et notes du voyage</span></button>
       {[
         {
           id: 'program' as TabId,
@@ -565,7 +570,7 @@ if (!databaseReady || trips === undefined) {
         </button>
       ))}
     </div>
-    <>{libraryTripId === selectedTrip.id ? <TripLibrary key={selectedTrip.id} trip={selectedTrip} onClose={() => { setLibraryTripId(null); libraryTrigger.current?.focus({ preventScroll: true }) }} /> : <TripOverview key={selectedTrip.id} trip={selectedTrip} navigate={setActiveTab} />}</>
+    <>{homeSpace?.tripId === selectedTrip.id && homeSpace.kind === 'practical' ? <PracticalNotebook key={selectedTrip.id} trip={selectedTrip} onClose={() => { setHomeSpace(null); practicalTrigger.current?.focus({ preventScroll: true }) }} /> : homeSpace?.tripId === selectedTrip.id && homeSpace.kind === 'library' ? <TripLibrary key={selectedTrip.id} trip={selectedTrip} onClose={() => { setHomeSpace(null); libraryTrigger.current?.focus({ preventScroll: true }) }} /> : <TripOverview key={selectedTrip.id} trip={selectedTrip} navigate={setActiveTab} />}</>
     <details className="trip-management"><summary>Gérer et sauvegarder ce voyage</summary>
     <button
       type="button"

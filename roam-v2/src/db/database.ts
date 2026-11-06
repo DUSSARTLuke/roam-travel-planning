@@ -1,3 +1,4 @@
+import type { PracticalRecord } from '../practical/model'
 import type { PreparationTask } from '../preparation/tasks'
 import type { PlannedBudget } from '../money/budgetTracking'
 import type { TripParticipant, ExpenseShare } from '../money/expenseSharing'
@@ -17,6 +18,7 @@ export type Trip = {
   endDate: string
   travelers: number
   image: string
+  practicalRecords?: PracticalRecord[]
   preparationTasks?: PreparationTask[]
   plannedBudget?: PlannedBudget
   participants?: TripParticipant[]

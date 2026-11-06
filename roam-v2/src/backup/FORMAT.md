@@ -271,3 +271,27 @@ L'espace central ne persiste aucune liste ni copie de fichier : il consulte les
 activités et les métadonnées existantes, puis les Blob d'origine à la demande.
 Le comportement de duplication des voyages reste inchangé : sans copie d'activités,
 aucune réservation ni pièce jointe de l'original n'apparaît dans le voyage copié.
+
+### Carnet pratique facultatif (2.9d)
+
+`Trip.practicalRecords?: PracticalRecord[]` contient au maximum 300 fiches :
+`id`, `kind` (contact/address/note), `title`, `category`
+(accommodation/transport/health/appointments/other), `createdAt`, `updatedAt`,
+`notes?`. Un contact possède `phone?` et/ou `email?`, une adresse possède `address`,
+une note possède `notes` non vide. Pas de champs incompatibles avec le type.
+Limites : titre 200 caractères, notes 5 000, adresse 1 000, téléphone 80, e-mail 254.
+Codes, dates ISO, identifiants uniques, normalisation et formats des contacts sont
+contrôlés à l'export et avant toute restauration. Les anciennes archives sans
+carnet restent acceptées sans ajout automatique. Dexie V4 / ZIP format 1 inchangés.
+Les fiches sont copiées à la duplication avec de nouveaux IDs et dates techniques,
+mais leur contenu est conservé. Les adresses issues des activités ne sont pas
+persistées une seconde fois : leur affichage est une projection réactive.
+Le contenu du carnet et de l'archive reste **non chiffré** ; l'interface avertit
+de ne pas y stocker des mots de passe ou autres secrets sensibles.
+
+Validation contact 2.9d.1 : téléphone/e-mail peuvent être tous deux absents.
+Les nouvelles valeurs et les archives sont contrôlées sur leur format et longueur.
+L'affichage des anciennes coordonnées textuelles invalides est tolérant et ne crée
+pas de lien actif pour ces valeurs ; aucune donnée n'est effacée ou migrée.
+Corriger ou vider les coordonnées signalées avant un réenregistrement ou export.
+Les versions de schéma et de format restent inchangées.

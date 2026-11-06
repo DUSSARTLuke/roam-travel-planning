@@ -1,0 +1,22 @@
+.practical-notebook { min-width: 0; margin: 24px 0; overflow-wrap: anywhere; }
+.practical-warning { padding: 12px; border-left: 3px solid var(--accent); background: var(--surface); color: var(--muted); line-height: 1.6; }
+.practical-notebook button, .practical-notebook a { min-height: 44px; max-width: 100%; }
+.practical-notebook button { white-space: normal; }
+.practical-notebook :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.practical-filters, .practical-fields { display: grid; gap: 16px; min-width: 0; }
+.practical-filters { grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); margin: 20px 0; }
+.practical-filters label { display: grid; gap: 8px; min-width: 0; }
+.practical-filters input, .practical-filters select, .practical-fields textarea, .practical-copy-text { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; font: inherit; font-size: 16px; padding: 10px; color: var(--text); background: var(--bg); border: 1px solid var(--border); border-radius: 9px; }
+.practical-filters input, .practical-filters select { min-height: 44px; }
+.practical-fields textarea, .practical-copy-text { resize: vertical; }
+.practical-list { list-style: none; padding: 0; }
+.practical-card { min-width: 0; margin: 16px 0; padding: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; }
+.practical-card h3 { margin: 8px 0 16px; }
+.practical-text { white-space: pre-wrap; line-height: 1.6; }
+.practical-contact { display: grid; gap: 8px; }
+.practical-card a { display: flex; align-items: center; width: fit-content; color: var(--accent); padding: 6px 0; box-sizing: border-box; }
+.practical-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.practical-sources { margin-top: 18px; border-top: 1px solid var(--border); }
+.practical-sources ul { list-style: none; padding: 0; display: grid; gap: 8px; }
+.practical-empty { padding: 20px; border: 1px dashed var(--border); border-radius: 14px; }
+@media (max-width: 640px) { .practical-card { padding: 14px; } .practical-actions { display: grid; grid-template-columns: minmax(0, 1fr); } }
