@@ -8,7 +8,10 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test:pwa": "node tests/pwa-check.mjs"
+    "test:pwa": "node tests/pwa-check.mjs",
+    "test:concurrency": "node tests/concurrent-tabs.mjs",
+    "test:offline": "node tests/production-offline.mjs",
+    "test:publication": "node tests/publication.mjs"
   },
   "dependencies": {
     "dexie": "^4.4.7",

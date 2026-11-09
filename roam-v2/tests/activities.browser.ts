@@ -1,3 +1,7 @@
+import { testVolumeMigration } from './volumeMigration.browser'
+import { activityVersion } from '../src/db/activityRevision'
+import { testActivityDeletion } from './activityDeletion.browser'
+import { testLocalSync } from './localSync.browser'
 import { testTravelMode } from './travelMode.browser'
 import { testContactValidation } from './contactValidation.browser'
 import { testPractical } from './practical.browser'
@@ -87,7 +91,10 @@ async function run(report: (message: string) => void) {
     const unscheduled = await repo.createActivity('test-a', { title: 'Sans heure', category: 'rest', date: input.date,
       scheduleType: 'unscheduled', period: null, sortOrder: 0 })
     const idea = await repo.createActivity('test-a', { ...input, date: null })
+    await rejects(() => repo.createActivity('test-b', input))
+    await database.trips.update('test-b', { archived: false })
     const other = await repo.createActivity('test-b', input)
+    await database.trips.update('test-b', { archived: true })
     assert(new Set([a.id, period.id, unscheduled.id, idea.id, other.id]).size === 5, 'Identifiants non uniques.')
     assert(a.createdAt === a.updatedAt && !Number.isNaN(Date.parse(a.createdAt)), 'Horodatages invalides.')
     assert((await repo.getActivity('test-a', a.id)).startTime === '09:30', 'Lecture incorrecte.')
@@ -100,7 +107,7 @@ async function run(report: (message: string) => void) {
     report('CRUD lecture/création : trois modes, idées, index voyage/date et isolation.')
 
     const updated = await repo.updateActivity('test-a', a.id, { title: 'Modifiée', category: 'other', date: null,
-      scheduleType: 'unscheduled', period: null, sortOrder: -1 })
+      scheduleType: 'unscheduled', period: null, sortOrder: -1 }, activityVersion(a))
     assert(updated.id === a.id && updated.createdAt === a.createdAt && updated.tripId === a.tripId, 'Identité modifiée.')
     assert(!('startTime' in updated) && !('endTime' in updated), 'Horaires obsolètes conservés.')
     await rejects(() => repo.getActivity('test-b', a.id))
@@ -199,6 +206,9 @@ button.addEventListener('click', async () => {
   button.disabled = true
   results.textContent = ''
   try {
+    await testVolumeMigration((message) => { results.textContent += `✓ ${message}\n` })
+    await testActivityDeletion((message) => { results.textContent += `✓ ${message}\n` })
+    await testLocalSync((message) => { results.textContent += `✓ ${message}\n` })
     await testActivitySave((message) => { results.textContent += `✓ ${message}\n` })
     await testTravelMode((message) => { results.textContent += `✓ ${message}\n` })
     await testContactValidation((message) => { results.textContent += `✓ ${message}\n` })
@@ -245,7 +255,7 @@ button.addEventListener('click', async () => {
     await testRestore((message) => { results.textContent += `✓ ${message}\n` })
     results.textContent += '\nTous les tests ont réussi. Base de test supprimée.'
   } catch (error) {
-    results.textContent += `\nÉCHEC : ${String(error)}`
+    results.textContent += `\nÉCHEC : ${error instanceof Error ? error.stack ?? error.message : String(error)}`
   } finally {
     button.disabled = false
   }

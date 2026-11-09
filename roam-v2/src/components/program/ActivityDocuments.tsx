@@ -9,18 +9,19 @@ export type PendingDocument = { file: File; mime: DocumentMime }
 type Props = {
   tripId: string
   activityId: string | null
+  readDocuments?: typeof listDocuments
   pending?: PendingDocument[]
   onSelect?: (files: File[], storedCount: number) => void
 }
 
-export function ActivityDocuments({ tripId, activityId, pending = [], onSelect }: Props) {
+export function ActivityDocuments({ tripId, activityId, pending = [], onSelect, readDocuments = listDocuments }: Props) {
   const [panel, setPanel] = useState<{ kind: 'view' | 'delete'; document: ActivityDocument } | null>(null)
   const [notice, setNotice] = useState('')
   const sectionRef = useRef<HTMLElement>(null)
   const result = useLiveQuery(async () => {
-    try { return { documents: activityId === null ? [] : await listDocuments(tripId, activityId), error: '' } }
+    try { return { documents: activityId === null ? [] : await readDocuments(tripId, activityId), error: '' } }
     catch { return { documents: [], error: 'Impossible de charger les métadonnées des documents.' } }
-  }, [tripId, activityId])
+  }, [tripId, activityId, readDocuments])
   const documents = result?.documents ?? []
   if (panel && result && (result.error || !documents.some((document) => document.id === panel.document.id))) {
     setPanel(null)

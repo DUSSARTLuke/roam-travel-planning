@@ -1,3 +1,4 @@
+import { useActivityEditSnapshot } from '../program/useActivityEditSnapshot'
 import { PreparationChecklist } from '../preparation/PreparationChecklist'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -40,7 +41,8 @@ export function TripOverview({ trip, navigate, readActivities = listActivities, 
   const overview = useMemo(() => buildTripOverview(trip, activities, clock), [trip, activities, clock])
   const budget = useMemo(() => buildTripBudget(trip, activities), [trip, activities])
   const ready = result?.id === trip.id && !result.error
-  const detail = activities.find((activity) => activity.tripId === trip.id && activity.id === detailId)
+  const liveActivity = activities.find((activity) => activity.tripId === trip.id && activity.id === detailId)
+  const detail = useActivityEditSnapshot(trip.id, editing ? detailId : null, liveActivity)
   if (detailId !== null && result?.id === trip.id && !detail) { setDetailId(null); setEditing(false) }
   if (trip.archived || trip.deletedAt !== undefined) return null
   const progress = overview.progress

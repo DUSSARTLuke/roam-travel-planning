@@ -126,7 +126,7 @@ export async function testExpenseSharing(report: (message: string) => void) {
     liveTrip = (await database.trips.get(trip.id))!
     const archive = await buildExportArchive(await readExportSnapshot({ mode: 'trip', tripId: trip.id }, database))
     const validated = await validateRestoreArchive(archive.blob)
-    assert(validated.trips[0].expenseShares?.length === 2 && validated.trips[0].manualTransfers?.[0].paidAmount === 10 && archive.manifest.formatVersion === 1 && database.verno === 4, 'ZIP perd participants/parts/paiement ou migration inutile.')
+    assert(validated.trips[0].expenseShares?.length === 2 && validated.trips[0].manualTransfers?.[0].paidAmount === 10 && archive.manifest.formatVersion === 1 && database.verno === 5, 'ZIP perd participants/parts/paiement ou migration inutile.')
     const prepared = await prepareRestore(archive.blob), preview = await previewRestore(prepared, target)
     await restoreBackup(prepared, preview, target)
     const restored = (await target.trips.get(trip.id))!
@@ -139,7 +139,7 @@ export async function testExpenseSharing(report: (message: string) => void) {
     files.set('manifest.json', new Blob([JSON.stringify(manifest)]))
     const malformed = await createStoredZip([...files].map(([path, blob]) => ({ path, blob })))
     await rejects(() => validateRestoreArchive(malformed))
-    await activities.updateActivity(trip.id, storedA.id, { ...storedA, paidAmount: 50 })
+    await activities.updateActivity(trip.id, storedA.id, { ...(await activities.getActivity(trip.id, storedA.id)), paidAmount: 50 })
     assert(calculated(calculateExpenseSharing((await database.trips.get(trip.id))!, await activities.listActivities(trip.id))).issues.length === 1, 'Paiement modifié partagé sans revalidation.')
     await transfers.deleteTransfer(trip.id, transfer.id, transferKey(latestTransfer))
     assert(!(await database.trips.get(trip.id))!.expenseShares!.some((item) => item.kind === 'transfer'), 'Partage orphelin après suppression de transfert.')

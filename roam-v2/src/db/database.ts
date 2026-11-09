@@ -1,3 +1,5 @@
+import { installLocalJournal, seedLocalJournal } from '../sync/journal'
+import type { EntityState, LocalOperation, Installation, LocalCommand, SyncConflict } from '../sync/model'
 import type { PracticalRecord } from '../practical/model'
 import type { PreparationTask } from '../preparation/tasks'
 import type { PlannedBudget } from '../money/budgetTracking'
@@ -62,6 +64,12 @@ export class RoamDatabase extends Dexie {
   activityDocuments!: EntityTable<ActivityDocument, 'id'>
   activityDocumentBlobs!: EntityTable<ActivityDocumentBlob, 'id'>
 
+  syncEntities!: EntityTable<EntityState, 'key'>
+  syncOutbox!: EntityTable<LocalOperation, 'id'>
+  syncMeta!: EntityTable<Installation, 'key'>
+  syncCommands!: EntityTable<LocalCommand, 'id'>
+  syncConflicts!: EntityTable<SyncConflict, 'id'>
+
   constructor(name = 'roam-v2-db') {
     super(name)
 
@@ -97,11 +105,19 @@ export class RoamDatabase extends Dexie {
       activityDocumentBlobs: 'id',
     })
 
+    this.version(5).stores({
+      syncMeta: 'key', syncEntities: 'key, [table+entityId], identity, tripId, activityId',
+      syncOutbox: 'id, groupId, entityKey, [entityKey+revision], status',
+      syncCommands: 'id', syncConflicts: 'id, entityKey, status',
+    }).upgrade(seedLocalJournal)
+    installLocalJournal(this)
+
     // populate runs only for a brand-new database, in its exclusive creation
     // transaction. Both writes commit together or are rolled back together.
     this.on('populate', async (transaction) => {
       await transaction.table('trips').add(exampleTrip)
       await transaction.table('metadata').add(initializationMarker)
+      await seedLocalJournal(transaction)
     })
   }
 }

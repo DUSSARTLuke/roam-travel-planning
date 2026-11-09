@@ -23,6 +23,7 @@ export function TransferFormPanel({ trip, activities, transfer, initialDate, tri
     from: transfer?.fromActivityId ?? '', to: transfer?.toActivityId ?? '', mode: transfer?.mode ?? 'walk' as TransferMode,
     duration: transfer?.durationMinutes?.toString() ?? '', cost: transfer?.estimatedCost?.toString() ?? '',
     currency: transfer?.currency ?? tripReferenceCurrency(trip), notes: transfer?.notes ?? '' }))
+  const [expected] = useState(() => transfer ? transferKey(transfer) : undefined)
   const [form, setForm] = useState(initial)
   const [busy, setBusy] = useState(false)
   const lock = useRef(false)
@@ -53,9 +54,9 @@ export function TransferFormPanel({ trip, activities, transfer, initialDate, tri
     if (lock.current) return
     lock.current = true; setBusy(true); setError('')
     try {
-      if (deleting && transfer) await remove(trip.id, transfer.id, transferKey(transfer))
+      if (deleting && transfer) await remove(trip.id, transfer.id, expected!)
       else await persist(trip.id, { fromActivityId: form.from, toActivityId: form.to, mode: form.mode, durationMinutes: decimal(form.duration),
-        estimatedCost: decimal(form.cost), currency: form.currency, notes: form.notes }, transfer?.id, transfer ? transferKey(transfer) : undefined)
+        estimatedCost: decimal(form.cost), currency: form.currency, notes: form.notes }, transfer?.id, expected)
       onClose()
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Impossible d’enregistrer le déplacement.'); setConfirmation(null) }
     finally { lock.current = false; setBusy(false) }

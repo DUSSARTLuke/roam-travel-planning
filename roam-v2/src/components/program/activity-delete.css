@@ -1,0 +1,5 @@
+.activity-detail-footer { display: flex; flex-wrap: wrap; gap: .75rem; }
+.activity-detail-footer > button { min-height: 44px; white-space: normal; overflow-wrap: anywhere; }
+.activity-delete-confirmation { display: grid; align-content: start; gap: 1rem; }
+.activity-delete-confirmation h2 { overflow-wrap: anywhere; }
+@media (max-width: 480px) { .activity-detail-footer > button { width: 100%; } }

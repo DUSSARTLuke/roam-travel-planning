@@ -1,3 +1,4 @@
+import { validateSyncLineage, type SyncLineage } from '../sync/backup'
 import { validatePracticalRecords } from '../practical/model'
 import { validatePreparationTasks } from '../preparation/tasks'
 import { validatePlannedBudget } from '../money/budgetTracking'
@@ -15,7 +16,7 @@ import { readBackupZip, RESTORE_LIMITS } from './readZip'
 
 export type RestoreMetadata = Record<string, unknown> & { key: string }
 export type ValidatedRestore = {
-  trips: Trip[]; activities: TripActivity[]; documents: ActivityDocument[]
+  localSync?: SyncLineage; trips: Trip[]; activities: TripActivity[]; documents: ActivityDocument[]
   payloads: ActivityDocumentBlob[]; metadata: RestoreMetadata[]
 }
 export function record(value: unknown, label: string): Record<string, unknown> {
@@ -54,7 +55,7 @@ export async function validateRestoreArchive(archive: Blob, progress: (message: 
     return parseBackupJson(new TextDecoder('utf-8', { fatal: true }).decode(await blob.arrayBuffer()))
   }
   const manifest = record(await json('manifest.json'), 'Manifeste')
-  if (manifest.format !== 'roam-v2-backup' || manifest.formatVersion !== 1 || manifest.databaseVersion !== 4 || manifest.encrypted !== false) throw new Error('Format, version ou chiffrement de sauvegarde incompatible.')
+  if (manifest.format !== 'roam-v2-backup' || manifest.formatVersion !== 1 || ![4, 5].includes(manifest.databaseVersion as number) || manifest.encrypted !== false) throw new Error('Format, version ou chiffrement de sauvegarde incompatible.')
   timestamp(manifest.exportedAt); timestamp(manifest.snapshotAt)
   const scope = record(manifest.scope, 'Périmètre')
   if (scope.mode !== 'full' && scope.mode !== 'trip') throw new Error('Périmètre de sauvegarde invalide.')
@@ -126,5 +127,7 @@ export async function validateRestoreArchive(archive: Blob, progress: (message: 
   for (const metadata of metadataRows) {
     if ((metadata.initialized !== undefined && typeof metadata.initialized !== 'boolean') || (metadata.key === 'initialization' && metadata.initialized !== true)) throw new Error('Métadonnées d’initialisation invalides.')
   }
-  return { trips: tripRows as unknown as Trip[], activities: activityRows as unknown as TripActivity[], documents: documentRows as unknown as ActivityDocument[], payloads, metadata: metadataRows as unknown as RestoreMetadata[] }
+  const localSync = validateSyncLineage(manifest.localSync, { trips: tripRows as unknown as Trip[], activities: activityRows as unknown as TripActivity[], documents: documentRows as unknown as ActivityDocument[] }, scope as { mode: string; tripId?: unknown })
+  if (manifest.databaseVersion === 5 && !localSync) throw new Error('Filiation de synchronisation V5 manquante.')
+  return { localSync, trips: tripRows as unknown as Trip[], activities: activityRows as unknown as TripActivity[], documents: documentRows as unknown as ActivityDocument[], payloads, metadata: metadataRows as unknown as RestoreMetadata[] }
 }

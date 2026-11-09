@@ -1,3 +1,4 @@
+import { activityVersion } from '../src/db/activityRevision'
 import Dexie from 'dexie'
 import { RoamDatabase, updateTripTrash, type Trip } from '../src/db/database'
 import { createActivityRepository } from '../src/db/activities'
@@ -117,7 +118,7 @@ export async function testDocuments(report: (message: string) => void) {
     const activityCount = await database.activities.count()
     await rejects(() => docs.saveActivityWithDocuments(trip.id, { ...activity, title: 'Ne doit pas être créée' }, null, [file()]))
     assert(await database.activities.count() === activityCount, 'Activité orpheline après quota dépassé.')
-    await rejects(() => docs.saveActivityWithDocuments(trip.id, { ...activity, title: 'Ne doit pas être modifiée' }, second.id, [file()]))
+    await rejects(() => docs.saveActivityWithDocuments(trip.id, { ...activity, title: 'Ne doit pas être modifiée' }, second.id, [file()], activityVersion(second)))
     assert((await database.activities.get(second.id))!.title === activity.title && (await docs.listDocuments(trip.id, second.id)).length === 3, 'Sauvegarde activité/documents non atomique.')
     database.activityDocumentBlobs.hook('creating').unsubscribe(failWrite)
     const secondDocs = await docs.listDocuments(trip.id, second.id)

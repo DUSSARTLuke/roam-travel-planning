@@ -476,3 +476,33 @@ Les tests React couvrent cartes/actions/focus et mise à jour réelle via useLiv
 avec une base temporaire `roam-v2-test-planning-*`, puis changement de journée.
 Aucun réseau ni donnée utilisateur. Détails et vérifications mobiles :
 `src/components/program/PLANNING.md`.
+
+
+## Stabilisation et concurrence 2.10b.2
+
+Les éditions d’activité exigent désormais la révision de l’instantané ouvert :
+utiliser getActivity/listActivities et conserver l’instantané retourné, ou passer
+explicitement activityVersion(snapshot) à updateActivity / saveActivityWithDocuments.
+Un input construit avec `{ ...snapshot, champ: valeur }` conserve le jeton transitoire ;
+un JSON ou un input sans jeton n’est pas autorisé à écraser une activité existante.
+Le formulaire ne fusionne plus automatiquement une vieille saisie avec une ligne récente.
+
+Tests automatisés supplémentaires : `npm.cmd run test:concurrency` (deux onglets
+Chrome réels, profil temporaire) et, après build, `npm.cmd run test:offline` (preview
+production, réseau Chrome réellement coupé). Le chemin de Chrome peut être fourni
+par ROAM_CHROME_PATH. Aucun accès aux données personnelles ni dépendance supplémentaire.
+La suite activities inclut la migration V4→V5 avec 300 activités et 45 Mio de documents.
+Voir `docs/stabilisation-2026-11-09.md` pour les résultats et limites physiques.
+
+## Simulation de publication Pages et retour arrière
+
+Sur Windows, depuis `roam-v2/` :
+
+```powershell
+npm.cmd run build -- --base=/roam-travel-planning/ --outDir=node_modules/.tmp/pages-v2-dist --emptyOutDir
+npm.cmd run test:publication
+```
+
+Le runner exige Chrome (chemin alternatif via `ROAM_CHROME_PATH`) et Git. Il lit les fichiers historiques dans `master` sans modifier cette branche. Il sert successivement V1/V2/V1 au sous-chemin du projet dans un profil temporaire : manifeste, intégrité du précache, worker en attente, activation après fermeture des clients, conservation du localStorage V1, démarrage V2 réellement hors réseau, conservation IndexedDB V5 après rollback. Il n'effectue aucun déploiement et ne supprime aucun cache utilisateur.
+
+La procédure de publication et ses conditions d'arrêt sont dans [publication-pages.md](../docs/publication-pages.md).

@@ -1,3 +1,4 @@
+import { activityVersion } from '../src/db/activityRevision'
 import { readBackupZip } from '../src/backup/readZip'
 import { createStoredZip } from '../src/backup/zip'
 import { sha256 } from '../src/backup/sha256'
@@ -35,7 +36,7 @@ export async function testTripLibrary(report: (message: string) => void) {
   await rejects(() => validateActivity({ ...hotel, reservationType: 'fake' as never }))
   const initial = initialActivityValues({ ...hotel, reservationType: undefined }, hotel.date, trip.startDate)
   assert(initial.reservationType === '' && initialActivityValues(hotel, hotel.date, trip.startDate).reservationType === 'accommodation', 'Ancien type rempli ou type existant perdu.')
-  assert(activityFormInput({ ...initial, notes: 'Nouvelle note' }, hotel, initial).reservationType === 'accommodation', 'Modification simple écrase un type concurrent.')
+  assert(activityFormInput({ ...initial, notes: 'Nouvelle note' }, hotel, initial).reservationType === undefined, 'Une saisie ancienne est fusionnée automatiquement avec une activité récente.')
   assert(JSON.stringify([hotel, flight, visit, metadata]) === original, 'Projection modifie les données sources.')
 
   const database = new RoamDatabase(`roam-v2-test-library-${crypto.randomUUID()}`), target = new RoamDatabase(`roam-v2-test-library-restore-${crypto.randomUUID()}`)
@@ -72,7 +73,7 @@ export async function testTripLibrary(report: (message: string) => void) {
     await rejects(() => documents.getDocument('foreign', storedHotel.id, doc.id))
     const copy = await read('copy'); assert(copy.activities.length === 0 && copy.documents.length === 0, 'Copie du voyage montre les documents originaux sans activités copiées.')
     // Partial updates retain the optional classification and every binary.
-    storedHotel = await activities.updateActivity(trip.id, storedHotel.id, { title: storedHotel.title, category: storedHotel.category, date: storedHotel.date, scheduleType: 'exact', startTime: '15:00', period: null, notes: 'Mise à jour' })
+    storedHotel = await activities.updateActivity(trip.id, storedHotel.id, { title: storedHotel.title, category: storedHotel.category, date: storedHotel.date, scheduleType: 'exact', startTime: '15:00', period: null, notes: 'Mise à jour' }, activityVersion(storedHotel))
     assert(storedHotel.reservationType === 'accommodation' && storedHotel.paidAmount === 0, 'Mise à jour simple perd classification/montants.')
     payloadReads = 0
     window.dispatchEvent(new Event('offline')); render()

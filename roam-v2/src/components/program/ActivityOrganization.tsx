@@ -31,6 +31,7 @@ export function ActivityOrganizationPanel({ activity, trip, mode, trigger, onClo
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const lock = useRef(false)
+  const [expected] = useState(() => schedulingKey(activity))
   const [date, setDate] = useState(activity.date ?? trip.startDate)
   const [idea, setIdea] = useState(activity.date === null)
   const [start, setStart] = useState(activity.startTime ?? '')
@@ -61,7 +62,7 @@ export function ActivityOrganizationPanel({ activity, trip, mode, trigger, onClo
     lock.current = true; setBusy(true); setError('')
     try {
       await persist(trip.id, activity.id, mode === 'date' ? { date: idea ? null : date }
-        : remove ? { unscheduled: true } : { startTime: start, endTime: end || undefined }, schedulingKey(activity))
+        : remove ? { unscheduled: true } : { startTime: start, endTime: end || undefined }, expected)
       onClose()
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Impossible d’enregistrer la planification.') }
     finally { lock.current = false; setBusy(false) }

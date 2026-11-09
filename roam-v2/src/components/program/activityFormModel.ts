@@ -1,3 +1,4 @@
+import { activityRevision, activityVersion } from '../../db/activityRevision'
 import { coordinateFormValue, coordinateInput } from '../../db/activityLocation'
 import type { ActivityCategory, ActivityLink, ReservationType, ReservationStatus, ActivityPeriod, ActivitySchedule, TripActivity, TripActivityInput } from '../../db/activityModel'
 
@@ -50,21 +51,9 @@ export function initialActivityValues(activity: TripActivity | null, date: strin
   }
 }
 
-// A complete editable input, with hidden fields taken from the latest stored
-// activity. Schedule fields are rebuilt so obsolete times cannot leak across modes.
-export function activityFormInput(form: ActivityFormValues, existing: TripActivity | null, initial?: ActivityFormValues): TripActivityInput {
-  if (initial && existing) {
-    const latest = initialActivityValues(existing, form.date, form.date)
-    form = { ...form }
-    for (const key of Object.keys(form) as (keyof ActivityFormValues)[]) {
-      if (key === 'latitude' || key === 'longitude') continue
-      if (JSON.stringify(form[key]) === JSON.stringify(initial[key])) form = { ...form, [key]: latest[key] }
-    }
-    if (form.latitude === initial.latitude && form.longitude === initial.longitude) {
-      form.latitude = latest.latitude
-      form.longitude = latest.longitude
-    }
-  }
+// A complete editable input built from the explicitly opened/reloaded snapshot.
+// Never merge a stale draft with a newer activity automatically. Schedule fields are rebuilt so obsolete times cannot leak across modes.
+export function activityFormInput(form: ActivityFormValues, existing: TripActivity | null, _initial?: ActivityFormValues): TripActivityInput {
   let schedule: ActivitySchedule
   if (form.scheduleType === 'exact') {
     schedule = { scheduleType: 'exact', startTime: form.startTime, endTime: form.endTime || undefined, period: null }
@@ -74,6 +63,7 @@ export function activityFormInput(form: ActivityFormValues, existing: TripActivi
     schedule = { scheduleType: 'unscheduled', period: null }
   }
   return {
+    ...(activityVersion(existing) ? { [activityRevision]: activityVersion(existing) } : {}),
     ...schedule, title: form.title, category: form.category, date: form.idea ? null : form.date,
     address: form.address, latitude: coordinateInput(form.latitude, 'La latitude'), longitude: coordinateInput(form.longitude, 'La longitude'),
     location: form.location, notes: form.notes, sortOrder: existing?.sortOrder ?? 0,

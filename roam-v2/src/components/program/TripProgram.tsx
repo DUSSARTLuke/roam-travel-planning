@@ -90,13 +90,12 @@ export function TripProgram({ trip, initialNavigation, onNavigationChange, readA
   // or the activity disappears (including changes made in another tab).
   if (detailId !== null && result !== undefined && (result.error || detailActivity === null)) {
     setDetailId(null)
-    if (editor?.activity?.id === detailId) setEditor(null)
   }
   const ready = result !== undefined && !result.error && trip.archived !== true && trip.deletedAt === undefined
   useReloadBlocker(ordering, 'Réorganisation des activités en cours')
-  if (organization && result !== undefined && (!ready || !activities.some((item) => item.id === organization.activity.id))) setOrganization(null)
+  if (organization && result !== undefined && !ready) setOrganization(null)
   const transfers = trip.manualTransfers ?? []
-  if (transferEditor && (!ready || (transferEditor.transfer && !transfers.some((item) => item.id === transferEditor.transfer!.id)))) setTransferEditor(null)
+  if (transferEditor && !ready) setTransferEditor(null)
   const transferPlacements = new Map(transfers.map((item) => [item.id, transferPlacement(item, activities)]))
   const invalidTransfers = transfers.filter((item) => transferPlacements.get(item.id)?.day === null)
   function editTransfer(transfer: ManualTransfer, trigger: HTMLButtonElement) { if (ready) setTransferEditor({ transfer, trigger, date: activities.find((item) => item.id === transfer.fromActivityId)?.date ?? selectedDate }) }

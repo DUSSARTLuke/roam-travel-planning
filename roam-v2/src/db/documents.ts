@@ -1,3 +1,4 @@
+import { ActivityEditConflict, type ActivityRevision } from './activityRevision'
 import { createId } from '../utils/createId'
 import { db, type RoamDatabase } from './database'
 import { createActivityRepository } from './activities'
@@ -11,7 +12,7 @@ function storageFailure(error: unknown, subject = 'les documents'): never {
   let message: string
   if (names.includes('QuotaExceededError')) {
     message = 'Espace de stockage local insuffisant. Aucun changement enregistré ; tes saisies et fichiers restent en attente.'
-  } else if (error instanceof Error && error.name === 'Error') {
+  } else if (error instanceof ActivityEditConflict || error instanceof Error && error.name === 'Error') {
     // Business validation errors stay readable and are never reclassified as I/O.
     throw error
   } else if (names.includes('PrematureCommitError') || names.includes('TransactionInactiveError')) {
@@ -37,7 +38,7 @@ export function createDocumentRepository(database: RoamDatabase = db) {
     const trip = await database.trips.get(tripId)
     const activity = await database.activities.get(activityId)
     if (!trip || !activity || activity.tripId !== tripId) throw new Error('Activité inaccessible pour ce voyage.')
-    if (writable && trip.deletedAt !== undefined) throw new Error('Restaure le voyage avant de modifier ses documents.')
+    if (writable && (trip.deletedAt !== undefined || trip.archived)) throw new Error('Restaure le voyage avant de modifier ses documents.')
   }
 
   async function store(activityId: string, prepared: PreparedDocument[]): Promise<ActivityDocument[]> {
@@ -95,16 +96,15 @@ export function createDocumentRepository(database: RoamDatabase = db) {
 
     // Activity changes and documents commit together, or both roll back. The
     // nested activity repository transactions reuse this wider transaction.
-    async saveActivityWithDocuments(tripId: string, input: TripActivityInput, activityId: string | null, files: readonly File[]) {
+    async saveActivityWithDocuments(tripId: string, input: TripActivityInput, activityId: string | null, files: readonly File[], expected?: ActivityRevision) {
       const subject = files.length ? 'l’activité et ses documents' : 'l’activité'
       // File reads remain outside IDB; an empty selection never touches the
       // document stores. Existing attachments are kept, not rewritten.
       const prepared = await prepareDocuments(files).catch((error) => storageFailure(error, subject))
       const tables = prepared.length ? writeTables : [database.trips, database.activities]
       return database.transaction('rw', tables, async () => {
-        if (activityId !== null) await requireAccess(tripId, activityId, true)
         const activity = activityId !== null
-          ? await activityRepository.updateActivity(tripId, activityId, input)
+          ? await activityRepository.updateActivity(tripId, activityId, input, expected)
           : await activityRepository.createActivity(tripId, input)
         if (prepared.length) await store(activity.id, prepared)
         return activity

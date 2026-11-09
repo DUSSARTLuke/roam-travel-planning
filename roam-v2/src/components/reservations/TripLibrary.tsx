@@ -1,3 +1,4 @@
+import { useActivityEditSnapshot } from '../program/useActivityEditSnapshot'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { Trip } from '../../db/database'
@@ -26,7 +27,8 @@ export function TripLibrary({ trip, onClose, backLabel = 'Retour au tableau de b
   const entries = useMemo(() => snapshot ? buildTripLibrary(trip.id, snapshot.activities, snapshot.documents) : [], [trip.id, snapshot])
   const visible = useMemo(() => filterTripLibrary(entries, filters), [entries, filters])
   const ready = result?.tripId === trip.id && snapshot !== null
-  const selectedActivity = panel && panel.kind !== 'document' ? snapshot?.activities.find((activity) => activity.id === panel.activityId && activity.tripId === trip.id) : undefined
+  const liveActivity = panel && panel.kind !== 'document' ? snapshot?.activities.find((activity) => activity.id === panel.activityId && activity.tripId === trip.id) : undefined
+  const selectedActivity = useActivityEditSnapshot(trip.id, panel?.kind === 'edit' ? panel.activityId : null, liveActivity)
   const selectedDocument = panel?.kind === 'document' ? snapshot?.documents.find((document) => document.id === panel.document.id && document.activityId === panel.document.activityId) : undefined
   if (panel && result?.tripId === trip.id && (!ready || (panel.kind === 'document' ? !selectedDocument : !selectedActivity))) {
     setPanel(null); setNotice('Cet élément n’est plus disponible. Ses données ont changé ou ont été supprimées.')

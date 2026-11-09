@@ -1,3 +1,4 @@
+import { useActivityEditSnapshot } from '../program/useActivityEditSnapshot'
 import { getDocument } from '../../db/documents'
 import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -26,7 +27,8 @@ export function TravelMode({ trip, selectedDate, onDateChange, navigate, onClose
   useEffect(() => { heading.current?.focus({ preventScroll: true }) }, [])
   const result = useLiveQuery(() => read(trip.id).then((snapshot) => ({ snapshot, error: '' }), () => ({ snapshot: null, error: 'Impossible de charger le mode voyage. Les données locales sont conservées.' })), [trip.id, read, attempt])
   const snapshot = result?.snapshot, planning = travelActivities(trip, snapshot?.activities ?? [], date ?? '', now)
-  const activity = panel && panel.kind !== 'document' ? snapshot?.activities.find((item) => item.id === panel.id && item.tripId === trip.id) : undefined
+  const liveActivity = panel && panel.kind !== 'document' ? snapshot?.activities.find((item) => item.id === panel.id && item.tripId === trip.id) : undefined
+  const activity = useActivityEditSnapshot(trip.id, panel?.kind === 'edit' ? panel.id : null, liveActivity)
   const document = panel?.kind === 'document' ? snapshot?.documents.find((item) => item.id === panel.id) : undefined
   if (panel && snapshot && !(panel.kind === 'document' ? document : activity)) setPanel(null)
   if (trip.archived || trip.deletedAt !== undefined) return null

@@ -1,3 +1,4 @@
+import { validateSyncLineage } from '../sync/backup'
 import { validatePracticalRecords } from '../practical/model'
 import { validateReservationType } from '../db/activityModel'
 import { validatePreparationTasks } from '../preparation/tasks'
@@ -14,7 +15,7 @@ export type BackupScope = { mode: 'full' } | { mode: 'trip'; tripId: string }
 let exporting = false
 
 export async function readExportSnapshot(scope: BackupScope, database: RoamDatabase = db) {
-  return database.transaction('r', [database.trips, database.activities, database.metadata, database.activityDocuments, database.activityDocumentBlobs], async () => {
+  return database.transaction('r', [database.trips, database.activities, database.metadata, database.activityDocuments, database.activityDocumentBlobs, database.syncEntities], async () => {
     const trips = scope.mode === 'full' ? await database.trips.toArray() : await database.trips.where('id').equals(scope.tripId).toArray()
     if (scope.mode === 'trip' && trips.length !== 1) throw new Error('Le voyage à exporter est introuvable.')
     const activities = scope.mode === 'full' ? await database.activities.toArray() : await database.activities.where('tripId').equals(trips[0].id).toArray()
@@ -23,7 +24,8 @@ export async function readExportSnapshot(scope: BackupScope, database: RoamDatab
     const payloads = scope.mode === 'full' ? await database.activityDocumentBlobs.toArray()
       : await database.activityDocumentBlobs.bulkGet(documents.map((document) => document.id))
     const metadata = scope.mode === 'full' ? await database.metadata.toArray() : []
-    return { scope: { ...scope }, snapshotAt: new Date().toISOString(), databaseVersion: database.verno, trips, activities, documents, payloads, metadata }
+    const sync = (await database.syncEntities.toArray()).filter((state) => scope.mode === 'full' || state.tripId === scope.tripId)
+    return { sync, scope: { ...scope }, snapshotAt: new Date().toISOString(), databaseVersion: database.verno, trips, activities, documents, payloads, metadata }
   })
 }
 export type ExportSnapshot = Awaited<ReturnType<typeof readExportSnapshot>>
@@ -80,7 +82,9 @@ export async function buildExportArchive(snapshot: ExportSnapshot, onProgress: (
     }
     await add(`documents/${String(index + 1).padStart(6, '0')}.${extensions[document.mime]}`, blob, document.id)
   }
+  const localSync = 'sync' in snapshot ? validateSyncLineage({ version: 1, entities: snapshot.sync }, { trips, activities, documents }, snapshot.scope) : undefined
   const manifest = {
+    ...(localSync ? { localSync } : {}),
     format: 'roam-v2-backup', formatVersion: 1, databaseVersion: snapshot.databaseVersion,
     exportedAt: new Date().toISOString(), snapshotAt: snapshot.snapshotAt, scope: snapshot.scope,
     encrypted: false, counts: { trips: trips.length, activities: activities.length, documents: documents.length, metadata: metadata.length },

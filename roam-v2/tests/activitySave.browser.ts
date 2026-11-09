@@ -1,3 +1,4 @@
+import { activityVersion } from '../src/db/activityRevision'
 import { createTransferRepository } from '../src/db/transfers'
 import { transferKey } from '../src/db/transferModel'
 import { createAutomaticRateService } from '../src/db/automaticRates'
@@ -55,11 +56,11 @@ export async function testActivitySave(report: (message: string) => void) {
     const metadata = await docs.listDocuments(trip.id, attached.id)
     assert(metadata.length === 1 && uuid.test(metadata[0].id), 'Import PDF sans randomUUID impossible.')
     database.activities.hook('updating', captureScope)
-    const edited = await docs.saveActivityWithDocuments(trip.id, { ...attached, title: 'Modification sans fichier' }, attached.id, [])
+    let edited = await docs.saveActivityWithDocuments(trip.id, { ...attached, title: 'Modification sans fichier' }, attached.id, [])
     database.activities.hook('updating').unsubscribe(captureScope)
     assert(edited.id === attached.id && edited.createdAt === attached.createdAt && scopes.at(-1) === 'activities,trips', 'Modification sans document ne préserve pas son identité ou son scope.')
     assert(JSON.stringify(await docs.listDocuments(trip.id, attached.id)) === JSON.stringify(metadata), 'Pièce jointe existante modifiée sans nouvel import.')
-    await docs.saveActivityWithDocuments(trip.id, { ...edited, title: 'Modification et nouveau PDF' }, edited.id, [pdf()])
+    edited = await docs.saveActivityWithDocuments(trip.id, { ...edited, title: 'Modification et nouveau PDF' }, edited.id, [pdf()])
     assert((await docs.listDocuments(trip.id, attached.id)).length === 2, 'Ajout à une activité existante non atomique/incomplet.')
     const before = await fingerprint()
     const quota = new DOMException('Quota simulé', 'QuotaExceededError')
@@ -67,7 +68,7 @@ export async function testActivitySave(report: (message: string) => void) {
     database.activityDocumentBlobs.hook('creating', failBlob)
     try {
       for (const id of [null, attached.id]) {
-        const error = await failure(() => docs.saveActivityWithDocuments(trip.id, { ...input, title: 'À annuler' }, id, [pdf()]))
+        const error = await failure(() => docs.saveActivityWithDocuments(trip.id, { ...input, title: 'À annuler' }, id, [pdf()], id === null ? undefined : activityVersion(edited)))
         assert(error.message.includes('Espace de stockage local insuffisant') && error.cause !== undefined, 'Quota masqué ou cause perdue.')
         assert(await fingerprint() === before, 'Sauvegarde partielle après échec d’écriture du Blob.')
       }
@@ -76,7 +77,7 @@ export async function testActivitySave(report: (message: string) => void) {
     const failMetadata = () => { throw technical }
     database.activityDocuments.hook('creating', failMetadata)
     try {
-      const error = await failure(() => docs.saveActivityWithDocuments(trip.id, input, attached.id, [pdf()]))
+      const error = await failure(() => docs.saveActivityWithDocuments(trip.id, input, attached.id, [pdf()], activityVersion(edited)))
       assert(error.message.includes('l’activité et ses documents') && error.message.includes('TypeError') && error.cause === technical, 'Erreur technique masquée ou contexte trompeur.')
       assert(await fingerprint() === before, 'Modification partielle après échec des métadonnées.')
     } finally { database.activityDocuments.hook('creating').unsubscribe(failMetadata) }
@@ -84,14 +85,14 @@ export async function testActivitySave(report: (message: string) => void) {
     const failActivity = () => { throw abort }
     database.activities.hook('updating', failActivity)
     try {
-      const error = await failure(() => docs.saveActivityWithDocuments(trip.id, input, attached.id, []))
+      const error = await failure(() => docs.saveActivityWithDocuments(trip.id, input, attached.id, [], activityVersion(edited)))
       assert(error.message.includes('l’activité') && !error.message.includes('documents') && error.cause !== undefined, 'Erreur sans fichier attribuée aux documents.')
       assert(await fingerprint() === before, 'Modification partielle après abort.')
     } finally { database.activities.hook('updating').unsubscribe(failActivity) }
     const premature = () => { throw new DOMException('Transaction déjà finie', 'TransactionInactiveError') }
     database.activities.hook('updating', premature)
     try {
-      const error = await failure(() => docs.saveActivityWithDocuments(trip.id, input, attached.id, []))
+      const error = await failure(() => docs.saveActivityWithDocuments(trip.id, input, attached.id, [], activityVersion(edited)))
       assert(error.message.includes('Vérifie la liste') && !error.message.includes('Aucun changement enregistré'), 'Rollback affirmé sans certitude pour une transaction terminée.')
     } finally { database.activities.hook('updating').unsubscribe(premature) }
     const unreadable = pdf()
@@ -101,7 +102,7 @@ export async function testActivitySave(report: (message: string) => void) {
     Object.defineProperty(crypto, 'getRandomValues', { configurable: true, value: undefined })
     try {
       await failure(() => docs.saveActivityWithDocuments(trip.id, input, null, []))
-      await failure(() => docs.saveActivityWithDocuments(trip.id, input, attached.id, [pdf()]))
+      await failure(() => docs.saveActivityWithDocuments(trip.id, input, attached.id, [pdf()], activityVersion(edited)))
       assert(await fingerprint() === before, 'Données modifiées après échec de génération d’identifiant.')
       await docs.saveActivityWithDocuments(trip.id, { ...edited, title: 'Édition sans nouvel identifiant' }, attached.id, [])
     } finally { restoreRandom() }

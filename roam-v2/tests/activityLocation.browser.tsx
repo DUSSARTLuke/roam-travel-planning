@@ -1,3 +1,4 @@
+import { activityVersion } from '../src/db/activityRevision'
 import { useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { flushSync } from 'react-dom'
@@ -141,19 +142,20 @@ export async function testActivityLocation(report: (message: string) => void) {
     assert(renderToStaticMarkup(<ActivityLocationDetails activity={{ ...old, location: undefined }} />) === '', 'Section vide affichée.')
     const copied = await repository.createActivity(tripId, { ...located, title: 'Copie test' })
     assert(copied.id !== located.id && copied.latitude === located.latitude && copied.address === located.address, 'Création depuis une activité a perdu le lieu.')
-    const updated = await repository.updateActivity(located.tripId, located.id, { ...input, title: 'Autre titre' })
+    const updated = await repository.updateActivity(located.tripId, located.id, { ...input, title: 'Autre titre' }, activityVersion(located))
     assert(updated.latitude === located.latitude && updated.longitude === located.longitude && updated.location === located.location && updated.address === located.address, 'Modification partielle a effacé le lieu.')
-    await rejects(() => repository.updateActivity(located.tripId, located.id, { ...input, latitude: 20 }))
+    await rejects(() => repository.updateActivity(located.tripId, located.id, { ...input, latitude: 20 }, activityVersion(updated)))
     const initial = initialActivityValues(updated, null, '2028-01-01')
-    const concurrent = { ...updated, latitude: 12, longitude: 34 }
-    const retained = activityFormInput(initial, concurrent, initial)
-    assert(retained.latitude === 12 && retained.longitude === 34, 'Coordonnées concurrentes perdues.')
+    const concurrent = await repository.updateActivity(located.tripId, located.id, { ...updated, latitude: 12, longitude: 34 })
+    const retained = activityFormInput(initial, updated, initial)
+    assert(retained.latitude === updated.latitude && retained.longitude === updated.longitude, 'La saisie ancienne est fusionnée automatiquement.')
+    await rejects(() => repository.updateActivity(located.tripId, located.id, retained))
     const changedPair = activityFormInput({ ...initial, latitude: '13' }, concurrent, initial)
     assert(changedPair.latitude === 13 && changedPair.longitude === updated.longitude, 'Paire mélangée silencieusement entre deux versions.')
     const clear = { ...initial, location: '', address: '', latitude: '', longitude: '' }
-    const cleared = await repository.updateActivity(located.tripId, located.id, activityFormInput(clear, updated, initial))
+    const cleared = await repository.updateActivity(located.tripId, located.id, activityFormInput(clear, concurrent))
     assert(cleared.location === undefined && cleared.address === undefined && cleared.latitude === undefined && cleared.longitude === undefined && cleared.id === located.id, 'Effacement du lieu a échoué ou supprimé l’activité.')
-    await repository.updateActivity(old.tripId, old.id, { ...input, location: 'Lieu renommé' })
+    await repository.updateActivity(old.tripId, old.id, { ...input, location: 'Lieu renommé' }, activityVersion(old))
     database.close(); await database.open()
     assert((await repository.getActivity(copied.tripId, copied.id)).latitude === copied.latitude, 'Coordonnées perdues après réouverture.')
     const archive = await buildExportArchive(await readExportSnapshot({ mode: 'full' }, database))

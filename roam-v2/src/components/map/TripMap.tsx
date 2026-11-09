@@ -1,3 +1,4 @@
+import { useActivityEditSnapshot } from '../program/useActivityEditSnapshot'
 import { TripMapCanvas } from './TripMapCanvas'
 import { initialMapView, mapFilterKey, type TripMapView, type TripMapCamera } from '../../maps/tripMapView'
 import { TripMapTransfers } from './TripMapTransfers'
@@ -110,7 +111,8 @@ function TripMapContent({ trip, initialNavigation, onNavigationChange, initialVi
   const anchor = byId.get(selection[0])
   const candidates = selection.filter((id) => !anchor || (byId.has(id) && coordinateKey(byId.get(id)!) === coordinateKey(anchor))).map((id) => activities.find((item) => item.id === id)).filter((item): item is TripActivity => Boolean(item))
   const selected = candidates[0] ?? null
-  const detail = activities.find((item) => item.id === detailId)
+  const liveActivity = activities.find((item) => item.id === detailId)
+  const detail = useActivityEditSnapshot(trip.id, editing ? detailId : null, liveActivity)
   const ready = result?.tripId === trip.id && !result.error
   // Invalidate vanished/filtered selections during render, as in the Programme.
   // No delayed effect may resurrect an old selection when switching back.

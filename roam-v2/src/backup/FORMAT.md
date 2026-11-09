@@ -295,3 +295,23 @@ L'affichage des anciennes coordonnées textuelles invalides est tolérant et ne 
 pas de lien actif pour ces valeurs ; aucune donnée n'est effacée ou migrée.
 Corriger ou vider les coordonnées signalées avant un réenregistrement ou export.
 Les versions de schéma et de format restent inchangées.
+
+### Préparation locale de synchronisation (2.10b)
+
+Le schéma local passe à Dexie V5, sans recréer les tables métier. Le format ZIP
+reste 1 ; son manifeste indique honnêtement databaseVersion=5 et contient
+`localSync: {version: 1, entities: [...]}` : identités de filiation, révisions locales,
+références et tombstones, sans contenu des données supprimées. La validation
+contrôle l’inventaire vivant complet et les relations. Les données métier et les
+fichiers gardent leur représentation et leurs IDs antérieurs.
+
+Le lecteur accepte encore les archives databaseVersion=4 sans cette extension.
+V5 exige l’extension. Un ancien lecteur limité à V4 refusera les nouvelles archives.
+La filiation importée est une provenance, jamais un acquittement serveur ; les
+nouvelles écritures/tombstones reçoivent des opérations locales. Un voyage existant
+est ignoré intégralement et un conflit avec une identité ou suppression locale est
+refusé sans écrasement. Les tombstones importés ne suppriment aucune donnée locale.
+
+Installation, compteur, outbox et reçus de commandes ne sont pas exportés : une
+restauration ne clone pas un appareil ni ses commandes exécutées. Voir
+[les garanties et limites V5](../../docs/local-sync.md).

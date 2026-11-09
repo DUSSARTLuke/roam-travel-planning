@@ -1,3 +1,4 @@
+import { activityVersion } from '../src/db/activityRevision'
 import { createActivityRepository } from '../src/db/activities'
 import { activityFormInput, initialActivityValues } from '../src/components/program/activityFormModel'
 import type { TripActivityInput } from '../src/db/activityModel'
@@ -19,10 +20,10 @@ export async function testAdvancedActivities(repo: Repo, tripId: string) {
     currency: 'gbp', reservationStatus: 'pending', url: 'https://example.com/legacy',
     reservationReference: 'REF-123', reservationProvider: 'Prestataire', reservationPeople: 2,
     reservationDeadline: '2028-02-29', reservationNotes: 'À conserver',
-    links: [{ id: 'one', title: 'Premier', url: 'https://example.com/one' }, { id: 'two', title: 'Deuxième', url: 'http://example.com/two' }] })
+    links: [{ id: 'one', title: 'Premier', url: 'https://example.com/one' }, { id: 'two', title: 'Deuxième', url: 'http://example.com/two' }] }, activityVersion(activity))
   assert(activity.estimatedCost === 0 && activity.paidAmount === 0 && activity.currency === 'GBP', 'Zéro ou devise perdus.')
   // Old clients omit the new advanced fields; omitted is not deletion.
-  activity = await repo.updateActivity(tripId, activity.id, { ...plain, title: 'Titre seul' })
+  activity = await repo.updateActivity(tripId, activity.id, { ...plain, title: 'Titre seul' }, activityVersion(activity))
   assert(activity.reservationReference === 'REF-123' && activity.url === 'https://example.com/legacy' && activity.links?.length === 2, 'Anciennes valeurs perdues lors d’une modification simple.')
   const initial = initialActivityValues(activity, null, '2026-12-31')
   let form = { ...initial, reservationStatus: 'cancelled' as const, estimatedCost: '25.5', paidAmount: '0', currency: 'USD' }
@@ -36,9 +37,10 @@ export async function testAdvancedActivities(repo: Repo, tripId: string) {
   assert(activity.estimatedCost === undefined && activity.paidAmount === undefined, 'Valeurs absentes confondues avec zéro.')
   assert(activity.links?.map((link) => link.id).join() === 'two,three' && activity.links[0].title === 'Titre modifié', 'Identifiants/ordre/liens incorrects.')
   const currentForm = initialActivityValues(activity, null, '2026-12-31')
-  const changedElsewhere = await repo.updateActivity(tripId, activity.id, { ...plain, reservationReference: 'REF-EXTERNE' })
-  const merged = activityFormInput({ ...currentForm, title: 'Modification simple' }, changedElsewhere, currentForm)
-  assert(merged.reservationReference === 'REF-EXTERNE', 'Champ non modifié écrasé par une saisie obsolète.')
+  const changedElsewhere = await repo.updateActivity(tripId, activity.id, { ...plain, reservationReference: 'REF-EXTERNE' }, activityVersion(activity))
+  const stale = activityFormInput({ ...currentForm, title: 'Modification simple' }, activity, currentForm)
+  await rejects(() => repo.updateActivity(tripId, activity.id, stale))
+  assert((await repo.getActivity(tripId, activity.id)).reservationReference === 'REF-EXTERNE', 'Une saisie obsolète écrase un champ externe.')
   for (const patch of [
     { paidAmount: -1 }, { paidAmount: NaN }, { estimatedCost: Infinity }, { currency: 'ZZZ' },
     { reservationPeople: 0 }, { reservationPeople: 1.5 }, { reservationDeadline: '2027-02-29' },
@@ -47,7 +49,7 @@ export async function testAdvancedActivities(repo: Repo, tripId: string) {
     { links: [{ id: 'x', title: 'X', url: 'https://example.com' }, { id: 'x', title: 'Y', url: 'https://example.com' }] },
     { links: [{ id: 'x', title: 'X', url: 'data:text/html,bad' }] },
     { links: [{ id: 'x', title: 'X', url: 'not-a-url' }] },
-  ]) await rejects(() => repo.updateActivity(tripId, activity.id, { ...plain, ...patch } as TripActivityInput))
+  ]) await rejects(() => repo.updateActivity(tripId, activity.id, { ...plain, ...patch } as TripActivityInput, activityVersion(changedElsewhere)))
   const reread = await repo.getActivity(tripId, activity.id)
   assert(reread.links?.length === 2 && reread.reservationReference === 'REF-EXTERNE', 'Échec de validation a altéré les données.')
   await repo.deleteActivity(tripId, activity.id)

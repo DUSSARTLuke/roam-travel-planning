@@ -1,3 +1,4 @@
+import { stampActivity, checkActivityRevision, activityVersion, ActivityEditConflict, type ActivityRevision } from './activityRevision'
 import { createId } from '../utils/createId'
 import { reorderActivities, schedulingKey, type OrderDirection } from './activityOrganization'
 import { validateCoordinates } from './activityLocation'
@@ -12,7 +13,7 @@ export function createActivityRepository(database: RoamDatabase = db) {
     if (typeof tripId !== 'string' || !tripId.trim()) throw new Error('Identifiant du voyage invalide.')
     const trip = await database.trips.get(tripId)
     if (!trip) throw new Error('Le voyage parent est introuvable.')
-    if (writable && trip.deletedAt !== undefined) throw new Error('Restaure le voyage avant de modifier ses activités.')
+    if (writable && (trip.deletedAt !== undefined || trip.archived)) throw new Error('Restaure le voyage avant de modifier ses activités.')
   }
 
   async function requireActivity(tripId: string, id: string): Promise<TripActivity> {
@@ -30,36 +31,39 @@ export function createActivityRepository(database: RoamDatabase = db) {
         const timestamp = new Date().toISOString()
         const activity: TripActivity = { ...fields, id: createId(), tripId, createdAt: timestamp, updatedAt: timestamp }
         await database.activities.add(activity)
-        return activity
+        return stampActivity(database, activity)
       })
     },
 
     async getActivity(tripId: string, id: string): Promise<TripActivity> {
-      return database.transaction('r', database.trips, database.activities, async () => {
+      return database.transaction('r', database.trips, database.activities, database.syncEntities, async () => {
         await requireParent(tripId, false)
-        return requireActivity(tripId, id)
+        return stampActivity(database, await requireActivity(tripId, id))
       })
     },
 
     // undefined: all activities, null: ideas, YYYY-MM-DD: one local day.
     async listActivities(tripId: string, date?: string | null): Promise<TripActivity[]> {
       if (date !== undefined && date !== null && !isActivityDate(date)) throw new Error('Date de recherche invalide.')
-      return database.transaction('r', database.trips, database.activities, async () => {
+      return database.transaction('r', database.trips, database.activities, database.syncEntities, async () => {
         await requireParent(tripId, false)
         const activities = typeof date === 'string'
           ? await database.activities.where('[tripId+date]').equals([tripId, date]).toArray()
           : await database.activities.where('tripId').equals(tripId).toArray()
-        return (date === null ? activities.filter((activity) => activity.date === null) : activities).sort(compareActivities)
+        return Promise.all((date === null ? activities.filter((activity) => activity.date === null) : activities).sort(compareActivities).map((activity) => stampActivity(database, activity)))
       })
     },
 
     // Replace the quick fields as a coherent input to remove obsolete times.
     // Omitted optional advanced fields are retained; explicit undefined clears them.
-    async updateActivity(tripId: string, id: string, input: TripActivityInput): Promise<TripActivity> {
+    async updateActivity(tripId: string, id: string, input: TripActivityInput, expected?: ActivityRevision): Promise<TripActivity> {
       if (Object.hasOwn(input, 'latitude') || Object.hasOwn(input, 'longitude')) validateCoordinates(input.latitude, input.longitude)
       return database.transaction('rw', database.trips, database.activities, async () => {
         await requireParent(tripId, true)
-        const existing = await requireActivity(tripId, id)
+        const existing = await database.activities.get(id)
+        if (!existing || existing.tripId !== tripId) throw new ActivityEditConflict('Cette activité a été supprimée ou n’est plus accessible. Aucun changement enregistré ; ta saisie est conservée.')
+        if ((await database.trips.get(tripId))?.archived) throw new ActivityEditConflict('Le voyage a été archivé. Restaure-le avant d’enregistrer ; ta saisie est conservée.')
+        await checkActivityRevision(database, id, expected ?? activityVersion(input))
         // Omitted advanced fields survive partial callers; explicit undefined clears them.
         const preserved = Object.fromEntries(advancedActivityKeys
           .filter((key) => !Object.hasOwn(input, key)).map((key) => [key, existing[key]]))
@@ -67,7 +71,7 @@ export function createActivityRepository(database: RoamDatabase = db) {
         const activity: TripActivity = { ...fields, id: existing.id, tripId: existing.tripId,
           createdAt: existing.createdAt, updatedAt: new Date().toISOString() }
         await database.activities.put(activity)
-        return activity
+        return stampActivity(database, activity)
       })
     },
 
@@ -91,7 +95,7 @@ export function createActivityRepository(database: RoamDatabase = db) {
         validateActivity(candidate, existing)
         candidate.updatedAt = new Date().toISOString()
         await database.activities.put(candidate)
-        return candidate
+        return stampActivity(database, candidate)
       })
     },
 
@@ -111,10 +115,12 @@ export function createActivityRepository(database: RoamDatabase = db) {
       })
     },
 
-    async deleteActivity(tripId: string, id: string): Promise<void> {
+    async deleteActivity(tripId: string, id: string, expected?: string): Promise<void> {
       await database.transaction('rw', [database.trips, database.activities, database.activityDocuments, database.activityDocumentBlobs], async () => {
         await requireParent(tripId, true)
-        await requireActivity(tripId, id)
+        const activity = await requireActivity(tripId, id)
+        if ((await database.trips.get(tripId))?.archived) throw new Error('Restaure le voyage avant de supprimer ses activités.')
+        if (expected !== undefined && JSON.stringify(activity) !== expected) throw new Error('Cette activité a changé. Annule puis vérifie sa fiche avant de confirmer à nouveau sa suppression.')
         const documentIds = await database.activityDocuments.where('activityId').equals(id).primaryKeys()
         await database.activityDocumentBlobs.bulkDelete(documentIds)
         await database.activityDocuments.bulkDelete(documentIds)

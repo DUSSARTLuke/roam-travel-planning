@@ -1,10 +1,12 @@
+import { activityVersion, ActivityEditConflict } from '../../db/activityRevision'
+import { activityDraftText } from './activityDraft'
 import { useEffect, useRef, useState, type FormEvent, type RefObject } from 'react'
 import { useReloadBlocker } from '../../pwa/useReloadBlocker'
 import { X } from 'lucide-react'
 import { getActivity } from '../../db/activities'
 import type { ActivityCategory, ActivityPeriod, TripActivity } from '../../db/activityModel'
 import { activityFormInput, initialActivityValues, type ActivityFormValues } from './activityFormModel'
-import { saveActivityWithDocuments } from '../../db/documents'
+import { saveActivityWithDocuments, listDocuments } from '../../db/documents'
 import { prepareDocuments } from '../../db/documentModel'
 import { ActivityDocuments, type PendingDocument } from './ActivityDocuments'
 import { ActivityLocationFields } from './ActivityLocationFields'
@@ -18,6 +20,9 @@ type Props = {
   fallbackDate: string
   activity: TripActivity | null
   fallbackFocusRef: RefObject<HTMLButtonElement | null>
+  readDocuments?: typeof listDocuments
+  readActivity?: typeof getActivity
+  persistActivity?: typeof saveActivityWithDocuments
   onClose: () => void
   onSaved: (activity: TripActivity) => void
 }
@@ -39,8 +44,13 @@ function DiscardPrompt({ onContinue, onDiscard }: { onContinue: () => void; onDi
   )
 }
 
-export function ActivityFormPanel({ referenceCurrency, tripId, initialDate, fallbackDate, activity, fallbackFocusRef, onClose, onSaved }: Props) {
-  const [initial] = useState(() => initialActivityValues(activity, initialDate, fallbackDate, referenceCurrency))
+export function ActivityFormPanel({ referenceCurrency, tripId, initialDate, fallbackDate, activity, fallbackFocusRef, onClose, onSaved, readActivity = getActivity, persistActivity = saveActivityWithDocuments, readDocuments = listDocuments }: Props) {
+  const [openingActivity] = useState(activity)
+  const [baseline, setBaseline] = useState(activity)
+  const [ready, setReady] = useState(activity === null)
+  const [conflict, setConflict] = useState(false)
+  const [recoveries, setRecoveries] = useState<ActivityFormValues[]>([])
+  const [initial, setInitial] = useState(() => initialActivityValues(activity, initialDate, fallbackDate, referenceCurrency))
   const [form, setForm] = useState(initial)
   const [pendingDocuments, setPendingDocuments] = useState<PendingDocument[]>([])
   const [busy, setBusy] = useState(false)
@@ -50,7 +60,7 @@ export function ActivityFormPanel({ referenceCurrency, tripId, initialDate, fall
   const savingRef = useRef(false)
   const backdropRef = useRef(false)
   const discardFocusRef = useRef<HTMLElement | null>(null)
-  const dirty = JSON.stringify(form) !== JSON.stringify(initial) || pendingDocuments.length > 0
+  const dirty = JSON.stringify(form) !== JSON.stringify(initial) || pendingDocuments.length > 0 || recoveries.length > 0
   useReloadBlocker(dirty || busy, 'Enregistre ou abandonne les modifications de l’activité avant la mise à jour.')
 
   useEffect(() => {
@@ -66,6 +76,30 @@ export function ActivityFormPanel({ referenceCurrency, tripId, initialDate, fall
       else fallbackFocusRef.current?.focus()
     }
   }, [fallbackFocusRef])
+
+  useEffect(() => {
+    if (!openingActivity) return
+    let active = true
+    readActivity(tripId, openingActivity.id).then((latest) => {
+      if (!active) return
+      if (JSON.stringify(latest) !== JSON.stringify(openingActivity) || !activityVersion(latest)) { setConflict(true); setError(new ActivityEditConflict().message); return }
+      setBaseline(latest); setReady(true)
+    }, (caught) => { if (active) { setConflict(true); setError(caught instanceof Error ? caught.message : 'Cette activité n’est plus disponible. Ta saisie est conservée.') } })
+    return () => { active = false }
+  }, [openingActivity, tripId, readActivity])
+
+  async function reloadRecent() {
+    if (savingRef.current || !openingActivity) return
+    savingRef.current = true; setBusy(true)
+    try {
+      const latest = await readActivity(tripId, openingActivity.id)
+      if (!activityVersion(latest)) throw new ActivityEditConflict()
+      const next = initialActivityValues(latest, latest.date, fallbackDate, referenceCurrency)
+      setRecoveries((old) => [...old, { ...form, links: form.links.map((link) => ({ ...link })) }])
+      setInitial(next); setForm(next); setBaseline(latest); setReady(true); setConflict(false); setError('')
+    } catch (caught) { setReady(false); setConflict(true); setError(caught instanceof Error ? caught.message : 'Impossible de recharger. Ta saisie est conservée.') }
+    finally { savingRef.current = false; setBusy(false) }
+  }
 
   useEffect(() => {
     if (!dirty) return
@@ -112,18 +146,18 @@ export function ActivityFormPanel({ referenceCurrency, tripId, initialDate, fall
 
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (savingRef.current || discard) return
+    if (savingRef.current || discard || !ready) return
     savingRef.current = true
     setBusy(true)
     setError('')
     try {
       if (activity && activity.tripId !== tripId) throw new Error('Cette activité appartient à un autre voyage.')
-      const latest = activity ? await getActivity(tripId, activity.id) : null
-      const input = activityFormInput(form, latest, initial)
-      const saved = await saveActivityWithDocuments(tripId, input, latest?.id ?? null, pendingDocuments.map(({ file }) => file))
+      const input = activityFormInput(form, baseline)
+      const saved = await persistActivity(tripId, input, baseline?.id ?? null, pendingDocuments.map(({ file }) => file), activityVersion(baseline))
       onSaved(saved)
     } catch (caught) {
       console.error('Échec de sauvegarde de l’activité.', caught)
+      if (caught instanceof ActivityEditConflict) { setConflict(true); setReady(false) }
       setError(caught instanceof Error && caught.name === 'QuotaExceededError'
         ? 'Espace de stockage local insuffisant. Aucun changement enregistré ; tes saisies et fichiers restent en attente.'
         : caught instanceof Error ? caught.message : 'Impossible d’enregistrer cette activité. Réessaie.')
@@ -171,13 +205,16 @@ export function ActivityFormPanel({ referenceCurrency, tripId, initialDate, fall
             <label>Notes<textarea rows={4} value={form.notes} onChange={(event) => setField('notes', event.target.value)} /></label>
           </details>
           <ActivityAdvancedFields form={form} onChange={setForm} />
-          <ActivityDocuments tripId={tripId} activityId={activity?.id ?? null} pending={pendingDocuments}
+          <ActivityDocuments readDocuments={readDocuments} tripId={tripId} activityId={activity?.id ?? null} pending={pendingDocuments}
             onSelect={(files, count) => { void selectDocuments(files, count) }} />
         </fieldset>
         {error && <p className="form-error" role="alert">{error}</p>}
+        {conflict && <div className="activity-discard"><p>Aucun champ n’est fusionné automatiquement. Le rechargement remplacera les champs par les données récentes ; ta saisie actuelle restera disponible ci-dessous et les nouveaux fichiers resteront sélectionnés.</p><button type="button" className="secondary-button" disabled={busy} onClick={() => { void reloadRecent() }}>Recharger les données récentes</button></div>}
+        {!ready && !conflict && <p role="status">Vérification de la version de l’activité…</p>}
+        {recoveries.map((draft, index) => <details className="activity-extra" key={index}><summary>Ma saisie conservée avant rechargement ({index + 1})</summary><p>Copie les informations utiles dans les champs récents. Cette saisie n’est pas appliquée automatiquement.</p><label>Saisie précédente<textarea readOnly rows={8} value={activityDraftText(draft)} onFocus={(event) => event.currentTarget.select()} /></label></details>)}
         <footer className="activity-panel-footer">
           <button type="button" className="secondary-button" disabled={busy || discard} onClick={requestClose}>Annuler</button>
-          <button type="submit" className="primary-button" disabled={busy || discard}>{busy ? 'Enregistrement…' : activity ? 'Enregistrer les modifications' : 'Ajouter l’activité'}</button>
+          <button type="submit" className="primary-button" disabled={busy || discard || !ready}>{busy ? 'Enregistrement…' : activity ? 'Enregistrer les modifications' : 'Ajouter l’activité'}</button>
         </footer>
       </form>
       {discard && <DiscardPrompt onContinue={continueEditing} onDiscard={onClose} />}

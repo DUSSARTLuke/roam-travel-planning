@@ -1,3 +1,4 @@
+import { useActivityEditSnapshot } from '../program/useActivityEditSnapshot'
 import { useEffect, useId, useMemo, useRef, useState, type RefObject } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import type { Trip } from '../../db/database'
@@ -75,7 +76,8 @@ export function PracticalNotebook({ trip, onClose, backLabel = 'Retour au tablea
   const snapshot = result?.id === trip.id ? result.snapshot : null
   const entries = useMemo(() => snapshot ? buildPracticalEntries(trip.id, snapshot.records, snapshot.activities) : [], [trip.id, snapshot])
   const visible = useMemo(() => searchPracticalEntries(entries, query, category), [entries, query, category])
-  const sourceActivity = panel?.kind === 'activity' || panel?.kind === 'activity-edit' ? snapshot?.activities.find((activity) => activity.id === panel.activityId && activity.tripId === trip.id) : undefined
+  const liveActivity = panel?.kind === 'activity' || panel?.kind === 'activity-edit' ? snapshot?.activities.find((activity) => activity.id === panel.activityId && activity.tripId === trip.id) : undefined
+  const sourceActivity = useActivityEditSnapshot(trip.id, panel?.kind === 'activity-edit' ? panel.activityId : null, liveActivity)
   if (panel && (panel.kind === 'activity' || panel.kind === 'activity-edit') && result?.id === trip.id && !sourceActivity) { setPanel(null); setMessage('Cette activité n’est plus accessible.') }
   if (trip.archived || trip.deletedAt !== undefined) return null
   async function perform(action: () => Promise<unknown>) {
