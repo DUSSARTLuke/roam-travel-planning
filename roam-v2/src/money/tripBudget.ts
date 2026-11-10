@@ -57,7 +57,7 @@ export function buildTripBudget(trip: Trip, activities: readonly TripActivity[])
       // Date/order/GPS changes do not erase an existing expense. The map's
       // display eligibility is intentionally unrelated to financial inclusion.
       entries.push({ id: `transfer:${item.id}`, kind: 'transfer', category: 'transport', label: `${from.title} → ${to.title}`,
-        estimatedCost: item.estimatedCost, currency: item.currency,
+        estimatedCost: item.estimatedCost, paidAmount: item.paidAmount, currency: item.currency,
         date: typeof from.date === 'string' && from.date === to.date && parseDate(from.date) ? from.date : null,
         ...(typeof from.date === 'string' && from.date === to.date && parseDate(from.date) ? {} : { dateIssue: 'Les activités du déplacement n’ont pas de journée commune valide.' }) })
     } catch (error) { issues.push({ label: `Déplacement ${raw.id}`, reason: error instanceof Error ? error.message : 'Données du déplacement invalides.' }) }

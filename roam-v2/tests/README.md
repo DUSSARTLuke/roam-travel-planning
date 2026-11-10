@@ -506,3 +506,13 @@ npm.cmd run test:publication
 Le runner exige Chrome (chemin alternatif via `ROAM_CHROME_PATH`) et Git. Il lit les fichiers historiques dans `master` sans modifier cette branche. Il sert successivement V1/V2/V1 au sous-chemin du projet dans un profil temporaire : manifeste, intégrité du précache, worker en attente, activation après fermeture des clients, conservation du localStorage V1, démarrage V2 réellement hors réseau, conservation IndexedDB V5 après rollback. Il n'effectue aucun déploiement et ne supprime aucun cache utilisateur.
 
 La procédure de publication et ses conditions d'arrêt sont dans [publication-pages.md](../docs/publication-pages.md).
+
+## V2.1a : contrats et simulation (sans migration)
+
+```powershell
+npm.cmd run test:v21
+```
+
+Node 24 est utilisé par le runner, avec les hooks TypeScript intégrés (avertissement expérimental possible), sans dépendance supplémentaire. Aucun accès IndexedDB : modèles Journey/Accommodation, snapshots après suppression, plan de transformation V4/V5→V6 et adaptateur sémantique ZIP1→2. Tests de déterminisme, absence de mutation, isolation, orphelins, partages et conservation des paiements des transferts.
+
+La simulation ne valide pas un fichier ZIP ni ses Blob et n’applique aucune migration V6. Voir [contrats et préparation V2.1](../docs/v21-models-migration.md). La suite navigateur existante continue de tester les migrations et restaurations V4/V5 réelles dans des bases temporaires.

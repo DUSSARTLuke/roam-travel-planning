@@ -107,8 +107,9 @@ export async function testExpenseSharing(report: (message: string) => void) {
     latestTransfer = await transfers.saveTransfer(trip.id, { ...quickFields, notes: 'Modification rapide' }, transfer.id, transferKey(latestTransfer))
     assert(latestTransfer.paidAmount === 10, 'Modification du transfert perd son paiement avancé.')
     liveTrip = (await database.trips.get(trip.id))!
-    const oldBudget = buildTripBudget(liveTrip, await activities.listActivities(trip.id))
-    assert(oldBudget.totals.status === 'calculated' && oldBudget.totals.paid.amount === 40, 'Périmètre 2.8a changé par le paiement du transfert.')
+    const currentBudget = buildTripBudget(liveTrip, await activities.listActivities(trip.id))
+    // V2.1a: 40 activité + 10 transfert ; le partage ne constitue pas un second paiement.
+    assert(currentBudget.totals.status === 'calculated' && currentBudget.totals.paid.amount === 50, 'Paiement du transfert perdu ou compté deux fois avec son partage.')
     assert(calculated(calculateExpenseSharing(liveTrip, await activities.listActivities(trip.id))).included === 2, 'Transfert partagé non calculé.')
     const raceParticipant = await repo.saveParticipant(trip.id, 'Course')
     const raceSource = (await database.activities.get(storedA.id))!, raceShare = (await database.trips.get(trip.id))!.expenseShares!.find((item) => item.kind === 'activity')!
