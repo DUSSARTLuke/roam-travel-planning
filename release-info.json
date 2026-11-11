@@ -1,0 +1,9 @@
+{
+  "version": "2.1",
+  "candidate": "Roam-V2.1-RC-8b9601f3770e",
+  "sourceSha256": "8b9601f3770e6dfc388c2c64c8acee5fda01eada06fdc6dcb07a103cf2059d50",
+  "baseCommit": "65857661eba878a6636362cf061ceff1e2f1591e",
+  "gitAnchor": "934331cdb06163585af1103099efa0e778336dd7",
+  "databaseVersion": 6,
+  "zipFormat": 2
+}

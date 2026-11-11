@@ -1,0 +1,41 @@
+{
+  "buildId": "1f97b9f3a594048e523d9ef6",
+  "entries": [
+    {
+      "path": "assets/index-CD2WcCi1.css",
+      "sha256": "146624081b151499a88f5cdf94ec33be945fba5b5b5d971ca3d748dc926609e5"
+    },
+    {
+      "path": "assets/index-DvjWPvKP.js",
+      "sha256": "a7e95b06a04a7b7f2b494d4c7a8b45381d4c00cec2577c5ce8ea0e792748f4f4"
+    },
+    {
+      "path": "favicon.svg",
+      "sha256": "53bc9efde107963ca885831ecdbf4c247d500b1b36944aa986606dc3e5528910"
+    },
+    {
+      "path": "index.html",
+      "sha256": "85e646b7544bb27163beb2f3498070bed87a530e2fad84bd723e679aa9194868"
+    },
+    {
+      "path": "manifest.webmanifest",
+      "sha256": "4149a581babe1bd26b091a43ea9b346601adfbf8660a9a846960651ad67bb132"
+    },
+    {
+      "path": "pwa/apple-touch-icon.png",
+      "sha256": "c24e28326cf91ce80824b7f6aa42278a641a371e13e9ed67b9edba581c8cda46"
+    },
+    {
+      "path": "pwa/icon-192.png",
+      "sha256": "02444e28c23c8bb3dd997932dadce75c8bb9e4b436a78a873b8833c2650265ce"
+    },
+    {
+      "path": "pwa/icon-512.png",
+      "sha256": "f6e866f1f5cc6c111621aa9463ece49889bc65c063df30b605f2bebd0cae0314"
+    },
+    {
+      "path": "pwa/icon-maskable-512.png",
+      "sha256": "f6e866f1f5cc6c111621aa9463ece49889bc65c063df30b605f2bebd0cae0314"
+    }
+  ]
+}
