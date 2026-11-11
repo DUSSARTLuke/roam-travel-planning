@@ -1,3 +1,4 @@
+const noNativeMapRows=async()=>[]
 import { createRoot } from 'react-dom/client'
 import { flushSync } from 'react-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -137,7 +138,7 @@ export async function testTripMapTransfers(report: (message: string) => void) {
   const read = (id: string) => { reads++; return repository.listActivities(id) }
   function Harness() {
     const liveTrip = useLiveQuery(() => database.trips.get(tripId), [])
-    return liveTrip ? <TripMap trip={liveTrip} readActivities={read} load={load} /> : null
+    return liveTrip ? <TripMap readJourneys={noNativeMapRows} readAccommodations={noNativeMapRows} trip={liveTrip} readActivities={read} load={load} /> : null
   }
   const wait = async (condition: () => boolean) => { const end = performance.now() + 5000; while (!condition() && performance.now() < end) await new Promise((ready) => setTimeout(ready, 20)); assert(condition(), 'Carte des déplacements non actualisée.') }
   try {

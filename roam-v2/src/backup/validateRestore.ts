@@ -1,3 +1,7 @@
+import { validateV6Graph } from '../evolution/v21/graph'
+import { planV6 } from '../evolution/v21/migrationPlan'
+import type { Journey, Accommodation } from '../evolution/v21/contracts'
+import { createId } from '../utils/createId'
 import { validateSyncLineage, type SyncLineage } from '../sync/backup'
 import { validatePracticalRecords } from '../practical/model'
 import { validatePreparationTasks } from '../preparation/tasks'
@@ -16,7 +20,7 @@ import { readBackupZip, RESTORE_LIMITS } from './readZip'
 
 export type RestoreMetadata = Record<string, unknown> & { key: string }
 export type ValidatedRestore = {
-  localSync?: SyncLineage; trips: Trip[]; activities: TripActivity[]; documents: ActivityDocument[]
+  journeys: Journey[]; accommodations: Accommodation[]; localSync?: SyncLineage; trips: Trip[]; activities: TripActivity[]; documents: ActivityDocument[]
   payloads: ActivityDocumentBlob[]; metadata: RestoreMetadata[]
 }
 export function record(value: unknown, label: string): Record<string, unknown> {
@@ -55,7 +59,7 @@ export async function validateRestoreArchive(archive: Blob, progress: (message: 
     return parseBackupJson(new TextDecoder('utf-8', { fatal: true }).decode(await blob.arrayBuffer()))
   }
   const manifest = record(await json('manifest.json'), 'Manifeste')
-  if (manifest.format !== 'roam-v2-backup' || manifest.formatVersion !== 1 || ![4, 5].includes(manifest.databaseVersion as number) || manifest.encrypted !== false) throw new Error('Format, version ou chiffrement de sauvegarde incompatible.')
+  if (manifest.format !== 'roam-v2-backup' || !((manifest.formatVersion === 1 && [4, 5].includes(manifest.databaseVersion as number)) || (manifest.formatVersion === 2 && manifest.databaseVersion === 6)) || manifest.encrypted !== false) throw new Error('Format, version ou chiffrement de sauvegarde incompatible.')
   timestamp(manifest.exportedAt); timestamp(manifest.snapshotAt)
   const scope = record(manifest.scope, 'Périmètre')
   if (scope.mode !== 'full' && scope.mode !== 'trip') throw new Error('Périmètre de sauvegarde invalide.')
@@ -78,13 +82,17 @@ export async function validateRestoreArchive(archive: Blob, progress: (message: 
     if (index % 10 === 0) progress(`Vérification des empreintes : ${index + 1}/${manifest.inventory.length}`)
   }
   if ([...files.keys()].some((path) => path !== 'manifest.json' && !inventory.has(path))) throw new Error('Fichier hors inventaire.')
+  const isV6 = manifest.formatVersion === 2
+  const journeys = (isV6 ? rows(await json('data/journeys.json'), 'id') : []) as unknown as Journey[]
+  const accommodations = (isV6 ? rows(await json('data/accommodations.json'), 'id') : []) as unknown as Accommodation[]
+  if (!isV6 && (files.has('data/journeys.json') || files.has('data/accommodations.json'))) throw new Error('Collections V6 dans une archive ZIP1.')
   const tripRows = rows(await json('data/trips.json'), 'id')
   if (tripRows.length > RESTORE_LIMITS.trips) throw new Error('La sauvegarde dépasse la limite de 5 000 voyages.')
   const activityRows = rows(await json('data/activities.json'), 'id')
   const documentRows = rows(await json('data/documents.json'), 'id')
   const metadataRows = rows(await json('data/metadata.json'), 'key')
   const counts = record(manifest.counts, 'Compteurs')
-  for (const [key, length] of Object.entries({ trips: tripRows.length, activities: activityRows.length, documents: documentRows.length, metadata: metadataRows.length })) {
+  for (const [key, length] of Object.entries({ trips: tripRows.length, activities: activityRows.length, documents: documentRows.length, metadata: metadataRows.length, ...(isV6 ? {journeys: journeys.length, accommodations: accommodations.length} : {}) })) {
     if (counts[key] !== length) throw new Error('Compteurs incohérents dans le manifeste.')
   }
   if (scope.mode === 'trip' && (tripRows.length !== 1 || tripRows[0].id !== scope.tripId || metadataRows.length !== 0)) throw new Error('L’export individuel contient des données hors de son périmètre.')
@@ -108,17 +116,19 @@ export async function validateRestoreArchive(archive: Blob, progress: (message: 
     validateActivity(activity as unknown as TripActivity, activity as unknown as TripActivity)
   }
   const transferActivities = new Map(activityRows.map((activity) => [activity.id as string, activity as unknown as TripActivity]))
-  for (const trip of tripRows) { validateTripTransfers(trip.manualTransfers, trip.id as string, transferActivities); validateTripSharing(trip as unknown as Trip, transferActivities); validatePlannedBudget(trip.plannedBudget); validatePreparationTasks(trip.preparationTasks); validatePracticalRecords(trip.practicalRecords) }
+  for (const trip of tripRows) { if (!isV6) { validateTripTransfers(trip.manualTransfers, trip.id as string, transferActivities); validateTripSharing(trip as unknown as Trip, transferActivities) }; if (isV6 && trip.manualTransfers !== undefined) throw new Error('Projection de transferts interdite dans ZIP2.'); validatePlannedBudget(trip.plannedBudget); validatePreparationTasks(trip.preparationTasks); validatePracticalRecords(trip.practicalRecords) }
   const perActivity = new Map<string, number>()
   const payloads: ActivityDocumentBlob[] = []
   const extension: Record<string, string> = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }
   const byId = new Map([...inventory.entries()].filter(([, entry]) => entry.documentId !== undefined).map(([path, entry]) => [entry.documentId!, { path, blob: entry.blob }] as const))
   if (byId.size !== documentRows.length) throw new Error('Correspondance documents/fichiers incomplète.')
   for (const document of documentRows) {
-    id(document.activityId); text(document.name, 'Nom du document'); timestamp(document.importedAt)
-    if (!activityIds.has(document.activityId)) throw new Error('Document sans activité parent.')
-    const count = (perActivity.get(document.activityId) ?? 0) + 1
-    perActivity.set(document.activityId, count)
+    if (!isV6) id(document.activityId)
+    text(document.name, 'Nom du document'); timestamp(document.importedAt)
+    if (!isV6 && !activityIds.has(document.activityId)) throw new Error('Document sans activité parent.')
+    const ownerKey = isV6 ? JSON.stringify(document.owner) : String(document.activityId)
+    const count = (perActivity.get(ownerKey) ?? 0) + 1
+    perActivity.set(ownerKey, count)
     if (count > MAX_ACTIVITY_DOCUMENTS || typeof document.mime !== 'string' || !Object.hasOwn(extension, document.mime) || !Number.isSafeInteger(document.size) || (document.size as number) < 1 || (document.size as number) > RESTORE_LIMITS.documentBytes) throw new Error('Limites ou métadonnées du document invalides.')
     const entry = byId.get(document.id as string)
     if (!entry || !entry.path.endsWith(`.${extension[document.mime]}`) || entry.blob.size !== document.size || detectDocumentMime(new Uint8Array(await entry.blob.slice(0, 32).arrayBuffer())) !== document.mime) throw new Error('Signature, taille ou référence de document invalide.')
@@ -127,7 +137,13 @@ export async function validateRestoreArchive(archive: Blob, progress: (message: 
   for (const metadata of metadataRows) {
     if ((metadata.initialized !== undefined && typeof metadata.initialized !== 'boolean') || (metadata.key === 'initialization' && metadata.initialized !== true)) throw new Error('Métadonnées d’initialisation invalides.')
   }
-  const localSync = validateSyncLineage(manifest.localSync, { trips: tripRows as unknown as Trip[], activities: activityRows as unknown as TripActivity[], documents: documentRows as unknown as ActivityDocument[] }, scope as { mode: string; tripId?: unknown })
-  if (manifest.databaseVersion === 5 && !localSync) throw new Error('Filiation de synchronisation V5 manquante.')
-  return { localSync, trips: tripRows as unknown as Trip[], activities: activityRows as unknown as TripActivity[], documents: documentRows as unknown as ActivityDocument[], payloads, metadata: metadataRows as unknown as RestoreMetadata[] }
+  if (isV6) validateV6Graph(tripRows as unknown as Trip[], activityRows as unknown as TripActivity[], journeys, accommodations, documentRows as unknown as ActivityDocument[])
+  const localSync = validateSyncLineage(manifest.localSync, { trips: tripRows as unknown as Trip[], activities: activityRows as unknown as TripActivity[], documents: documentRows as unknown as ActivityDocument[], ...(isV6 ? {journeys, accommodations} : {}) }, scope as { mode: string; tripId?: unknown })
+  if ([5,6].includes(manifest.databaseVersion as number) && !localSync) throw new Error('Filiation de synchronisation V5 manquante.')
+  if (!isV6) {
+    const plan = planV6({ databaseVersion: manifest.databaseVersion as 4 | 5, trips: tripRows as unknown as Trip[], activities: activityRows as unknown as TripActivity[], documents: documentRows as unknown as ActivityDocument[], blobIds: payloads.map(p => p.id) }, () => createId())
+    journeys.push(...plan.journeys)
+    for (const document of documentRows) { const converted = plan.documents.find(d => d.id === document.id)!; document.owner = converted.owner; document.tripId = converted.tripId }
+  }
+  return { journeys, accommodations, localSync, trips: tripRows as unknown as Trip[], activities: activityRows as unknown as TripActivity[], documents: documentRows as unknown as ActivityDocument[], payloads, metadata: metadataRows as unknown as RestoreMetadata[] }
 }

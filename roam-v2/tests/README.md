@@ -516,3 +516,104 @@ npm.cmd run test:v21
 Node 24 est utilisé par le runner, avec les hooks TypeScript intégrés (avertissement expérimental possible), sans dépendance supplémentaire. Aucun accès IndexedDB : modèles Journey/Accommodation, snapshots après suppression, plan de transformation V4/V5→V6 et adaptateur sémantique ZIP1→2. Tests de déterminisme, absence de mutation, isolation, orphelins, partages et conservation des paiements des transferts.
 
 La simulation ne valide pas un fichier ZIP ni ses Blob et n’applique aucune migration V6. Voir [contrats et préparation V2.1](../docs/v21-models-migration.md). La suite navigateur existante continue de tester les migrations et restaurations V4/V5 réelles dans des bases temporaires.
+
+## V2.1b — V6 et ZIP2 réels
+
+```powershell
+npm.cmd run test:browser
+npm.cmd run test:concurrency
+npm.cmd run build
+npm.cmd run test:pwa
+npm.cmd run test:offline
+```
+
+`test:browser` crée son serveur local sans HMR et un profil Chrome temporaire. Il attend le signal explicite de chargement des modules avant de lancer les tests. Pour l’émulation mobile complète :
+
+```powershell
+$env:ROAM_TEST_WIDTH='375'
+npm.cmd run test:browser
+Remove-Item Env:ROAM_TEST_WIDTH
+```
+
+Les nouveaux scénarios V6 vérifient une base V5 vide, une upgrade refusée conservant V5, 300 activités, des clés historiques et Blob conservés, les opérations V5 gelées/tombstones réémis, les conflits CAS, les entités/documents autonomes, le rollback des écritures et de l’import, les ZIP2, la corruption et les suppressions avec lieux détachés. Les régressions existantes couvrent aussi les ZIP1, le volume de 45 Mio et les documents de 15 Mio. Les tests historiques restent présents ; leurs assertions de version et de projection sont adaptées au nouveau contrat.
+
+Aucune base personnelle ne doit être utilisée pour tester la migration. Un ancien binaire V5 ne peut pas ouvrir la base V6 et ne peut pas restaurer un ZIP2.
+
+Alternative sans variable d’environnement pour les runs mobiles : `npm.cmd run test:browser -- 320` ou `npm.cmd run test:browser -- 375`. Les résultats V2.1b et incompatibilités sont dans [le rapport V6/ZIP2](../docs/v21-v6-zip2.md).
+
+
+## Pont V2/Journeys : source unique
+
+Les scénarios `legacyBridge.browser.ts` font partie de `npm.cmd run test:browser`. Ils refusent le rejeu d'une projection supprimée, vérifient les patches V2 et les champs natifs, puis réouvrent/restaurent sans doublon. `npm.cmd run test:concurrency` couvre aussi V2 contre modification native et édition/suppression entre deux onglets réels hors réseau. Voir [les garanties et limites](../docs/legacy-transfer-bridge.md).
+
+## V2.1c — Interface des déplacements autonomes
+
+`journeyInterface.browser.tsx` est inclus dans la suite complète. Il exerce les
+formulaires et fiches natifs sur une base V6 temporaire : lieux libres, dates/nuit,
+relations facultatives, budgets sans double comptage, documents manquants ou
+corrompus, import/suppression de fichiers, ZIP2, réouverture, conflit et suppression.
+Le runner `node tests/browser-suite.mjs 320` (ou `375`) vérifie aussi leur géométrie.
+`test:concurrency` utilise deux formulaires natifs dans deux vrais onglets hors
+réseau ; `test:offline` couvre le CRUD d'un journey sur le build de production.
+Voir `docs/v21c-journeys.md` pour le périmètre et les limites.
+
+## V2.1d — Multi-étapes et carte
+
+`journeyStages.browser.tsx` exerce les vrais formulaires multi-étapes, le
+réordonnancement, la suppression confirmée, les références hébergements, les
+modes/durées, les montants globaux, ZIP2 et la carte avec rendu simulé. Il
+reproduit aussi la création d'un ancien transfert en présence d'un journey
+natif et protège celui-ci contre tout écrasement ; l'ancien formulaire obsolète
+ne peut ni réduire un multi-étapes ni le ressusciter après suppression.
+Les tests deux onglets et production offline utilisent maintenant des trajets
+multi-étapes. Voir `docs/v21d-journeys-map.md`.
+
+## V2.1e — Hébergements autonomes
+
+`accommodationInterface.browser.tsx` teste les vrais panneaux, les périodes et
+nuits, coordonnées, documents (y compris Blob manquant), conflits, bibliothèques,
+Programme/calendrier/carte, budget global et partages, protection contre le double
+comptage d'anciennes activités et round-trip ZIP2. Les nouveaux lecteurs des
+anciens harnesses sont injectés pour conserver l'isolation des bases.
+`test:concurrency` ouvre deux vrais formulaires Hébergement dans deux onglets hors
+réseau ; `test:offline` suit Accueil → Hébergements sur le build de production.
+Voir `docs/v21e-accommodations.md` pour les règles, commandes et limites.
+
+## V2.1f.1 — Audit transversal et candidat
+
+`v21Stabilization.browser.tsx` est exécuté avant la suite : non-conversion des
+anciennes activités, trajets importés sans dates, taux nécessaires aux activités /
+journeys / hébergements (réponses simulées), protection d'un paiement partagé,
+réservations natives à l'Accueil et retour du focus, formulaire Hébergement sale
+au rechargement, titre long après stabilisation de l'animation, restauration
+répétée avec tombstones et refus d'une suppression locale plus récente.
+
+Le runner conserve ses bases et profils temporaires. Un mode supplémentaire teste
+MapLibre **réel**, avec WebGL logiciel SwiftShader et interception CDP des seules
+tuiles : PNG 256×256 générés, aucun trafic vers le serveur public OSM.
+
+```powershell
+node.exe tests/browser-suite.mjs 320 --real-map
+node.exe tests/browser-suite.mjs 375 --real-map
+node.exe tests/browser-suite.mjs 1100 --real-map
+```
+
+`test:publication` reste exclusivement une simulation locale au sous-chemin du
+projet : V1 → V2, puis seconde génération du worker synthétisée en mémoire,
+avertissement natif beforeunload annulé, bannière/Plus tard/report d'une mise à
+jour pendant une saisie, activation volontaire et rechargement unique, hors
+connexion, puis retour V1. Aucun commit/push, accès GitHub ou profil personnel.
+Construire d'abord l'artefact comme indiqué dans `docs/v21f1-validation.md`.
+
+`node.exe tests/verify-candidate.mjs` compare l'inventaire/les SHA-256 des sources,
+des tests et des artefacts à `docs/v21f1-candidate.json`. Il ne lance pas Roam et
+n'ouvre aucune base. Une modification après audit invalide le candidat ; ce
+contrôle ne remplace pas les tests ni une sauvegarde des données utilisateur.
+
+### Validation finale ZIP V2.1
+
+`finalBackup.browser.ts` est exécuté par la suite `activities.html`. Il utilise le
+voyage fictif des tests physiques, compare entités/budget/relations et SHA-256 des
+fichiers après ZIP2, puis vérifie rollback, répétition, tombstones, absence de
+résurrection et ZIP1 V4/V5. Bases UUID et profils temporaires uniquement.
+Voir `docs/v21-final-backup-validation.md` pour les résultats et limites Android.

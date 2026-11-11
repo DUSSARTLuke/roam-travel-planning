@@ -9,7 +9,7 @@ export function ExpenseList({ entries, budget, mode, currency }: { entries: read
       const financial = budget.entryTotals.get(entry.id)
       const value = financial?.status === 'calculated' ? financial[mode] : null
       const amount = mode === 'estimated' ? entry.estimatedCost : entry.paidAmount
-      return <li key={entry.id}><strong>{entry.kind === 'activity' ? 'Activité' : 'Déplacement'} · {entry.label}</strong>
+      return <li key={entry.id}><strong>{entry.kind === 'activity' ? 'Activité' : entry.kind==='accommodation'?'Hébergement':'Déplacement'} · {entry.label}</strong>
         {entry.date && <p><time dateTime={entry.date}>{formatDate(entry.date, { day: 'numeric', month: 'long', year: 'numeric' })}</time></p>}
         <p>{mode === 'estimated' ? 'Estimé' : 'Payé'} : {amount === undefined ? 'Non renseigné' : budgetOriginalAmount(entry, mode === 'estimated' ? 'estimatedCost' : 'paidAmount')}</p>
         {amount !== undefined && value && <p className={value.excluded.length ? 'budget-warning' : 'budget-meta'}>{value.excluded.length

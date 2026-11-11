@@ -1,3 +1,4 @@
+const noStays=async()=>[]
 import { createRoot } from 'react-dom/client'
 import { flushSync } from 'react-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -67,7 +68,7 @@ export async function testBudgetCategories(report: (message: string) => void) {
   const read = (id: string) => { reads++; return activities.listActivities(id) }
   function Harness() {
     const liveTrip = useLiveQuery(() => database.trips.get(trip.id), [])
-    return liveTrip ? <TripBudget trip={liveTrip} readActivities={read} /> : null
+    return liveTrip ? <TripBudget readAccommodations={noStays} readJourneys={async()=>[]} trip={liveTrip} readActivities={read} /> : null
   }
   const wait = async (condition: () => boolean) => { const end = performance.now() + 5000; while (!condition() && performance.now() < end) await new Promise((resolve) => setTimeout(resolve, 20)); assert(condition(), 'Répartition réactive non actualisée.') }
   const row = (id: string) => host.querySelector<HTMLElement>(`[data-category-row="${id}"]`)!

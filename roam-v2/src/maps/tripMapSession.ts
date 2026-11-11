@@ -1,15 +1,15 @@
 import type { TripMapOptions } from './tripMapView'
-import type { MapTransfer } from './tripMapTransfers'
+import type { MapLink } from './tripMapTransfers'
 import type { TripMapPoint } from './tripMapModel'
 import type { MapPreviewState } from './previewSession'
 export type TripMapState = MapPreviewState & { interactive?: boolean }
-export type TripMapHandle = { update: (points: readonly TripMapPoint[]) => void; recenter: () => void; resize?: () => void; select?: (id: string | null) => void; transfers?: (links: readonly MapTransfer[], selected: string | null) => void; dispose: () => void }
+export type TripMapHandle = { update: (points: readonly TripMapPoint[]) => void; recenter: () => void; resize?: () => void; select?: (id: string | null) => void; transfers?: (links: readonly MapLink[], selected: string | null) => void; dispose: () => void }
 export type TripMapModule = { mountTripMap: (container: HTMLElement, points: readonly TripMapPoint[], notify: (state: TripMapState) => void, onSelect?: (ids: string[]) => void, onTransferSelect?: (ids: string[]) => void, options?: TripMapOptions) => TripMapHandle }
 export type TripMapLoader = () => Promise<TripMapModule>
 // Same lazy adapter/worker as the individual preview; no eager MapLibre import.
 export const loadTripMap: TripMapLoader = () => import('./maplibrePreview')
 export function startTripMap(container: HTMLElement, initial: readonly TripMapPoint[], notify: (state: TripMapState) => void, load: TripMapLoader = loadTripMap, timeoutMs = 20000, onSelect?: (ids: string[]) => void, onTransferSelect?: (ids: string[]) => void, options?: TripMapOptions): TripMapHandle {
-  let links: readonly MapTransfer[] = []; let selectedTransfer: string | null = null
+  let links: readonly MapLink[] = []; let selectedTransfer: string | null = null
   let selected: string | null = null
   let points = initial; let live = true; let expired = false; let handle: TripMapHandle | null = null
   let timer: ReturnType<typeof setTimeout>

@@ -1,3 +1,5 @@
+import type { Journey, Accommodation } from '../evolution/v21/contracts'
+import { matchingActivityReservations } from '../accommodations/model'
 import { createId } from '../utils/createId'
 import { db, type RoamDatabase, type Trip } from './database'
 import { tripReferenceCurrency, validateCurrency } from './currency'
@@ -6,11 +8,14 @@ import { validateManualRates } from '../money/manualRates'
 import { parseFrankfurterRate, ratePairKey, validateAutomaticCache, type AutomaticRate, type RateCheck } from '../money/automaticRates'
 import { withSensitiveOperation } from '../pwa/reloadSafety'
 
-export function requiredAutomaticPairs(trip: Trip, activities: readonly TripActivity[]) {
+export function requiredAutomaticPairs(trip: Trip, activities: readonly TripActivity[], journeys:readonly Journey[]=[], accommodations:readonly Accommodation[]=[]) {
   const targetCurrency = validateCurrency(tripReferenceCurrency(trip))
   const manual = new Set(validateManualRates(trip.manualExchangeRates).map(ratePairKey))
   const pairs = new Map<string, { sourceCurrency: string; targetCurrency: string }>()
-  for (const activity of activities) {
+  const projected=new Set(journeys.filter(journey=>journey.tripId===trip.id).map(journey=>journey.legacy?.id))
+  const activityIds=new Set(activities.filter(activity=>activity.tripId===trip.id).map(activity=>activity.id))
+  const sources=[...activities,...journeys,...accommodations.filter(stay=>!stay.budgetExcluded&&!matchingActivityReservations(stay,activities).length),...(trip.manualTransfers??[]).filter(transfer=>!projected.has(transfer.id)&&activityIds.has(transfer.fromActivityId)&&activityIds.has(transfer.toActivityId)).map(transfer=>({...transfer,tripId:trip.id}))]
+  for (const activity of sources) {
     if (activity.tripId !== trip.id || ![activity.estimatedCost, activity.paidAmount].some((amount) => typeof amount === 'number' && Number.isFinite(amount) && amount >= 0)) continue
     let sourceCurrency: string
     try { sourceCurrency = validateCurrency(activity.currency) } catch { continue }
@@ -32,12 +37,13 @@ export function createAutomaticRateService(database: RoamDatabase = db, dependen
     return withSensitiveOperation('Actualisation des taux de change en cours.', async () => {
       const startedAt = now()
       const id = token()
-      const plan = await database.transaction('rw', database.trips, database.activities, async () => {
+      const plan = await database.transaction('rw', database.trips, database.activities, database.journeys, database.accommodations, async () => {
         const trip = await database.trips.get(tripId)
         if (!trip || trip.deletedAt !== undefined || trip.archived === true) return { status: 'obsolete' as const }
         const cache = validateAutomaticCache(trip.automaticExchangeRates)
         if (cache.refresh && Date.parse(startedAt) >= Date.parse(cache.refresh.startedAt) && Date.parse(startedAt) - Date.parse(cache.refresh.startedAt) < 600000) return { status: 'busy' as const }
-        const pairs = requiredAutomaticPairs(trip, await database.activities.where('tripId').equals(tripId).toArray()).filter((pair) => {
+        const [activities,journeys,accommodations]=await Promise.all([database.activities.where('tripId').equals(tripId).toArray(),database.journeys.where('tripId').equals(tripId).toArray(),database.accommodations.where('tripId').equals(tripId).toArray()])
+        const pairs = requiredAutomaticPairs(trip, activities, journeys, accommodations).filter((pair) => {
           if (force) return true
           const check = cache.checks.find((item) => ratePairKey(item) === ratePairKey(pair))
           const rate = cache.rates.find((item) => ratePairKey(item) === ratePairKey(pair))

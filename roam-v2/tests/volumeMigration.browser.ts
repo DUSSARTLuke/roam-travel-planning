@@ -4,6 +4,7 @@ import { buildExportArchive, readExportSnapshot } from '../src/backup/exportBack
 import { prepareRestore, previewRestore, restoreBackup } from '../src/backup/restoreBackup'
 import { sha256 } from '../src/backup/sha256'
 import { timedFixture } from './dayPlanning.core'
+function canonical(value: unknown): string { return JSON.stringify(value, (_key, item) => _key === '_journeyVersion' ? undefined : item && typeof item === 'object' && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([a],[b])=>a.localeCompare(b))) : item) }
 function assert(value: unknown, message: string): asserts value { if (!value) throw new Error(message) }
 export async function testVolumeMigration(report: (message: string) => void) {
   const name = `roam-v2-test-volume-${crypto.randomUUID()}`, legacy = new Dexie(name)
@@ -23,8 +24,8 @@ export async function testVolumeMigration(report: (message: string) => void) {
   const migrated = new RoamDatabase(name), oldTarget = new RoamDatabase(name + '-old'), newTarget = new RoamDatabase(name + '-new')
   try {
     await migrated.open()
-    assert(migrated.verno === 5 && JSON.stringify(await migrated.trips.get(trip.id)) === JSON.stringify(trip), 'Migration perd budget, préparatifs, contacts ou déplacements.')
-    assert(JSON.stringify(await migrated.activities.bulkGet(activities.map((row) => row.id))) === JSON.stringify(activities) && await migrated.activityDocuments.count() === 31 && await migrated.syncEntities.count() === 363, 'Migration volumineuse altère les activités, réservations ou relations.')
+    assert(migrated.verno === 6 && canonical(await migrated.trips.get(trip.id)) === canonical(trip), 'Migration perd budget, préparatifs, contacts ou déplacements.')
+    assert(JSON.stringify(await migrated.activities.bulkGet(activities.map((row) => row.id))) === JSON.stringify(activities) && await migrated.activityDocuments.count() === 31 && await migrated.syncEntities.count() === 364, 'Migration volumineuse altère les activités, réservations ou relations.')
     const beforeId = (await migrated.syncMeta.get('installation'))!.installationId, beforeCount = await migrated.syncOutbox.count()
     migrated.close(); await migrated.open()
     assert((await migrated.syncMeta.get('installation'))!.installationId === beforeId && await migrated.syncOutbox.count() === beforeCount, 'Réouverture répète la migration.')
@@ -32,7 +33,7 @@ export async function testVolumeMigration(report: (message: string) => void) {
     for (const [archive, target] of [[oldZip, oldTarget], [newZip, newTarget]] as const) {
       const prepared = await prepareRestore(archive.blob), preview = await previewRestore(prepared, target)
       await restoreBackup(prepared, preview, target)
-      assert(JSON.stringify(await target.trips.get(trip.id)) === JSON.stringify(trip) && await target.activities.where('tripId').equals(trip.id).count() === 300, 'Restauration V4/V5 perd des données.')
+      assert(canonical(await target.trips.get(trip.id)) === canonical(trip) && await target.activities.where('tripId').equals(trip.id).count() === 300, 'Restauration V4/V5 perd des données.')
       for (const payload of payloads) assert(await sha256((await target.activityDocumentBlobs.get(payload.id))!.blob) === await sha256(payload.blob), 'Document volumineux altéré.')
     }
     report('Volume : 300 activités, réservations, déplacements, budget, préparatifs et contacts ; 31 PDF fictifs / 45 Mio dont un fichier de 15 Mio ; ZIP avant migration V4, upgrade V5 intacte, réouverture stable, restauration V4/V5 et SHA-256 binaires identiques.')

@@ -6,8 +6,9 @@ import { createPlaceSearch } from '../../places/searchController'
 import type { ActivityFormValues } from './activityFormModel'
 import './place-search.css'
 
-type Props = { form: ActivityFormValues; onChange: (form: ActivityFormValues) => void; onApplied?: () => void; provider?: PlaceProvider }
-export function ActivityPlaceSearch({ form, onChange, onApplied, provider = photonProvider }: Props) {
+type LocationValues = Pick<ActivityFormValues, 'location' | 'address' | 'latitude' | 'longitude'>
+type Props<T extends LocationValues> = { form: T; onChange: (form: T) => void; onApplied?: () => void; provider?: PlaceProvider; label?: string; selectionHelp?: string }
+export function ActivityPlaceSearch<T extends LocationValues>({ form, onChange, onApplied, provider = photonProvider, label = 'Rechercher un lieu', selectionHelp = 'La sélection ne sauvegarde pas l’activité.' }: Props<T>) {
   const id = useId()
   const input = useRef<HTMLInputElement>(null)
   const cancelButton = useRef<HTMLButtonElement>(null)
@@ -23,7 +24,7 @@ export function ActivityPlaceSearch({ form, onChange, onApplied, provider = phot
   useEffect(() => { if (state.results.length) document.getElementById(`${id}-result-${index}`)?.scrollIntoView({ block: 'nearest' }) }, [id, index, state.results])
   function apply(place: PlaceSuggestion) {
     onChange({ ...form, location: place.name, address: place.address, latitude: coordinateFormValue(place.latitude), longitude: coordinateFormValue(place.longitude) })
-    setPending(null); search.dismiss(); onApplied?.()
+    setPending(null); search.dismiss(); if (onApplied) onApplied(); else requestAnimationFrame(() => input.current?.focus({ preventScroll: true }))
   }
   function choose(place: PlaceSuggestion) {
     search.dismiss()
@@ -31,7 +32,7 @@ export function ActivityPlaceSearch({ form, onChange, onApplied, provider = phot
     else apply(place)
   }
   return <div className="activity-place-search" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) search.dismiss() }}>
-    <label htmlFor={`${id}-search`}>Rechercher un lieu</label>
+    <label htmlFor={`${id}-search`}>{label}</label>
     <input id={`${id}-search`} ref={input} type="text" role="combobox" value={state.query} maxLength={200} autoComplete="off"
       placeholder="Nom du lieu ou adresse…" disabled={network.offline || pending !== null}
       aria-autocomplete="list" aria-expanded={state.results.length > 0} aria-controls={state.results.length ? `${id}-results` : undefined}
@@ -44,7 +45,7 @@ export function ActivityPlaceSearch({ form, onChange, onApplied, provider = phot
           event.preventDefault(); setActive(Math.max(0, Math.min(state.results.length - 1, index + (event.key === 'ArrowDown' ? 1 : -1))))
         }
       }} />
-    <p id={`${id}-help`} className="activity-meta">À partir de 3 caractères, ta recherche est envoyée à Photon, sans position de l’appareil. La sélection ne sauvegarde pas l’activité.</p>
+    <p id={`${id}-help`} className="activity-meta">À partir de 3 caractères, ta recherche est envoyée à Photon, sans position de l’appareil. {selectionHelp}</p>
     <p id={`${id}-status`} role="status" className="activity-meta">{network.offline ? 'Recherche indisponible hors connexion. La saisie manuelle reste disponible.' : state.message}</p>
     {state.results.length > 0 && !network.offline && <ul id={`${id}-results`} role="listbox" aria-label="Lieux proposés">
       {state.results.map((place, position) => <li key={place.id} id={`${id}-result-${position}`} role="option" aria-selected={position === index}

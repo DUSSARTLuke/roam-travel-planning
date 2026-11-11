@@ -1,3 +1,4 @@
+const noNativeMapRows=async()=>[]
 import appStyles from '../src/App.css?inline'
 import { useState } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -70,7 +71,7 @@ export async function testTripMapMobile(report: (message: string) => void) {
   function Harness() {
     const [tab, setTab] = useState(true), [view, setView] = useState<TripMapView>(), [navigation, setNavigation] = useState<TripMapNavigation>(() => tripMapNavigation(trip))
     return <div className="app-shell"><header className="topbar"><span>ROAM</span><button type="button" data-tab onClick={() => setTab((value) => !value)}>Changer d’onglet</button></header>
-      <main className="main-content">{tab ? <TripMap trip={trip} load={loader} readActivities={read} initialNavigation={navigation} onNavigationChange={setNavigation} initialView={view} onViewChange={(next) => { lastView = next; setView(next) }} /> : <p>Autre onglet</p>}</main>
+      <main className="main-content">{tab ? <TripMap readJourneys={noNativeMapRows} readAccommodations={noNativeMapRows} trip={trip} load={loader} readActivities={read} initialNavigation={navigation} onNavigationChange={setNavigation} initialView={view} onViewChange={(next) => { lastView = next; setView(next) }} /> : <p>Autre onglet</p>}</main>
       <nav className="bottom-nav" aria-label="Navigation mobile test">{['Accueil', 'Programme', 'Carte', 'Budget', 'Plus'].map((label) => <button type="button" key={label} className="bottom-nav-item" onClick={() => setTab(label === 'Carte')}><span aria-hidden="true">●</span><span>{label}</span></button>)}</nav>
     </div>
   }

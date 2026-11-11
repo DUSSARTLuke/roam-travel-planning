@@ -75,3 +75,7 @@
   .trip-map-surface.is-expanded .trip-map-stage { min-height: 90px; }
   .trip-map-surface.is-expanded .trip-map-gestures { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 }
+.trip-map-marker[data-kind="accommodation"] {background:#a78bfa;border-radius:8px}
+.trip-map-marker[data-kind="station"],.trip-map-marker[data-kind="airport"] {background:#60a5fa;border-radius:8px}
+.trip-map-marker[data-kind="home"],.trip-map-marker[data-kind="free"] {background:#2dd4bf;border-radius:8px}
+.trip-map-page article,.trip-map-page ol {min-width:0;overflow-wrap:anywhere}

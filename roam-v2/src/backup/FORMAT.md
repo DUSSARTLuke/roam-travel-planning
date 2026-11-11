@@ -1,4 +1,6 @@
-# Sauvegarde Roam V2 — format 1
+# Sauvegarde Roam — formats 1 et 2
+
+État courant V2.1b : Dexie V6 exporte ZIP2 ; le lecteur accepte encore ZIP1 issu de Dexie V4/V5. Les sections historiques ci-dessous décrivent le format 1. Voir le contrat courant [V6/ZIP2](../../docs/v21-v6-zip2.md).
 
 Le format d'export reste celui de l'étape 2.5.1 ; la restauration non destructive
 de l'étape 2.5.2 est décrite en fin de document. Le schéma IndexedDB reste V4.
@@ -315,3 +317,38 @@ refusé sans écrasement. Les tombstones importés ne suppriment aucune donnée 
 Installation, compteur, outbox et reçus de commandes ne sont pas exportés : une
 restauration ne clone pas un appareil ni ses commandes exécutées. Voir
 [les garanties et limites V5](../../docs/local-sync.md).
+
+
+## Format 2 — Dexie V6
+
+Mêmes limites ZIP STORE/CRC, inventaire SHA-256, contrôles binaires et politique de restauration non destructive. `formatVersion:2`, `databaseVersion:6`, deux fichiers requis supplémentaires : `data/journeys.json`, `data/accommodations.json`. Leurs compteurs et toutes leurs identités sont inclus dans le manifeste et localSync. Le tableau historique `manualTransfers` du voyage n’est jamais exporté dans ZIP2 : il s’agit d’une projection compatible, reconstruite après restauration.
+
+Chaque document conserve son ID et son Blob ; ses métadonnées portent `tripId` et `owner:{kind:'activity'|'journey'|'accommodation',id}`. `activityId` reste accepté uniquement pour un propriétaire activity correspondant. Tout parent absent ou hors du voyage, toute provenance de transfert dupliquée et toute filiation incomplète sont refusés avant import. Les coûts sont globaux par Journey/Accommodation, sans conversion persistée.
+
+Le lecteur accepte ZIP1/Dexie4 et ZIP1/Dexie5 avec conversion sémantique après validation des octets. Les anciennes versions V2 ne peuvent pas lire ZIP2 ni ouvrir la base V6 : sauvegarde ZIP1 préalable requise avant une future publication.
+
+### Partages financiers natifs (finalisation V2.1b)
+
+ZIP2 accepte `expenseShares.kind` activity, transfer (alias historique), journey et accommodation. Le voyage, le payeur, les bénéficiaires et l'entité dépensière doivent exister dans le même sous-graphe. Un partage transfer et un partage journey désignant le même trajet sont refusés. Les paiements restent dans les entités d'origine ; le partage est une référence et ne constitue pas une deuxième dépense. Les lecteurs historiques ZIP1 continuent de refuser les types de partage natifs V6.
+
+### Champ optionnel Hébergement (V2.1e)
+
+`Accommodation.budgetExcluded?: boolean` indique un choix explicite d'exclure
+les montants du séjour parce qu'ils sont déjà suivis ailleurs (par exemple dans
+une ancienne activité). Absence = inclusion logique ; aucun montant source
+n'est effacé ou converti. Le champ est conservé dans JSON et localSync, sans
+nouvel index ni changement de version ZIP2. Un partage actif sur une entité
+exclue est refusé. Les sauvegardes antérieures sans ce champ restent acceptées.
+Un ancien binaire V2.1b/d ne comprend pas ce choix pour ses propres calculs :
+ne pas l'utiliser pour vérifier des totaux après activation de cette option.
+
+### Restauration répétée de tombstones (stabilisation V2.1f.1)
+
+Une seconde restauration de la même archive peut ignorer une suppression déjà
+restaurée **uniquement** si l'identité, les parents et la date technique sont
+identiques, `sourceRevision` correspond à la révision de l'archive et la révision
+locale vaut exactement cette révision + 1, sans entité vivante correspondante.
+Elle ne réécrit alors ni filiation ni journal. Une identité différente, une
+suppression locale propre ou une révision ultérieure demeure un conflit refusé.
+Il ne s'agit pas d'une fusion ou d'une reconnaissance approximative de voyages.
+Aucun changement de format ZIP2 ni de traitement des anciens ZIP1.

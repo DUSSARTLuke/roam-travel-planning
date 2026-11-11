@@ -1,3 +1,4 @@
+const noStays=async()=>[]
 import { createRoot } from 'react-dom/client'
 import { flushSync } from 'react-dom'
 import { RoamDatabase, type Trip } from '../src/db/database'
@@ -43,7 +44,7 @@ export async function testTripOverview(report: (message: string) => void) {
   let reads = 0, destination = ''
   const readActivities = async (tripId: string) => { reads++; return repository.listActivities(tripId) }
   let clock: LocalClock = { date: '2027-01-01', time: '11:00' }
-  const render = (currentTrip = trip) => flushSync(() => root.render(<TripOverview key={currentTrip.id} trip={currentTrip} readActivities={readActivities} clock={clock} navigate={(tab) => { destination = tab }} />))
+  const render = (currentTrip = trip) => flushSync(() => root.render(<TripOverview readAccommodations={noStays} readJourneys={async()=>[]} key={currentTrip.id} trip={currentTrip} readActivities={readActivities} clock={clock} navigate={(tab) => { destination = tab }} />))
   const wait = async (condition: () => boolean) => { const end = performance.now() + 5000; while (!condition() && performance.now() < end) await new Promise((done) => setTimeout(done, 20)); assert(condition(), 'Accueil non actualisé.') }
   const button = (name: string) => [...host.querySelectorAll<HTMLButtonElement>('button')].find((item) => item.textContent === name)!
   try {
@@ -89,7 +90,7 @@ export async function testTripOverview(report: (message: string) => void) {
     await wait(() => host.textContent?.includes('Aucune information de réservation enregistrée') === true)
     assert(!host.textContent?.includes('Prochaine modifiée') && host.textContent?.includes('Aucun montant de dépense') && host.textContent?.includes('Aucun budget prévisionnel'), 'Changement de voyage/états vides incorrects.')
     const failed = async () => { throw new Error('Erreur lecture simulée') }
-    flushSync(() => root.render(<TripOverview trip={other} readActivities={failed} clock={clock} navigate={() => {}} />))
+    flushSync(() => root.render(<TripOverview readAccommodations={noStays} readJourneys={async()=>[]} trip={other} readActivities={failed} clock={clock} navigate={() => {}} />))
     await wait(() => Boolean(host.querySelector('[role="alert"]')))
     assert(!host.textContent?.includes('Estimé connu') && host.textContent?.includes('Réessayer les informations'), 'Échec présenté comme budget vide.')
     report('Accueil : avant/pendant/après, jours civils/DST/minuit, prochaine réelle et sans horaire, réservations sans statut inventé, Budget 2.8/incomplet, fiche/focus/réactivité/suppression, isolation, erreurs, navigation, offline et 320/375/desktop.')

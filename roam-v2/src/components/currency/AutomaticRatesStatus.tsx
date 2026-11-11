@@ -12,8 +12,8 @@ function useAutomaticRates(tripId: string) {
   const data = useLiveQuery(async () => {
     const trip = await db.trips.get(tripId)
     if (!trip) return null
-    const activities = await db.activities.where('tripId').equals(tripId).toArray()
-    return { trip, pairs: requiredAutomaticPairs(trip, activities) }
+    const [activities,journeys,accommodations]=await Promise.all([db.activities.where('tripId').equals(tripId).toArray(),db.journeys.where('tripId').equals(tripId).toArray(),db.accommodations.where('tripId').equals(tripId).toArray()])
+    return { trip, pairs: requiredAutomaticPairs(trip, activities, journeys, accommodations) }
   }, [tripId])
   const today = useUtcDay()
   const network = useSyncExternalStore(connection.subscribe, connection.getSnapshot, connection.getSnapshot)

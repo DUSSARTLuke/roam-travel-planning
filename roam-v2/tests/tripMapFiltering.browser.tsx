@@ -1,3 +1,5 @@
+const noStays=async()=>[]
+const noNativeMapRows=async()=>[]
 import { useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { flushSync } from 'react-dom'
@@ -59,10 +61,10 @@ export async function testTripMapFiltering(report: (message: string) => void) {
     const [mapState, setMapState] = useState<TripMapNavigation>()
     const [program, setProgram] = useState(initialProgramNavigation(trip.startDate))
     return <><button data-tab="map" onClick={() => setTab('map')}>Carte</button><button data-tab="program" onClick={() => setTab('program')}>Programme</button>
-      {tab === 'map' ? <TripMap trip={trip} readActivities={read} load={load}
+      {tab === 'map' ? <TripMap readJourneys={noNativeMapRows} readAccommodations={noNativeMapRows} trip={trip} readActivities={read} load={load}
         initialNavigation={tripMapNavigation(trip, mapState, program.selectedDate)} onNavigationChange={(state) => {
           notifications++; setMapState(state); setProgram((previous) => programNavigationFromMap(trip, state, previous))
-        }} /> : <TripProgram trip={trip} readActivities={read} initialNavigation={program} onNavigationChange={setProgram} />}</>
+        }} /> : <TripProgram readAccommodations={noStays} readJourneys={async()=>[]} trip={trip} readActivities={read} initialNavigation={program} onNavigationChange={setProgram} />}</>
   }
   const wait = async (condition: () => boolean) => { const end = performance.now() + 5000; while (!condition() && performance.now() < end) await new Promise((resolve) => setTimeout(resolve, 20)); assert(condition(), 'Filtre Carte/Programme non actualisé.') }
   const mode = () => host.querySelector<HTMLSelectElement>('.trip-map-filters select')!
@@ -102,10 +104,10 @@ export async function testTripMapFiltering(report: (message: string) => void) {
     await wait(() => host.querySelector('.trip-map-preview h2')?.textContent === 'Deuxième lieu modifié')
     assert(fits === fitsBefore, 'Une mise à jour réactive recentre la carte.')
     b = await repo.updateActivity(trip.id, b.id, { ...b, date: firstDay })
-    await wait(() => host.textContent?.includes('Aucune activité pour cette journée') === true)
+    await wait(() => host.textContent?.includes('Aucun lieu géolocalisé pour cette journée') === true)
     assert(!host.querySelector('.trip-map-preview') && host.querySelectorAll('.trip-map-places li').length === 0, 'Activité déplacée reste sélectionnée/visible.')
     change(date(), emptyDay)
-    assert(host.textContent?.includes('Aucune activité pour cette journée'), 'Journée vide sans état explicite.')
+    assert(host.textContent?.includes('Aucun lieu géolocalisé pour cette journée'), 'Journée vide sans état explicite.')
     change(date(), firstDay)
     await wait(() => markers.length === 2 && Boolean(host.querySelector('.trip-map-canvas')))
     const fitsBeforeGpsChange = fits

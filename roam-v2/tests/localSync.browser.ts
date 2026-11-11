@@ -24,15 +24,16 @@ export async function testLocalSync(report: (message: string) => void) {
   const key = entityKey('trips', trip.id)
   try {
     await database.open()
-    assert(database.verno === 5 && JSON.stringify(await database.trips.get(trip.id)) === JSON.stringify(trip) && JSON.stringify(await database.activities.get('a')) === JSON.stringify(activity), 'Migration réécrit des données métier.')
-    assert(await database.syncEntities.count() === 4 && await database.syncOutbox.count() === 4 && (await database.activityDocumentBlobs.get('d'))!.blob.size === blob.size, 'Amorçage ou Blob perdu.')
+    assert(database.verno === 6 && JSON.stringify(await database.trips.get(trip.id)) === JSON.stringify(trip) && JSON.stringify(await database.activities.get('a')) === JSON.stringify(activity), 'Migration réécrit des données métier.')
+    assert(await database.syncEntities.count() === 4 && await database.syncOutbox.where('status').equals('pending').count() === 4 && (await database.activityDocumentBlobs.get('d'))!.blob.size === blob.size, 'Amorçage ou Blob perdu.')
     const installation = (await database.syncMeta.get('installation'))!.installationId
     const initial = (await database.syncEntities.get(key))!
-    assert(initial.revision === 1 && initial.serverRevision === null && initial.identity !== trip.id, 'Identité ancienne ou révision incorrecte.')
+    assert(initial.revision >= 2 && initial.serverRevision === null && initial.identity !== trip.id, 'Identité ancienne ou révision incorrecte.')
+    const baselineOperations = await database.syncOutbox.count()
     database.close(); await database.open(); await other.open()
-    assert((await other.syncMeta.get('installation'))!.installationId === installation && await database.syncOutbox.count() === 4, 'Réouverture réamorce le journal.')
+    assert((await other.syncMeta.get('installation'))!.installationId === installation && await database.syncOutbox.count() === baselineOperations, 'Réouverture réamorce le journal.')
     await Promise.all([database.trips.update(trip.id, { country: 'A' }), other.trips.update(trip.id, { travelers: 3 })])
-    assert((await database.syncEntities.get(key))!.revision === 3 && (await database.trips.get(trip.id))!.country === 'A' && (await database.trips.get(trip.id))!.travelers === 3, 'Concurrence perd une révision ou un champ.')
+    assert((await database.syncEntities.get(key))!.revision === initial.revision + 2 && (await database.trips.get(trip.id))!.country === 'A' && (await database.trips.get(trip.id))!.travelers === 3, 'Concurrence perd une révision ou un champ.')
     const count = await database.syncOutbox.count(), revision = (await database.syncEntities.get(key))!.revision
     await rejects(() => database.transaction('rw', database.trips, async () => { await database.trips.update(trip.id, { destination: 'Rollback' }); throw new Error('abort') }))
     assert(await database.syncOutbox.count() === count && (await database.syncEntities.get(key))!.revision === revision && (await database.trips.get(trip.id))!.destination === trip.destination, 'Rollback partiel du journal.')

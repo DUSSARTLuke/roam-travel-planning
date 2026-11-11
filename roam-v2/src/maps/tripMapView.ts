@@ -1,7 +1,7 @@
 import type { TripMapNavigation } from './tripMapNavigation'
 
 export type TripMapCamera = { longitude: number; latitude: number; zoom: number }
-export type TripMapView = { filterKey: string; camera?: TripMapCamera; selection: string[]; transferSelection: string[]; expanded: boolean }
+export type TripMapView = { filterKey: string; camera?: TripMapCamera; selection: string[]; transferSelection: string[]; expanded: boolean; showJourneys?: boolean; nativeSelection?: string[] }
 export type TripMapOptions = { camera?: TripMapCamera; onCameraChange?: (camera: TripMapCamera) => void }
 export function mapFilterKey(navigation: TripMapNavigation): string { return navigation.mode === 'all' ? 'all' : `day:${navigation.selectedDate}` }
 export function validMapCamera(camera: TripMapCamera | undefined): camera is TripMapCamera {
@@ -10,7 +10,7 @@ export function validMapCamera(camera: TripMapCamera | undefined): camera is Tri
 // Session-only view state; never written to IndexedDB or backup archives.
 export function initialMapView(navigation: TripMapNavigation, previous?: TripMapView): TripMapView {
   const filterKey = mapFilterKey(navigation)
-  return previous?.filterKey === filterKey ? { ...previous, selection: [...previous.selection], transferSelection: [...previous.transferSelection], camera: validMapCamera(previous.camera) ? { ...previous.camera } : undefined }
+  return previous?.filterKey === filterKey ? { ...previous, selection: [...previous.selection], transferSelection: [...previous.transferSelection], nativeSelection:[...(previous.nativeSelection??[])], camera: validMapCamera(previous.camera) ? { ...previous.camera } : undefined }
     : { filterKey, selection: [], transferSelection: [], expanded: false }
 }
 

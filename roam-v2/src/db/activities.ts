@@ -1,3 +1,4 @@
+import { detachLinkedJourneys } from '../evolution/v21/repository'
 import { stampActivity, checkActivityRevision, activityVersion, ActivityEditConflict, type ActivityRevision } from './activityRevision'
 import { createId } from '../utils/createId'
 import { reorderActivities, schedulingKey, type OrderDirection } from './activityOrganization'
@@ -116,11 +117,12 @@ export function createActivityRepository(database: RoamDatabase = db) {
     },
 
     async deleteActivity(tripId: string, id: string, expected?: string): Promise<void> {
-      await database.transaction('rw', [database.trips, database.activities, database.activityDocuments, database.activityDocumentBlobs], async () => {
+      await database.transaction('rw', database.tables, async () => {
         await requireParent(tripId, true)
         const activity = await requireActivity(tripId, id)
         if ((await database.trips.get(tripId))?.archived) throw new Error('Restaure le voyage avant de supprimer ses activités.')
         if (expected !== undefined && JSON.stringify(activity) !== expected) throw new Error('Cette activité a changé. Annule puis vérifie sa fiche avant de confirmer à nouveau sa suppression.')
+        await detachLinkedJourneys(database, tripId, { kind: 'activity', id })
         const documentIds = await database.activityDocuments.where('activityId').equals(id).primaryKeys()
         await database.activityDocumentBlobs.bulkDelete(documentIds)
         await database.activityDocuments.bulkDelete(documentIds)
@@ -128,11 +130,9 @@ export function createActivityRepository(database: RoamDatabase = db) {
         // trips belongs to this transaction, so no orphan or partial deletion.
         const trip = await database.trips.get(tripId)
         if (trip?.expenseShares) {
-          const removedTransfers = new Set((trip.manualTransfers ?? []).filter((item) => item.fromActivityId === id || item.toActivityId === id).map((item) => item.id))
-          await database.trips.update(tripId, { expenseShares: trip.expenseShares.filter((item) => item.kind === 'activity' ? item.expenseId !== id : !removedTransfers.has(item.expenseId)) })
-        }
-        if (trip?.manualTransfers?.some((item) => item.fromActivityId === id || item.toActivityId === id)) {
-          await database.trips.update(tripId, { manualTransfers: trip.manualTransfers.filter((item) => item.fromActivityId !== id && item.toActivityId !== id) })
+          const keptTransfers = new Set((await database.journeys.where('tripId').equals(tripId).toArray()).map(item => item.legacy?.id))
+          const removedTransfers = new Set((trip.manualTransfers ?? []).filter(item => !keptTransfers.has(item.id) && (item.fromActivityId === id || item.toActivityId === id)).map(item => item.id))
+          await database.trips.update(tripId, { expenseShares: trip.expenseShares.filter((item) => item.kind === 'activity' ? item.expenseId !== id : item.kind === 'transfer' ? !removedTransfers.has(item.expenseId) : true) })
         }
         await database.activities.delete(id)
       })

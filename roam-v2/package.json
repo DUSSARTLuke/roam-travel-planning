@@ -12,7 +12,8 @@
     "test:concurrency": "node tests/concurrent-tabs.mjs",
     "test:offline": "node tests/production-offline.mjs",
     "test:publication": "node tests/publication.mjs",
-    "test:v21": "node tests/v21-models.mjs"
+    "test:v21": "node tests/v21-models.mjs",
+    "test:browser": "node tests/browser-suite.mjs"
   },
   "dependencies": {
     "dexie": "^4.4.7",

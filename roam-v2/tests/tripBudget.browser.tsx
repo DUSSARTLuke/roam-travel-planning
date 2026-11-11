@@ -1,3 +1,4 @@
+const noStays=async()=>[]
 import { createRoot } from 'react-dom/client'
 import { flushSync } from 'react-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -79,7 +80,7 @@ export async function testTripBudget(report: (message: string) => void) {
   const read = (id: string) => { reads++; return failRead ? Promise.reject(new Error('Lecture simulée indisponible')) : activities.listActivities(id) }
   function Harness({ id = trip.id }: { id?: string }) {
     const current = useLiveQuery(() => database.trips.get(id), [id])
-    return current ? <TripBudget key={current.id} trip={current} readActivities={read} /> : null
+    return current ? <TripBudget readAccommodations={noStays} readJourneys={async()=>[]} key={current.id} trip={current} readActivities={read} /> : null
   }
   const wait = async (condition: () => boolean) => { const end = performance.now() + 5000; while (!condition() && performance.now() < end) await new Promise((resolve) => setTimeout(resolve, 20)); assert(condition(), 'Budget réactif non actualisé.') }
   const amount = (title: string) => host.querySelector(`[aria-label="${title}"] .budget-amount`)?.textContent ?? ''
@@ -93,7 +94,7 @@ export async function testTripBudget(report: (message: string) => void) {
     const storedB = await activities.createActivity(trip.id, b)
     let storedTransfer = await transfers.saveTransfer(trip.id, { ...transfer, fromActivityId: storedA.id, toActivityId: storedB.id })
     await wait(() => amount('Total estimé').includes('130') && amount('Total payé').includes('45'))
-    assert(amount('Reste à payer connu').includes('65') && host.textContent?.includes('leurs paiements éventuels'), 'Reste ou limites du modèle transferts non affichés.')
+    assert(amount('Reste à payer connu').includes('65') && host.textContent?.includes('montants réellement renseignés') && host.textContent?.includes('ne prouve pas un paiement'), 'Reste ou explications des montants/paiements non affichés.')
     assert(host.scrollWidth <= host.clientWidth + 1, 'Budget déborde à 320 px.')
     storedA = await activities.updateActivity(trip.id, storedA.id, { ...storedA, paidAmount: 70 })
     await wait(() => amount('Total payé').includes('75') && amount('Reste à payer connu').includes('35'))
@@ -122,7 +123,7 @@ export async function testTripBudget(report: (message: string) => void) {
     await wait(() => host.textContent?.includes('Autre budget') === true)
     assert(!host.textContent?.includes('Budget test'), 'Changement de voyage conserve les anciens chiffres.')
     failRead = true
-    flushSync(() => root.render(<TripBudget key="error" trip={trip} readActivities={read} />))
+    flushSync(() => root.render(<TripBudget readAccommodations={noStays} readJourneys={async()=>[]} key="error" trip={trip} readActivities={read} />))
     await wait(() => Boolean(host.querySelector('[role="alert"]')))
     assert(!host.querySelector('.budget-amount'), 'Erreur de lecture affiche des chiffres trompeurs.')
     failRead = false

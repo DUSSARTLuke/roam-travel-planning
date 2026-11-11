@@ -14,10 +14,11 @@ const children = []
 const pause = (delay) => new Promise((resolve) => setTimeout(resolve, delay))
 let socket
 let siteServer
+let beforeUnloadSeen=0
 try {
 
   const address = `http://127.0.0.1:${port}`, base = '/roam-travel-planning/'
-  const artifact = join(root, 'node_modules/.tmp/pages-v2-dist')
+  const artifact = join(root, process.argv.find(value=>value.startsWith('--artifact='))?.slice(11) ?? 'node_modules/.tmp/pages-v2-dist')
   const legacy = new Map(['index.html','app.js','style.css','sw.js','manifest.webmanifest','icon.svg'].map(name=>[name,execFileSync('git',['show',`master:${name}`],{cwd:join(root,'..')})]))
   const manifestV1=JSON.parse(legacy.get('manifest.webmanifest')),manifestV2=JSON.parse(readFileSync(join(artifact,'manifest.webmanifest')))
   const manifestUrl=address+base+'manifest.webmanifest'
@@ -37,6 +38,7 @@ try {
     if(path.includes('..')||path.includes('\\')){res.writeHead(400);res.end();return}
     let content
     try{content=phase==='v1'?legacy.get(path):readFileSync(join(artifact,path))}catch{if(['app.js','style.css','icon.svg'].includes(path))content=legacy.get(path)}
+    if(phase==='v2-next'&&path==='sw.js'&&content)content=Buffer.from(content.toString().replace(/^const BUILD_ID = .*$/m,'const BUILD_ID = '+JSON.stringify(precache.buildId+'-validation-update')))
     if(!content){res.writeHead(404);res.end('Not found');return}
     const ext=path.split('.').pop(),mime={html:'text/html',js:'text/javascript',css:'text/css',webmanifest:'application/manifest+json',json:'application/json',svg:'image/svg+xml',png:'image/png'}[ext]??'application/octet-stream'
     res.writeHead(200,{'Content-Type':mime,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(content)
@@ -58,6 +60,7 @@ try {
   socket.addEventListener('message', ({ data }) => {
     const message = JSON.parse(data)
     if (message.id && pending.has(message.id)) { const { resolve, reject } = pending.get(message.id); pending.delete(message.id); if (message.error) reject(new Error(JSON.stringify(message.error))); else resolve(message.result) }
+    if(message.method==='Page.javascriptDialogOpening'&&message.params.type==='beforeunload'){beforeUnloadSeen++;void command('Page.handleJavaScriptDialog',{accept:false})}
     if (message.method === 'Runtime.exceptionThrown') errors.push(message.params.exceptionDetails.exception?.description ?? message.params.exceptionDetails.text)
   })
   const command = (method, params = {}) => new Promise((resolve, reject) => { const id = ++nextId; pending.set(id, { resolve, reject }); socket.send(JSON.stringify({ id, method, params })) })
@@ -88,6 +91,32 @@ try {
   await click('Ajouter une activité');await wait('Boolean(document.querySelector("dialog input:not([type])"))','Formulaire V2')
   await checked(`(()=>{const i=document.querySelector('dialog input:not([type])');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(i,'PUBLICATION TEST');i.dispatchEvent(new Event('input',{bubbles:true}))})()`)
   await click('Ajouter l’activité');await wait('Boolean(document.querySelector(\'[aria-label="Consulter l’activité PUBLICATION TEST"]\'))','Activité V2')
+  // A second SW generation is served in memory only: app bytes and source files stay intact.
+  await click('Accueil');await checked(`([...document.querySelectorAll('button')].find(b=>b.querySelector('strong')?.textContent==='Hébergements')).click()`)
+  await click('Nouvel hébergement');await wait('Boolean(document.querySelector(".accommodation-form input"))','Formulaire protégé PWA')
+  await checked(`(()=>{const input=document.querySelector('.accommodation-form input');Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(input,'SAISIE PWA NON ENREGISTRÉE');input.dispatchEvent(new Event('input',{bubbles:true}))})()`)
+  await checked(`document.querySelector('.accommodation-form input').focus()`)
+  await command('Input.dispatchKeyEvent',{type:'keyDown',key:'ArrowRight',code:'ArrowRight',windowsVirtualKeyCode:39});await command('Input.dispatchKeyEvent',{type:'keyUp',key:'ArrowRight',code:'ArrowRight',windowsVirtualKeyCode:39})
+  await command('Page.reload')
+  for(let i=0;i<100&&beforeUnloadSeen===0;i++)await pause(50)
+  assert.equal(beforeUnloadSeen,1,'Missing native beforeunload warning')
+  assert(await checked(`document.querySelector('.accommodation-form input').value==='SAISIE PWA NON ENREGISTRÉE'`),'Native reload lost draft')
+  console.log('PASS : avertissement beforeunload natif réel, rechargement annulé et saisie Hébergement conservée.')
+  phase='v2-next';await checked('(async()=>{const r=await navigator.serviceWorker.getRegistration();await r.update()})()')
+  await wait('(async()=>Boolean((await navigator.serviceWorker.getRegistration()).waiting))()','Deuxième worker V2 en attente')
+  await wait('Boolean(document.querySelector(".pwa-update"))','Bannière version suivante')
+  await click('Plus tard');assert(await checked(`document.querySelector(".accommodation-form input").value==='SAISIE PWA NON ENREGISTRÉE'`))
+  await click('Nouvelle version disponible');await click('Mettre à jour')
+  await wait('document.querySelector(".pwa-update")?.textContent.includes("report")','Mise à jour reportée pour saisie')
+  assert(await checked('(async()=>Boolean((await navigator.serviceWorker.getRegistration()).waiting))()'))
+  assert(await checked(`document.querySelector(".accommodation-form input").value==='SAISIE PWA NON ENREGISTRÉE'`))
+  await click('Annuler');await click('Abandonner');await wait('!document.querySelector("dialog")','Fermeture explicite de la saisie de test')
+  await checked('sessionStorage.setItem("audit-update-loads","0")')
+  await command('Page.addScriptToEvaluateOnNewDocument',{source:`if(location.pathname===${JSON.stringify(base)})sessionStorage.setItem('audit-update-loads',String(Number(sessionStorage.getItem('audit-update-loads')||0)+1))`})
+  await click('Mettre à jour');await wait(`Boolean(document.querySelector('[aria-label="Ouvrir le voyage Londres"]'))&&!document.querySelector(".pwa-update")`,'Activation volontaire V2 suivante')
+  assert.equal(await checked('sessionStorage.getItem("audit-update-loads")'),'1')
+  assert(await checked(`caches.has('roam-v2-static:'+${JSON.stringify(address+base)}+':'+${JSON.stringify(precache.buildId+'-validation-update')})`))
+  console.log('PASS : V2→V2 réelle, bannière/Plus tard, formulaire Hébergement conservé et activation reportée ; validation explicite, un seul rechargement, nouveau cache.')
   await command('Network.enable');await command('Network.emulateNetworkConditions',{offline:true,latency:0,downloadThroughput:0,uploadThroughput:0})
   await command('Page.navigate',{url:'about:blank'});await command('Page.navigate',{url})
   await wait('Boolean(document.querySelector(\'[aria-label="Ouvrir le voyage Londres"]\'))','Démarrage offline au sous-chemin')
@@ -103,7 +132,7 @@ try {
   await wait('Boolean(document.querySelector("#days"))','Retour V1')
   assert.equal(await checked('localStorage.getItem("roam")'),original)
   const retained=await checked(`new Promise((resolve,reject)=>{const r=indexedDB.open('roam-v2-db');r.onerror=()=>reject(r.error);r.onsuccess=()=>{const db=r.result,tx=db.transaction('activities','readonly'),q=tx.objectStore('activities').getAll();q.onsuccess=()=>{const result={version:db.version,count:q.result.filter(a=>a.title==='PUBLICATION TEST').length};db.close();resolve(result)}}})`)
-  assert.equal(retained.count,1);assert.equal(retained.version,50)
+  assert.equal(retained.count,1);assert.equal(retained.version,60)
   console.log('PASS : rollback V1 sans purge ni unregister, localStorage V1 et base IndexedDB V2 intacts (invisibles dans V1).')
   console.log('Publication simulée uniquement ; aucun accès en écriture à GitHub ni aux profils personnels.')
 

@@ -5,12 +5,12 @@ import { activityMoneyRows } from '../../money/activityMoney'
 import { useUtcDay } from '../../hooks/useUtcDay'
 import { formatDate } from './dates'
 
-export function ActivityMoneyDetails({ activity, trip }: { activity: TripActivity; trip: Trip }) {
+export function ActivityMoneyDetails({ activity, trip, heading = 'Budget de l’activité' }: { activity: Pick<TripActivity,'tripId'|'estimatedCost'|'paidAmount'|'currency'>; trip: Trip; heading?: string }) {
   const today = useUtcDay()
   const rows = useMemo(() => activityMoneyRows(activity, trip, today), [activity, trip, today])
   if (!rows.length && !activity.currency) return null
   return <section aria-labelledby="activity-detail-budget">
-    <h3 id="activity-detail-budget">Budget de l’activité</h3>
+    <h3 id="activity-detail-budget">{heading}</h3>
     <dl className="activity-detail-fields">
       {rows.map((row) => <div key={row.kind}>
         <dt>{row.label}</dt>

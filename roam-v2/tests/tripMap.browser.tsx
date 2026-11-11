@@ -1,3 +1,4 @@
+const noNativeMapRows=async()=>[]
 import { createRoot } from 'react-dom/client'
 import { flushSync } from 'react-dom'
 import { TripMap } from '../src/components/map/TripMap'
@@ -76,7 +77,7 @@ export async function testTripMap(report: (message: string) => void) {
     })
   } } }
   const read = (tripId: string) => { reads++; return repo.listActivities(tripId) }
-  const render = (selected = trip) => flushSync(() => root.render(<TripMap trip={selected} readActivities={read} load={load} />))
+  const render = (selected = trip) => flushSync(() => root.render(<TripMap readJourneys={noNativeMapRows} readAccommodations={noNativeMapRows} trip={selected} readActivities={read} load={load} />))
   const waitFor = async (condition: () => boolean) => { const end = performance.now() + 5000; while (!condition() && performance.now() < end) await new Promise((ready) => setTimeout(ready, 20)); assert(condition(), 'Carte globale non actualisée.') }
   try {
     flushSync(() => window.dispatchEvent(new Event('online')))

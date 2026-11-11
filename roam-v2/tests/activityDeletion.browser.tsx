@@ -31,7 +31,7 @@ export async function testActivityDeletion(report: (message: string) => void) {
   const button = (text: string) => [...host.querySelectorAll<HTMLButtonElement>('button')].find((item) => item.textContent?.trim() === text)!
   const render = () => flushSync(() => root.render(<><button ref={fallback}>Programme</button><ActivityDetailPanel trip={trip} activity={activity} returnFocusRef={origin} fallbackFocusRef={fallback} onClose={() => { closed++ }} onEdit={() => {}} removeActivity={remove} /></>))
   try {
-    await database.open(); assert(database.verno === 5, 'Migration V4→V5 absente.')
+    await database.open(); assert(database.verno === 6, 'Migration V4→V5 absente.')
     const before = await database.syncOutbox.count()
     await rejects(() => repo.deleteActivity('other-trip', 'a'))
     await database.trips.update(trip.id, { archived: true }); await rejects(() => repo.deleteActivity(trip.id, 'a')); await database.trips.update(trip.id, { archived: false })
@@ -54,7 +54,7 @@ export async function testActivityDeletion(report: (message: string) => void) {
     assert(!await database.activities.get('a') && !await database.activityDocuments.get('da') && !await database.activityDocumentBlobs.get('da'), 'Cascade activité/document/Blob incomplète.')
     assert(JSON.stringify(await database.activities.get('b')) === JSON.stringify(other) && JSON.stringify(await database.activities.get('c')) === JSON.stringify(third) && (await database.activityDocumentBlobs.get('db'))!.blob.size === blob.size, 'Autre activité ou fichier altéré.')
     const latest = (await database.trips.get(trip.id))!
-    assert(latest.manualTransfers?.length === 1 && latest.manualTransfers[0].id === 'bc' && latest.expenseShares?.length === 2 && latest.expenseShares.every((item) => item.expenseId === 'b' || item.expenseId === 'bc') && latest.participants?.[0].id === 'p', 'Référence incohérente ou relation non concernée supprimée.')
+    assert(latest.manualTransfers?.length === 1 && latest.manualTransfers[0].id === 'bc' && latest.expenseShares?.length === 3 && latest.expenseShares.every((item) => ['b','ab','bc'].includes(item.expenseId)) && (await database.journeys.toArray()).some(j => j.legacy?.id === 'ab' && j.stops.some(s => s.link?.state === 'deleted')) && latest.participants?.[0].id === 'p', 'Référence incohérente ou relation non concernée supprimée.')
     const deletes = (await database.syncOutbox.toArray()).filter((op) => op.kind === 'delete')
     assert(deletes.length === 3 && new Set(deletes.map((op) => op.groupId)).size === 1 && await database.syncOutbox.count() > before, 'Suppressions non journalisées atomiquement.')
     for (const [table, id] of [['activities','a'],['activityDocuments','da'],['activityDocumentBlobs','da']] as const) {

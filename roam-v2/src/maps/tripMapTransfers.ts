@@ -10,6 +10,7 @@ export const transferColors: Record<TransferMode, string> = {
   train: '#60a5fa', car: '#fb923c', taxi: '#fde047', plane: '#e2e8f0', boat: '#2dd4bf', other: '#a1a1aa',
 }
 export type TransferGeometry = MultiLineString | Point
+export type MapLink = { transfer: Pick<ManualTransfer, 'id'|'mode'>; geometry: TransferGeometry }
 export type MapTransfer = { transfer: ManualTransfer; from: TripActivity; to: TripActivity; day: string; geometry: TransferGeometry }
 const longitude = (value: number) => ((value + 180) % 360 + 360) % 360 - 180
 
@@ -48,7 +49,7 @@ export function tripMapTransfers(values: readonly ManualTransfer[], activities: 
     } catch { return [] } // Invalid records remain stored; never draw a misleading link.
   })
 }
-export function transferFeatures(links: readonly MapTransfer[], selected: string | null): FeatureCollection<TransferGeometry> {
+export function transferFeatures(links: readonly MapLink[], selected: string | null): FeatureCollection<TransferGeometry> {
   return { type: 'FeatureCollection', features: links.map((link) => ({ type: 'Feature', geometry: link.geometry,
     properties: { id: link.transfer.id, mode: link.transfer.mode, color: transferColors[link.transfer.mode], selected: link.transfer.id === selected } })) }
 }

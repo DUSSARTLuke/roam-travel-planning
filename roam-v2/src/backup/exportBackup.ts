@@ -1,3 +1,4 @@
+import { validateV6Graph } from '../evolution/v21/graph'
 import { validateSyncLineage } from '../sync/backup'
 import { validatePracticalRecords } from '../practical/model'
 import { validateReservationType } from '../db/activityModel'
@@ -15,17 +16,19 @@ export type BackupScope = { mode: 'full' } | { mode: 'trip'; tripId: string }
 let exporting = false
 
 export async function readExportSnapshot(scope: BackupScope, database: RoamDatabase = db) {
-  return database.transaction('r', [database.trips, database.activities, database.metadata, database.activityDocuments, database.activityDocumentBlobs, database.syncEntities], async () => {
+  return database.transaction('r', [database.trips, database.activities, database.metadata, database.activityDocuments, database.activityDocumentBlobs, database.syncEntities, database.journeys, database.accommodations], async () => {
     const trips = scope.mode === 'full' ? await database.trips.toArray() : await database.trips.where('id').equals(scope.tripId).toArray()
     if (scope.mode === 'trip' && trips.length !== 1) throw new Error('Le voyage à exporter est introuvable.')
     const activities = scope.mode === 'full' ? await database.activities.toArray() : await database.activities.where('tripId').equals(trips[0].id).toArray()
     const documents = scope.mode === 'full' ? await database.activityDocuments.toArray()
-      : await database.activityDocuments.where('activityId').anyOf(activities.map((activity) => activity.id)).toArray()
+      : await database.activityDocuments.filter(document => document.tripId === scope.tripId || activities.some(activity => activity.id === document.activityId)).toArray()
     const payloads = scope.mode === 'full' ? await database.activityDocumentBlobs.toArray()
       : await database.activityDocumentBlobs.bulkGet(documents.map((document) => document.id))
     const metadata = scope.mode === 'full' ? await database.metadata.toArray() : []
     const sync = (await database.syncEntities.toArray()).filter((state) => scope.mode === 'full' || state.tripId === scope.tripId)
-    return { sync, scope: { ...scope }, snapshotAt: new Date().toISOString(), databaseVersion: database.verno, trips, activities, documents, payloads, metadata }
+    const journeys = scope.mode === 'full' ? await database.journeys.toArray() : await database.journeys.where('tripId').equals(scope.tripId).toArray()
+    const accommodations = scope.mode === 'full' ? await database.accommodations.toArray() : await database.accommodations.where('tripId').equals(scope.tripId).toArray()
+    return { journeys, accommodations, sync, scope: { ...scope }, snapshotAt: new Date().toISOString(), databaseVersion: database.verno, trips, activities, documents, payloads, metadata }
   })
 }
 export type ExportSnapshot = Awaited<ReturnType<typeof readExportSnapshot>>
@@ -42,18 +45,25 @@ function jsonBlob(value: unknown): Blob {
 
 
 export async function buildExportArchive(snapshot: ExportSnapshot, onProgress: (message: string) => void = () => {}) {
-  const { trips, activities, documents, payloads, metadata } = snapshot
+  const { activities, payloads, metadata } = snapshot
+  const journeys = snapshot.journeys ?? [], accommodations = snapshot.accommodations ?? []
+  const trips: import('../db/database').Trip[] = snapshot.databaseVersion >= 6 ? snapshot.trips.map(({ manualTransfers: _projection, ...trip }) => trip) : snapshot.trips
+  const documents = snapshot.documents.map(document => ({ ...document, tripId: document.tripId ?? activities.find(a => a.id === document.activityId)?.tripId, owner: document.owner ?? {kind: 'activity' as const, id: document.activityId!} }))
+  const isV6 = snapshot.databaseVersion >= 6
+  if (![4,5,6].includes(snapshot.databaseVersion) || (!isV6 && (journeys.length || accommodations.length))) throw new Error('Schéma de sauvegarde incohérent ; aucune archive produite.')
+  if (isV6) for (const trip of snapshot.trips) validateTripTransfers(trip.manualTransfers, trip.id, new Map(activities.map(activity => [activity.id, activity])))
+  if (isV6) validateV6Graph(trips, activities, journeys, accommodations, documents)
   assertUnique(trips.map((trip) => trip.id), 'voyages')
   assertUnique(activities.map((activity) => activity.id), 'activités')
   assertUnique(documents.map((document) => document.id), 'documents')
   const tripIds = new Set(trips.map((trip) => trip.id))
   const activityIds = new Set(activities.map((activity) => activity.id))
-  if (activities.some((activity) => !tripIds.has(activity.tripId)) || documents.some((document) => !activityIds.has(document.activityId))) {
+  if (activities.some((activity) => !tripIds.has(activity.tripId)) || documents.some((document) => document.owner.kind === 'activity' && !activityIds.has(document.owner.id))) {
     throw new Error('Des données n’ont plus de parent. Export interrompu pour éviter une sauvegarde incomplète.')
   }
   for (const activity of activities) validateReservationType(activity.reservationType)
   const transferActivities = new Map(activities.map((activity) => [activity.id, activity]))
-  for (const trip of trips) { validateTripTransfers(trip.manualTransfers, trip.id, transferActivities); validateTripSharing(trip, transferActivities); validatePlannedBudget(trip.plannedBudget); validatePreparationTasks(trip.preparationTasks); validatePracticalRecords(trip.practicalRecords) }
+  for (const trip of trips) { if (!isV6) { validateTripTransfers(trip.manualTransfers, trip.id, transferActivities); validateTripSharing(trip, transferActivities) }; validatePlannedBudget(trip.plannedBudget); validatePreparationTasks(trip.preparationTasks); validatePracticalRecords(trip.practicalRecords) }
   const blobs = new Map<string, Blob>()
   for (const payload of payloads) {
     if (!payload || !(payload.blob instanceof Blob) || blobs.has(payload.id)) throw new Error('Un fichier est manquant ou invalide. Export interrompu.')
@@ -72,6 +82,7 @@ export async function buildExportArchive(snapshot: ExportSnapshot, onProgress: (
   await add('data/activities.json', jsonBlob(activities))
   await add('data/documents.json', jsonBlob(documents))
   await add('data/metadata.json', jsonBlob(metadata))
+  if (isV6) { await add('data/journeys.json', jsonBlob(journeys)); await add('data/accommodations.json', jsonBlob(accommodations)) }
   const extensions = { 'application/pdf': 'pdf', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp' }
   for (const [index, document] of documents.entries()) {
     onProgress(`Vérification des documents : ${index + 1}/${documents.length}`)
@@ -82,12 +93,12 @@ export async function buildExportArchive(snapshot: ExportSnapshot, onProgress: (
     }
     await add(`documents/${String(index + 1).padStart(6, '0')}.${extensions[document.mime]}`, blob, document.id)
   }
-  const localSync = 'sync' in snapshot ? validateSyncLineage({ version: 1, entities: snapshot.sync }, { trips, activities, documents }, snapshot.scope) : undefined
+  const localSync = 'sync' in snapshot ? validateSyncLineage({ version: 1, entities: snapshot.sync }, { trips, activities, documents, journeys, accommodations }, snapshot.scope) : undefined
   const manifest = {
     ...(localSync ? { localSync } : {}),
-    format: 'roam-v2-backup', formatVersion: 1, databaseVersion: snapshot.databaseVersion,
+    format: 'roam-v2-backup', formatVersion: isV6 ? 2 : 1, databaseVersion: snapshot.databaseVersion,
     exportedAt: new Date().toISOString(), snapshotAt: snapshot.snapshotAt, scope: snapshot.scope,
-    encrypted: false, counts: { trips: trips.length, activities: activities.length, documents: documents.length, metadata: metadata.length },
+    encrypted: false, counts: { trips: trips.length, activities: activities.length, documents: documents.length, metadata: metadata.length, ...(isV6 ? {journeys: journeys.length, accommodations: accommodations.length} : {}) },
     inventory,
   }
   onProgress('Création du ZIP…')

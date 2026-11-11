@@ -5,7 +5,7 @@ import { createTripRateResolver } from './automaticRates'
 import { convertMoney, type RateResolution } from './conversion'
 
 export type TripParticipant = { id: string; name: string }
-export type ExpenseReference = { kind: 'activity' | 'transfer'; expenseId: string }
+export type ExpenseReference = { kind: 'activity' | 'transfer' | 'journey' | 'accommodation'; expenseId: string }
 export type ExpenseShare = ExpenseReference & { payerId: string; shares: { participantId: string; weight: number }[]; amount: number; currency: string; updatedAt: string }
 export const expenseReferenceKey = (item: ExpenseReference) => `${item.kind}:${item.expenseId}`
 function object(value: unknown): Record<string, unknown> { if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Données de partage invalides.'); return value as Record<string, unknown> }
@@ -23,7 +23,7 @@ export function validateExpenseShares(value: unknown, participants: readonly Tri
   const ids = new Set(participants.map((item) => item.id)), seen = new Set<string>()
   return value.map((raw) => {
     const item = object(raw)
-    if (item.kind !== 'activity' && item.kind !== 'transfer') throw new Error('Type de dépense partagé invalide.')
+    if (!['activity','transfer','journey','accommodation'].includes(item.kind as string)) throw new Error('Type de dépense partagé invalide.')
     id(item.expenseId); id(item.payerId)
     const key = expenseReferenceKey(item as ExpenseShare)
     if (seen.has(key)) throw new Error('Cette dépense est déjà partagée.'); seen.add(key)
@@ -41,12 +41,13 @@ export function validateExpenseShares(value: unknown, participants: readonly Tri
     const currency = validateCurrency(item.currency)
     if (currency !== item.currency) throw new Error('Devise du partage non normalisée.')
     if (typeof item.updatedAt !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(item.updatedAt) || !Number.isFinite(Date.parse(item.updatedAt)) || new Date(item.updatedAt).toISOString() !== item.updatedAt) throw new Error('Date de partage invalide.')
-    return { kind: item.kind, expenseId: item.expenseId, payerId: item.payerId, amount: item.amount, currency, shares, updatedAt: item.updatedAt }
+    return { kind: item.kind as ExpenseReference['kind'], expenseId: item.expenseId, payerId: item.payerId, amount: item.amount, currency, shares, updatedAt: item.updatedAt }
   })
 }
 export function validateTripSharing(trip: { id: string; participants?: unknown; expenseShares?: unknown; manualTransfers?: readonly { id: string }[] }, activities: ReadonlyMap<string, TripActivity>) {
   const participants = validateParticipants(trip.participants), expenses = validateExpenseShares(trip.expenseShares, participants)
   for (const expense of expenses) {
+    if (expense.kind !== 'activity' && expense.kind !== 'transfer') throw new Error('Partage V6 non autorisé dans les données historiques.')
     if (expense.kind === 'activity' ? activities.get(expense.expenseId)?.tripId !== trip.id : !trip.manualTransfers?.some((item) => item.id === expense.expenseId)) throw new Error('Partage sans dépense du voyage parent.')
   }
   return { participants, expenses }
@@ -89,13 +90,14 @@ export function allocateSharingUnits(units: number, shares: ExpenseShare['shares
   for (const row of ordered) { if (left === 0n) break; row.value++; left-- }
   return new Map(rows.map((row) => [row.id, row.value]))
 }
-export function calculateExpenseSharing(trip: Trip, activities: readonly TripActivity[]) {
+export type SharingSource = ExpenseReference & {label: string; paidAmount?: number; currency?: string}
+export function calculateExpenseSharing(trip: Trip, activities: readonly TripActivity[], canonicalSources?: readonly SharingSource[]) {
   const issues: { key: string; label: string; reason: string }[] = []
   let participants: TripParticipant[], expenses: ExpenseShare[], currency: string
   try { participants = validateParticipants(trip.participants); expenses = validateExpenseShares(trip.expenseShares, participants); currency = validateCurrency(tripReferenceCurrency(trip)) }
   catch (error) { return { status: 'invalid' as const, reason: error instanceof Error ? error.message : 'Partage invalide.' } }
   const digits = new Intl.NumberFormat('fr-FR', { style: 'currency', currency }).resolvedOptions().maximumFractionDigits!, factor = 10 ** digits
-  const sources = new Map(sharingSources(trip, activities).map((item) => [expenseReferenceKey(item), item]))
+  const sources = new Map((canonicalSources ?? sharingSources(trip, activities)).map((item) => [expenseReferenceKey(item), item]))
   const balances = new Map(participants.map((item) => [item.id, { ...item, paid: 0n, owed: 0n }]))
   const resolve = createTripRateResolver(trip), rateCache = new Map<string, RateResolution>()
   let included = 0

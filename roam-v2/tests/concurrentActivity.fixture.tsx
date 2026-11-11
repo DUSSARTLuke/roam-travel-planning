@@ -1,3 +1,11 @@
+import { AccommodationForm } from '../src/components/accommodations/AccommodationSpace'
+import { JourneyFormPanel } from '../src/components/program/JourneyFormPanel'
+import type { Journey } from '../src/evolution/v21/contracts'
+import { refreshLegacyProjection } from '../src/evolution/v21/projection'
+import { createTransferRepository } from '../src/db/transfers'
+import { transferKey, type ManualTransfer } from '../src/db/transferModel'
+import { createV21Repository, type Revision } from '../src/evolution/v21/repository'
+import type { Accommodation } from '../src/evolution/v21/contracts'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useActivityEditSnapshot } from '../src/components/program/useActivityEditSnapshot'
 import { createRef } from 'react'
@@ -23,7 +31,35 @@ export function TestEditor({ initial }: { initial: TripActivity }) {
   const retained = useActivityEditSnapshot('trip', initial.id, rows === undefined ? initial : rows.find((row) => row.id === initial.id))
   return <><button ref={fallback}>Retour test</button>{retained && <ActivityFormPanel tripId="trip" referenceCurrency="EUR" initialDate={initial.date} fallbackDate="2026-12-31" activity={retained} fallbackFocusRef={fallback} readDocuments={documents.listDocuments} readActivity={repository.getActivity} persistActivity={documents.saveActivityWithDocuments} onClose={() => root.render(null)} onSaved={() => { saved++; root.render(null) }} />}</>
 }
+const bridge = createTransferRepository(database)
+let bridgeSnapshot: ManualTransfer
+const v6 = createV21Repository(database)
+let v6Snapshot: {entity: Accommodation; revision: Revision}
 const api = {
+  async openStayUI(){const snapshot=await v6.read('accommodations','trip','hotel'),trip=(await database.trips.get('trip'))!;const trigger=document.createElement('button');document.body.append(trigger);flushSync(()=>root.render(<AccommodationForm key={++editorKey} trip={trip} baseline={snapshot.entity as Accommodation} revision={snapshot.revision} repository={v6} trigger={trigger} onClose={()=>root.render(null)} onSaved={()=>root.render(null)}/>))},
+  async stayUIState(){return {row:await database.accommodations.get('hotel'),operations:await database.syncOutbox.count(),notes:[...document.querySelectorAll('dialog label')].find(label=>label.firstChild?.textContent==='Notes')?.querySelector('textarea')?.value}},
+  async deleteStay(){const latest=await v6.read('accommodations','trip','hotel');await v6.remove('accommodations','trip','hotel',latest.revision)},
+  async openJourneyUI(seed = false) {
+    if(seed){const now=new Date().toISOString();await v6.saveJourney('trip',{id:'journey-ui',tripId:'trip',title:'Trajet initial',stops:[{id:'s1',kind:'home',place:{name:'Maison'}},{id:'s-mid',kind:'station',place:{name:'Correspondance'}},{id:'s2',kind:'station',place:{name:'Gare'}}],segments:[{id:'g',fromStopId:'s1',toStopId:'s-mid',mode:'walk',durationMinutes:10},{id:'g2',fromStopId:'s-mid',toStopId:'s2',mode:'train'}],departure:{date:'2026-12-31'},currency:'EUR',createdAt:now,updatedAt:now})}
+    const snapshot=await v6.read('journeys','trip','journey-ui'),trip=(await database.trips.get('trip'))!
+    const trigger=document.createElement('button');trigger.textContent='Origine trajet test';document.body.append(trigger)
+    flushSync(()=>root.render(<JourneyFormPanel key={++editorKey} trip={trip} activities={[]} initialDate="2026-12-31" baseline={snapshot.entity as Journey} version={snapshot.revision} repository={v6} trigger={trigger} onClose={()=>root.render(null)} onSaved={()=>root.render(null)} />))
+  },
+  async journeyUIState(){return {row:await database.journeys.get('journey-ui'),operations:await database.syncOutbox.count(),notes:[...document.querySelectorAll('dialog label')].find(label=>label.firstChild?.textContent==='Notes')?.querySelector('textarea')?.value,error:document.querySelector('.journey-panel [role="alert"]')?.textContent}},
+  async seedBridge() {
+    const a=await repository.createActivity('trip',{title:'Départ test',category:'visit',date:'2026-12-31',scheduleType:'unscheduled',period:null})
+    const b=await repository.createActivity('trip',{title:'Arrivée test',category:'visit',date:'2026-12-31',scheduleType:'unscheduled',period:null})
+    await bridge.saveTransfer('trip',{fromActivityId:a.id,toActivityId:b.id,mode:'train',currency:'EUR',estimatedCost:12,paidAmount:0})
+  },
+  async openBridge() { bridgeSnapshot=(await database.trips.get('trip'))!.manualTransfers![0] },
+  async saveBridge() { try { await bridge.saveTransfer('trip',{...bridgeSnapshot,notes:'Édition V2'},bridgeSnapshot.id,transferKey(bridgeSnapshot)); return true } catch { return false } },
+  async deleteBridge() { try { await bridge.deleteTransfer('trip',bridgeSnapshot.id,transferKey(bridgeSnapshot)); return true } catch { return false } },
+  async touchBridgeHidden() { await database.transaction('rw',database.tables,async()=>{ const row=(await database.journeys.toArray())[0]; await database.journeys.update(row.id,{reservation:{status:'confirmed',reference:'NATIVE'}}); await refreshLegacyProjection(database,'trip') }) },
+  async bridgeState() { return {rows:await database.journeys.toArray(),projection:(await database.trips.get('trip'))!.manualTransfers,operations:await database.syncOutbox.count()} },
+  async seedV6() { const at = new Date().toISOString(); await v6.saveAccommodation('trip', {id:'hotel',tripId:'trip',place:{name:'Hôtel'},arrivalDate:'2026-12-31',departureDate:'2027-01-01',createdAt:at,updatedAt:at}) },
+  async openV6() { v6Snapshot = await v6.read('accommodations','trip','hotel') as typeof v6Snapshot },
+  async saveV6(name: string) { try { await v6.saveAccommodation('trip',{...v6Snapshot.entity,place:{name}},v6Snapshot.revision); return true } catch { return false } },
+  async stateV6() { return {hotel:await database.accommodations.get('hotel'),operations:await database.syncOutbox.count()} },
   async seed() {
     await database.open()
     if (!await database.trips.get('trip')) await database.trips.add({ id: 'trip', destination: 'Test isolé', country: 'Test', startDate: '2026-12-31', endDate: '2027-01-02', travelers: 1, image: '' })

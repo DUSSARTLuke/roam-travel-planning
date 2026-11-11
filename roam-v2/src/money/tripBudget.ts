@@ -1,3 +1,5 @@
+import { matchingActivityReservations } from '../accommodations/model'
+import type { Journey, Accommodation } from '../evolution/v21/contracts'
 import { getTripDays, parseDate } from '../components/program/dates'
 import { activityBudgetCategory, budgetCategories, type BudgetCategory } from './budgetCategories'
 import type { TripActivity } from '../db/activityModel'
@@ -7,7 +9,7 @@ import { validateTransfer, type ManualTransfer } from '../db/transferModel'
 import { createTripRateResolver } from './automaticRates'
 import { calculateFinancialTotals, type FinancialItem, type FinancialTotals, type RateResolution, type RateResolver } from './conversion'
 
-export type BudgetEntry = FinancialItem & { kind: 'activity' | 'transfer'; category: BudgetCategory; label: string; date: string | null; dateIssue?: string }
+export type BudgetEntry = FinancialItem & { kind: 'activity' | 'transfer' | 'accommodation'; category: BudgetCategory; label: string; date: string | null; dateIssue?: string }
 export type BudgetIssue = { label: string; reason: string }
 export type RemainingUnknown = { id: string; reason: 'missing-estimate' | 'missing-paid' | 'missing-both' | 'invalid-amount' }
 export type BudgetRate = Extract<RateResolution, { status: 'available' }> & { sourceCurrency: string; targetCurrency: string }
@@ -41,7 +43,7 @@ function totalsFor(items: readonly FinancialItem[], target: string, resolve: Rat
 }
 
 // Pure snapshot calculation. No currency filling, writes, fetching or rounding.
-export function buildTripBudget(trip: Trip, activities: readonly TripActivity[]) {
+export function buildTripBudget(trip: Trip, activities: readonly TripActivity[], journeys: readonly Journey[] = [], accommodations:readonly Accommodation[] = []) {
   const issues: BudgetIssue[] = []
   const local = unique(activities.filter((item) => item.tripId === trip.id), (a, b) => sameMoney(a, b) && a.category === b.category && a.date === b.date, issues)
   const byId = new Map(local.map((item) => [item.id, item]))
@@ -62,6 +64,11 @@ export function buildTripBudget(trip: Trip, activities: readonly TripActivity[])
         ...(typeof from.date === 'string' && from.date === to.date && parseDate(from.date) ? {} : { dateIssue: 'Les activités du déplacement n’ont pas de journée commune valide.' }) })
     } catch (error) { issues.push({ label: `Déplacement ${raw.id}`, reason: error instanceof Error ? error.message : 'Données du déplacement invalides.' }) }
   }
+  const projectedIds = new Set(transfers.map(transfer=>transfer.id))
+  const autonomous = unique(journeys.filter(journey=>journey.tripId===trip.id && (!journey.legacy || !projectedIds.has(journey.legacy.id))),sameMoney,issues)
+  for (const journey of autonomous) entries.push({id:`journey:${journey.id}`,kind:'transfer',category:'transport',label:journey.title,estimatedCost:journey.estimatedCost,paidAmount:journey.paidAmount,currency:journey.currency,date:journey.departure?.date??null})
+  const stays=unique(accommodations.filter(stay=>stay.tripId===trip.id),(a,b)=>sameMoney(a,b)&&a.budgetExcluded===b.budgetExcluded,issues)
+  for(const stay of stays){if(stay.budgetExcluded){issues.push({label:stay.place.name,reason:'Montants de cet hébergement exclus volontairement : déjà suivis ailleurs.'});continue}if(matchingActivityReservations(stay,local).length){issues.push({label:stay.place.name,reason:'Référence déjà présente dans une activité : hébergement non intégré, doublon à vérifier. Les montants sont conservés.'});continue}entries.push({id:`accommodation:${stay.id}`,kind:'accommodation',category:'accommodation',label:stay.place.name,estimatedCost:stay.estimatedCost,paidAmount:stay.paidAmount,currency:stay.currency,date:null,dateIssue:'Coût global du séjour, sans répartition artificielle par nuit.'})}
   const resolver = createTripRateResolver(trip), rateCache = new Map<string, RateResolution>(), usedRates: BudgetRate[] = []
   const resolve: RateResolver = (sourceCurrency, targetCurrency) => {
     const key = `${sourceCurrency}/${targetCurrency}`
@@ -100,6 +107,7 @@ export function buildTripBudget(trip: Trip, activities: readonly TripActivity[])
     entries, issues, totals, remaining, dailyTotals, entryTotals, undated: group(undated), outside: group(outside), unknownRemaining, overpaidCount, usedRates,
     hasAmounts: entries.some((item) => item.estimatedCost !== undefined || item.paidAmount !== undefined),
     categoryTotals: budgetCategories.map((category) => ({ ...category, totals: totalsFor(entries.filter((item) => item.category === category.id), target, resolve) })),
+    accommodationTotals:totalsFor(entries.filter(item=>item.kind==='accommodation'),target,resolve),
     activityTotals: totalsFor(entries.filter((item) => item.kind === 'activity'), target, resolve),
     transferTotals: totalsFor(entries.filter((item) => item.kind === 'transfer'), target, resolve),
   }

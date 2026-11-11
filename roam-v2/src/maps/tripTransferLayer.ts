@@ -1,11 +1,11 @@
 import type { GeoJSONSource, Map as LibreMap, MapMouseEvent } from 'maplibre-gl'
-import { transferFeatures, type MapTransfer } from './tripMapTransfers'
+import { transferFeatures, type MapLink } from './tripMapTransfers'
 
 const sourceId = 'roam-manual-transfers'
 const lineId = `${sourceId}-lines`, lineHitId = `${sourceId}-hit`, pointId = `${sourceId}-same-point`
 // Isolated adapter: it never reads/writes the camera, storage or remote services.
 export function mountTransferLayer(map: LibreMap, onSelect: (ids: string[]) => void, onError: () => void) {
-  let live = true, links: readonly MapTransfer[] = [], selected: string | null = null
+  let live = true, links: readonly MapLink[] = [], selected: string | null = null
   let styleReady = map.isStyleLoaded()
   function sync() {
     if (!live || !styleReady) return
@@ -37,7 +37,7 @@ export function mountTransferLayer(map: LibreMap, onSelect: (ids: string[]) => v
   function styleLoaded() { styleReady = true; sync() }
   map.on('style.load', styleLoaded); map.on('click', click); map.on('mousemove', hover)
   return {
-    update(next: readonly MapTransfer[], id: string | null) { if (!live) return; links = next; selected = id; sync() },
+    update(next: readonly MapLink[], id: string | null) { if (!live) return; links = next; selected = id; sync() },
     dispose() {
       if (!live) return; live = false
       map.off('style.load', styleLoaded); map.off('click', click); map.off('mousemove', hover)

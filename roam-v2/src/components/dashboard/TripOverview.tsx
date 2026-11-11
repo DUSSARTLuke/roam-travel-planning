@@ -1,3 +1,10 @@
+import { programJourneyRepository } from '../../db/journeys'
+import { JourneyDetail } from '../program/JourneyProgram'
+import { JourneyFormPanel } from '../program/JourneyFormPanel'
+import { AccommodationDetail, AccommodationForm } from '../accommodations/AccommodationSpace'
+import type { Journey, Accommodation } from '../../evolution/v21/contracts'
+import type { Revision } from '../../evolution/v21/repository'
+import { listProgramJourneys, listMapAccommodations } from '../../db/journeys'
 import { useActivityEditSnapshot } from '../program/useActivityEditSnapshot'
 import { PreparationChecklist } from '../preparation/PreparationChecklist'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -30,17 +37,24 @@ function useLocalClock(enabled: boolean) {
   }, [enabled])
   return clock
 }
-export function TripOverview({ trip, navigate, readActivities = listActivities, clock: suppliedClock }: {
-  trip: Trip; navigate: (tab: 'program' | 'budget') => void; readActivities?: typeof listActivities; clock?: LocalClock
+export function TripOverview({ trip, navigate, readActivities = listActivities, readJourneys = listProgramJourneys, readAccommodations = listMapAccommodations, clock: suppliedClock, repository = programJourneyRepository }: {
+  trip: Trip; navigate: (tab: 'program' | 'budget') => void; readActivities?: typeof listActivities; readJourneys?: typeof listProgramJourneys; readAccommodations?:typeof listMapAccommodations; repository?:typeof programJourneyRepository; clock?: LocalClock
 }) {
   const current = useLocalClock(suppliedClock === undefined), clock = suppliedClock ?? current
   const [attempt, retry] = useState(0), [detailId, setDetailId] = useState<string | null>(null), [editing, setEditing] = useState(false)
   const origin = useRef<HTMLButtonElement>(null), fallback = useRef<HTMLButtonElement>(null)
-  const result = useLiveQuery(() => readActivities(trip.id).then((activities) => ({ id: trip.id, activities, error: '' }), () => ({ id: trip.id, activities: [] as TripActivity[], error: 'Impossible de charger les informations du voyage. Les données locales sont conservées.' })), [trip.id, readActivities, attempt])
+  const result = useLiveQuery(() => Promise.all([readActivities(trip.id),readJourneys(trip.id),readAccommodations(trip.id)]).then(([activities,journeys,accommodations]) => ({ id: trip.id, journeys, accommodations, activities, error: '' }), () => ({ id: trip.id, journeys: [], accommodations: [], activities: [] as TripActivity[], error: 'Impossible de charger les informations du voyage. Les données locales sont conservées.' })), [trip.id, readActivities, readJourneys, readAccommodations, attempt])
+  const [native,setNative]=useState<{kind:'journey'|'accommodation';id:string;trigger:HTMLButtonElement;edit?:{row:Journey|Accommodation;revision:Revision}}|null>(null)
+  const nativeReservations=[...(result?.journeys??[]).map(row=>({kind:'journey' as const,id:row.id,title:row.title,reservation:row.reservation})),...(result?.accommodations??[]).map(row=>({kind:'accommodation' as const,id:row.id,title:row.place.name,reservation:row.reservation}))].filter(row=>row.reservation&&Object.values(row.reservation).some(value=>value!==undefined&&value!==''))
+  const nativeRow=native?.kind==='journey'?result?.journeys.find(row=>row.id===native.id):result?.accommodations.find(row=>row.id===native?.id)
   const activities = result?.id === trip.id && !result.error ? result.activities : emptyActivities
   const overview = useMemo(() => buildTripOverview(trip, activities, clock), [trip, activities, clock])
-  const budget = useMemo(() => buildTripBudget(trip, activities), [trip, activities])
+  const budget = useMemo(() => buildTripBudget(trip, activities, result?.journeys??[],result?.accommodations??[]), [trip, activities, result])
   const ready = result?.id === trip.id && !result.error
+  if(native&&ready&&!nativeRow&&!native.edit)setNative(null)
+  const reservationCount=overview.reservations.length+nativeReservations.length
+  const reservationCounts={...overview.reservationCounts}
+  for(const row of nativeReservations){const key=row.reservation?.status??'unknown';reservationCounts[key]=(reservationCounts[key]??0)+1}
   const liveActivity = activities.find((activity) => activity.tripId === trip.id && activity.id === detailId)
   const detail = useActivityEditSnapshot(trip.id, editing ? detailId : null, liveActivity)
   if (detailId !== null && result?.id === trip.id && !detail) { setDetailId(null); setEditing(false) }
@@ -67,8 +81,8 @@ export function TripOverview({ trip, navigate, readActivities = listActivities, 
         <button ref={fallback} type="button" className="secondary-button" onClick={() => navigate('program')}>Consulter le Programme</button>
       </section>
       <section className="overview-card" aria-labelledby="overview-reservations"><h2 id="overview-reservations">Réservations renseignées</h2>
-        {!overview.reservations.length ? <p>Aucune information de réservation enregistrée.</p> : <><dl className="overview-reservation-counts">{Object.entries(overview.reservationCounts).filter(([, count]) => count > 0).map(([status, count]) => <div key={status}><dt>{status === 'unknown' ? 'Statut non renseigné' : reservationLabels[status as keyof typeof reservationLabels]}</dt><dd>{count}</dd></div>)}</dl>
-          <details><summary>Consulter les activités concernées ({overview.reservations.length})</summary><ul className="overview-reservations">{overview.reservations.map((activity) => <li key={activity.id}><button className="secondary-button" type="button" onClick={(event) => open(activity, event.currentTarget)}>{activity.title}</button><span>{activity.reservationStatus ? reservationLabels[activity.reservationStatus] ?? 'Statut non renseigné' : 'Statut non renseigné'}</span></li>)}</ul></details></>}
+        {!reservationCount ? <p>Aucune information de réservation enregistrée.</p> : <><dl className="overview-reservation-counts">{Object.entries(reservationCounts).filter(([, count]) => count > 0).map(([status, count]) => <div key={status}><dt>{status === 'unknown' ? 'Statut non renseigné' : reservationLabels[status as keyof typeof reservationLabels]}</dt><dd>{count}</dd></div>)}</dl>
+          <details><summary>{nativeReservations.length?'Consulter les réservations concernées':'Consulter les activités concernées'} ({reservationCount})</summary><ul className="overview-reservations">{overview.reservations.map((activity) => <li key={activity.id}><button className="secondary-button" type="button" onClick={(event) => open(activity, event.currentTarget)}>{activity.title}</button><span>{activity.reservationStatus ? reservationLabels[activity.reservationStatus] ?? 'Statut non renseigné' : 'Statut non renseigné'}</span></li>)}{nativeReservations.map(row=><li key={`${row.kind}:${row.id}`}><button type="button" className="secondary-button" onClick={event=>setNative({kind:row.kind,id:row.id,trigger:event.currentTarget})}>{row.title}</button><span>{row.kind==='journey'?'Déplacement':'Hébergement'} · {row.reservation?.status?reservationLabels[row.reservation.status]:'Statut non renseigné'}</span>{row.reservation?.reference&&<span>{row.reservation.reference}</span>}</li>)}</ul></details></>}
         <p className="budget-meta">Seules les informations enregistrées sont résumées. Une référence ou une réservation confirmée ne prouve pas un paiement.</p>
       </section></div>
       <section className="overview-card overview-budget" aria-labelledby="overview-budget"><h2 id="overview-budget">Budget du voyage</h2>
@@ -81,6 +95,8 @@ export function TripOverview({ trip, navigate, readActivities = listActivities, 
         <button type="button" className="secondary-button" onClick={() => navigate('budget')}>Ouvrir le Budget et ses conversions</button>
       </section>
     </>}
+    {ready&&native&&nativeRow&&!native.edit&&(native.kind==='journey'?<JourneyDetail trip={trip} journey={nativeRow as Journey} repository={repository} trigger={native.trigger} onClose={()=>setNative(null)} onEdit={(row,revision)=>setNative({...native,edit:{row,revision}})}/>:<AccommodationDetail trip={trip} stay={nativeRow as Accommodation} repository={repository} trigger={native.trigger} onClose={()=>setNative(null)} onEdit={(row,revision)=>setNative({...native,edit:{row,revision}})}/>)}
+    {ready&&native?.edit&&(native.kind==='journey'?<JourneyFormPanel trip={trip} activities={activities} accommodations={result.accommodations} baseline={native.edit.row as Journey} version={native.edit.revision} repository={repository} initialDate={trip.startDate} trigger={native.trigger} onClose={()=>setNative({...native,edit:undefined})} onSaved={()=>setNative({...native,edit:undefined})}/>:<AccommodationForm trip={trip} baseline={native.edit.row as Accommodation} revision={native.edit.revision} repository={repository} trigger={native.trigger} onClose={()=>setNative({...native,edit:undefined})} onSaved={()=>setNative({...native,edit:undefined})}/>)}
     {ready && detail && !editing && <ActivityDetailPanel trip={trip} activity={detail} returnFocusRef={origin} fallbackFocusRef={fallback} onClose={() => setDetailId(null)} onEdit={() => setEditing(true)} closeLabel="Fermer la fiche et revenir à l’accueil du voyage" />}
     {ready && detail && editing && <ActivityFormPanel tripId={trip.id} referenceCurrency={tripReferenceCurrency(trip)} activity={detail} initialDate={detail.date} fallbackDate={trip.startDate} fallbackFocusRef={origin} onClose={() => setEditing(false)} onSaved={() => setEditing(false)} />}
   </div>

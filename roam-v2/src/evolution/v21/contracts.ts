@@ -24,6 +24,7 @@ export type Journey = Money & {
   legacy?: { kind: 'manualTransfer'; tripId: string; id: string }
 }
 export type Accommodation = Money & {
+  budgetExcluded?: boolean
   id: string; tripId: string; place: Place; arrivalDate: string; departureDate: string
   checkInTime?: string; checkOutTime?: string; reservation?: Reservation; notes?: string
   createdAt: string; updatedAt: string
@@ -54,25 +55,32 @@ export function assertReservation(reservation: Reservation | undefined): void {
   for (const text of [reservation.reference, reservation.provider, reservation.notes]) if (text !== undefined && typeof text !== 'string') throw new Error('Détail de réservation invalide.')
 }
 function assertEntity(entity: { id: string; tripId: string; createdAt: string; updatedAt: string }): void {
-  if (![entity.id, entity.tripId].every(value => typeof value === 'string' && value.trim().length > 0)) throw new Error('Identité ou voyage absent.')
+  if (![entity.id, entity.tripId].every(value => typeof value === 'string' && value.trim().length > 0 && value.length <= 512 && ![...value].some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127))) throw new Error('Identité ou voyage absent.')
   for (const value of [entity.createdAt, entity.updatedAt]) {
     if (!Number.isFinite(Date.parse(value)) || new Date(value).toISOString() !== value) throw new Error('Date technique invalide.')
   }
 }
 export function assertJourney(journey: Journey): void {
+  if (journey.notes !== undefined && typeof journey.notes !== 'string') throw new Error('Notes invalides.')
   assertEntity(journey); assertReservation(journey.reservation)
-  if (!journey.title.trim()) throw new Error('Titre du déplacement obligatoire.')
+  if (typeof journey.title !== 'string' || !journey.title.trim()) throw new Error('Titre du déplacement obligatoire.')
   assertMoney(journey)
   if (journey.stops.length < 2 || journey.stops.length > 100) throw new Error('Deux à cent étapes requises.')
   const ids = new Set(journey.stops.map(stop => stop.id))
   if (ids.size !== journey.stops.length || ids.has('')) throw new Error('Identifiant d’étape dupliqué ou vide.')
-  journey.stops.forEach(stop => assertPlace(stop.place))
+  journey.stops.forEach(stop => {
+    assertPlace(stop.place)
+    if (!['home','station','airport','accommodation','activity','free'].includes(stop.kind) || typeof stop.id !== 'string' || stop.id.length > 512) throw new Error('Étape invalide.')
+    if (stop.link && (!['activity','accommodation'].includes(stop.link.kind) || !['linked','deleted'].includes(stop.link.state) || typeof stop.link.id !== 'string' || !stop.link.id || stop.link.id.length > 512)) throw new Error('Référence d’étape invalide.')
+  })
   if (journey.segments.length !== journey.stops.length - 1) throw new Error('Un segment par paire d’étapes consécutives requis.')
   const segments = new Set<string>()
   journey.segments.forEach((segment, i) => {
     if (!Object.hasOwn(transferModes, segment.mode)) throw new Error('Mode de transport invalide.')
     if (!segment.id || segments.has(segment.id)) throw new Error('Segment dupliqué ou vide.')
     segments.add(segment.id)
+    const from = journey.stops[i].link, to = journey.stops[i+1].link
+    if (from && to && from.kind === to.kind && from.id === to.id) throw new Error('Un segment ne peut pas relier une cible à elle-même.')
     if (segment.fromStopId !== journey.stops[i].id || segment.toStopId !== journey.stops[i + 1].id) throw new Error('Segment non consécutif.')
     if (segment.durationMinutes !== undefined && (!Number.isFinite(segment.durationMinutes) || segment.durationMinutes < 0)) throw new Error('Durée invalide.')
   })
@@ -81,6 +89,8 @@ export function assertJourney(journey: Journey): void {
   // No elapsed-time inference: local moments may belong to different time zones.
 }
 export function assertAccommodation(stay: Accommodation): void {
+  if (stay.notes !== undefined && typeof stay.notes !== 'string') throw new Error('Notes invalides.')
+  if(stay.budgetExcluded!==undefined&&typeof stay.budgetExcluded!=='boolean')throw new Error('Exclusion budgétaire invalide.')
   assertEntity(stay); assertReservation(stay.reservation)
   assertPlace(stay.place); assertMoney(stay)
   if (!isActivityDate(stay.arrivalDate) || !isActivityDate(stay.departureDate) || stay.departureDate < stay.arrivalDate) throw new Error('Période de séjour invalide.')

@@ -22,3 +22,13 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local RC manifests / frozen Wi-Fi fixture: preserve originals outside commits.
+/docs/v21-final-rc.json
+/docs/physical-tests/check-wifi.mjs
+/docs/physical-tests/isolation-results.json
+/docs/release/git-audit.json
+/docs/release/final-results.json
+/docs/release/grace-results.json
+/docs/release/transition-results.json
+/docs/commit-preparation/

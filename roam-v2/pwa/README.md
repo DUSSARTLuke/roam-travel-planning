@@ -227,3 +227,20 @@ Rouvrir ensuite Roam. Un onglet suspendu peut nécessiter la même intervention.
 Les délais sont soumis aux politiques de suspension du navigateur ; les simulations
 ne garantissent pas tous les comportements des onglets en arrière-plan. La détection
 n'est pas immédiate. L'étape 2.5.3c et le déploiement ne sont pas inclus.
+
+## Vérification de stabilisation V2.1f.1
+
+Le runner local `tests/publication.mjs` couvre maintenant une seconde génération
+réelle du service worker, dont seul le BUILD_ID est synthétisé en mémoire :
+aucun fichier applicatif temporaire à committer. Le serveur fournit les mêmes
+ressources vérifiées dans un nouveau cache. Le scénario conserve une saisie
+Hébergement, annule un véritable avertissement Chrome beforeunload, vérifie
+« Plus tard », le report de l'activation tant que le formulaire reste ouvert,
+puis une activation explicite après abandon volontaire de la fixture et un
+seul rechargement. Les données enregistrées et le stockage V1 restent présents.
+
+Ce test utilise un serveur et un profil Chrome temporaires. Il ne publie rien,
+ne teste pas les autorisations GitHub/CDN ni l'installation par le système d'un
+téléphone. Le vote multi-onglets reste couvert par `test:pwa`, et les conflits
+d'écriture par deux onglets réels dans `test:concurrency`. Voir le rapport
+`docs/v21f1-validation.md` avant toute validation manuelle ou publication future.

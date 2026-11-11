@@ -6,7 +6,8 @@ import { fileURLToPath } from 'node:url'
 import vm from 'node:vm'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const read = (path) => readFile(resolve(root, path))
+const buildDirectory = process.argv.find(value=>value.startsWith('--artifact='))?.slice(11) ?? 'dist'
+const read = (path) => readFile(path.startsWith('dist/') ? resolve(root,buildDirectory,path.slice(5)) : resolve(root,path))
 const hash = (content) => createHash('sha256').update(content).digest('hex')
 const manifest = JSON.parse(await read('public/manifest.webmanifest'))
 assert.equal(manifest.name, 'Roam')
@@ -155,7 +156,7 @@ await updateScenario([true, true], false, true)
 console.log('Update protocol checks passed: explicit request, all-tab votes, refusal/timeout/new tab, concurrent clicks and no V1 messages.')
 
 if (!process.argv.includes('--source-only')) {
-  await access(resolve(root, 'dist/sw.js'))
+  await access(resolve(root,buildDirectory,'sw.js'))
   const built = JSON.parse(await read('dist/precache-manifest.json'))
   const sw = (await read('dist/sw.js')).toString()
   assert.match(built.buildId, /^[a-f0-9]{24}$/)
@@ -169,7 +170,7 @@ if (!process.argv.includes('--source-only')) {
     assert(!/\.(zip|pdf|map|json)$/.test(entry.path))
     assert.equal(hash(await read(`dist/${entry.path}`)), entry.sha256, `Build hash mismatch: ${entry.path}`)
   }
-  const optionalMapAssets = (await readdir(resolve(root, 'dist/assets'))).filter((path) => /^(?:maplibrePreview|maplibre-gl-worker)[-.]/.test(path))
+  const optionalMapAssets = (await readdir(resolve(root,buildDirectory,'assets'))).filter((path) => /^(?:maplibrePreview|maplibre-gl-worker)[-.]/.test(path))
   assert(optionalMapAssets.some((path) => /^maplibrePreview-.*\.js$/.test(path)), 'Lazy MapLibre chunk missing')
   assert(optionalMapAssets.some((path) => /^maplibre-gl-worker-.*\.js$/.test(path)), 'Bundled map worker missing')
   for (const path of optionalMapAssets) assert(!built.entries.some((entry) => entry.path === `assets/${path}`), `Optional map asset precached: ${path}`)

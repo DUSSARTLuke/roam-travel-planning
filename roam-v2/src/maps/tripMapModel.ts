@@ -2,7 +2,7 @@ import type { TripActivity } from '../db/activityModel'
 import { activityMapPoint } from './mapPoint'
 
 export const MERCATOR_LIMIT = 85.051129
-export type TripMapPoint = { id: string; title: string; latitude: number; longitude: number; name: string }
+export type TripMapPoint = { id: string; title: string; latitude: number; longitude: number; name: string; kind?: 'activity'|'home'|'station'|'airport'|'accommodation'|'free' }
 export function tripMapPoints(activities: readonly TripActivity[], tripId: string): TripMapPoint[] {
   return activities.flatMap((activity) => {
     if (activity.tripId !== tripId) return []

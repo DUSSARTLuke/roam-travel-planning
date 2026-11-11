@@ -1,3 +1,10 @@
+import { testFinalBackup } from './finalBackup.browser'
+import { testV21Stabilization } from './v21Stabilization.browser'
+import { testAccommodationInterface } from './accommodationInterface.browser'
+import { testJourneyStages } from './journeyStages.browser'
+import { testJourneyInterface } from './journeyInterface.browser'
+import { testLegacyBridge } from './legacyBridge.browser'
+import { testV21Persistence, testV6RollbackAndEmpty } from './v21-persistence.browser'
 import { testVolumeMigration } from './volumeMigration.browser'
 import { activityVersion } from '../src/db/activityRevision'
 import { testActivityDeletion } from './activityDeletion.browser'
@@ -206,6 +213,14 @@ button.addEventListener('click', async () => {
   button.disabled = true
   results.textContent = ''
   try {
+    await testFinalBackup((message) => { results.textContent += `✓ ${message}\n` })
+    await testV21Stabilization((message) => { results.textContent += `✓ ${message}\n` })
+    await testAccommodationInterface((message) => { results.textContent += `✓ ${message}\n` })
+    await testJourneyStages((message) => { results.textContent += `✓ ${message}\n` })
+    await testJourneyInterface((message) => { results.textContent += `✓ ${message}\n` })
+    await testLegacyBridge((message) => { results.textContent += `✓ ${message}\n` })
+    await testV6RollbackAndEmpty((message) => { results.textContent += `✓ ${message}\n` })
+    await testV21Persistence((message) => { results.textContent += `✓ ${message}\n` })
     await testVolumeMigration((message) => { results.textContent += `✓ ${message}\n` })
     await testActivityDeletion((message) => { results.textContent += `✓ ${message}\n` })
     await testLocalSync((message) => { results.textContent += `✓ ${message}\n` })
@@ -260,3 +275,6 @@ button.addEventListener('click', async () => {
     button.disabled = false
   }
 })
+
+// Runners must wait for imported modules and listeners, not just network completion.
+document.body.dataset.testsReady = 'true'

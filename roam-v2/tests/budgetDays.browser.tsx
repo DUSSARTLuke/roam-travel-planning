@@ -1,3 +1,4 @@
+const noStays=async()=>[]
 import { createRoot } from 'react-dom/client'
 import { flushSync } from 'react-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -64,7 +65,7 @@ export async function testBudgetDays(report: (message: string) => void) {
   const read = (id: string) => { reads++; return activities.listActivities(id) }
   function Harness() {
     const current = useLiveQuery(() => database.trips.get(trip.id), [])
-    return current ? <TripBudget trip={current} readActivities={read} /> : null
+    return current ? <TripBudget readAccommodations={noStays} readJourneys={async()=>[]} trip={current} readActivities={read} /> : null
   }
   const wait = async (condition: () => boolean) => { const end = performance.now() + 5000; while (!condition() && performance.now() < end) await new Promise((resolve) => setTimeout(resolve, 20)); assert(condition(), 'Graphique quotidien non actualisé.') }
   const dayButton = (date: string) => host.querySelector<HTMLButtonElement>(`[data-budget-day="${date}"]`)!

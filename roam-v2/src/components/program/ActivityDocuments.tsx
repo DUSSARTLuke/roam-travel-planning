@@ -2,19 +2,21 @@ import { useRef, useState } from 'react'
 import { DocumentViewer } from './DocumentViewer'
 import { DocumentDeleteConfirmation } from './DocumentDeleteConfirmation'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { listDocuments } from '../../db/documents'
+import { listDocuments, getDocument } from '../../db/documents'
 import { documentSizeLabel, type ActivityDocument, type DocumentMime } from '../../db/documentModel'
 
 export type PendingDocument = { file: File; mime: DocumentMime }
 type Props = {
   tripId: string
   activityId: string | null
+  readDocument?: typeof getDocument
+  removeDocument?: (tripId:string,activityId:string,id:string,expected?:string)=>Promise<void>
   readDocuments?: typeof listDocuments
   pending?: PendingDocument[]
   onSelect?: (files: File[], storedCount: number) => void
 }
 
-export function ActivityDocuments({ tripId, activityId, pending = [], onSelect, readDocuments = listDocuments }: Props) {
+export function ActivityDocuments({ tripId, activityId, pending = [], onSelect, readDocuments = listDocuments, readDocument, removeDocument }: Props) {
   const [panel, setPanel] = useState<{ kind: 'view' | 'delete'; document: ActivityDocument } | null>(null)
   const [notice, setNotice] = useState('')
   const sectionRef = useRef<HTMLElement>(null)
@@ -60,9 +62,9 @@ export function ActivityDocuments({ tripId, activityId, pending = [], onSelect, 
       </li>)}
     </ul>
     {panel && activityId !== null && (panel.kind === 'view'
-      ? <DocumentViewer key={panel.document.id} tripId={tripId} activityId={activityId} document={panel.document} fallbackFocusRef={sectionRef}
+      ? <DocumentViewer readDocument={readDocument} key={panel.document.id} tripId={tripId} activityId={activityId} document={panel.document} fallbackFocusRef={sectionRef}
           onClose={() => setPanel(null)} />
-      : <DocumentDeleteConfirmation tripId={tripId} activityId={activityId} document={panel.document} fallbackFocusRef={sectionRef}
+      : <DocumentDeleteConfirmation removeDocument={removeDocument} tripId={tripId} activityId={activityId} document={panel.document} fallbackFocusRef={sectionRef}
           onClose={() => setPanel(null)} onDeleted={() => { setPanel(null); setNotice('Document supprimé.'); sectionRef.current?.focus() }} />)}
   </>
   return onSelect ? <details className="activity-extra"><summary>Documents</summary>{content}</details>

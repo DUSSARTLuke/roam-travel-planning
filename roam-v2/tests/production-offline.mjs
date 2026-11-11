@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import net from 'node:net'
+const releaseArtifact=process.argv.find(value=>value.startsWith('--artifact='))?.slice(11)
 const root = fileURLToPath(new URL('../', import.meta.url))
 const profile = mkdtempSync(join(tmpdir(), 'roam-map-tests-'))
 const port = await new Promise((resolve) => { const server = net.createServer(); server.listen(0, '127.0.0.1', () => { const port = server.address().port; server.close(() => resolve(port)) }) })
@@ -12,12 +13,12 @@ const pause = (delay) => new Promise((resolve) => setTimeout(resolve, delay))
 let socket
 let serverLog = ''
 try {
-  const vite = spawn(process.execPath, [join(root, 'node_modules/vite/bin/vite.js'), 'preview', '--host', '127.0.0.1', '--port', String(port), '--strictPort'], { cwd: root, stdio: ['ignore','pipe','pipe'], windowsHide: true })
+  const vite = spawn(process.execPath, [join(root, 'node_modules/vite/bin/vite.js'), 'preview', '--host', '127.0.0.1', '--port', String(port), '--strictPort',...(releaseArtifact?['--outDir',releaseArtifact,'--base','/roam-travel-planning/']:[])], { cwd: root, stdio: ['ignore','pipe','pipe'], windowsHide: true })
   children.push(vite)
   vite.stdout.on('data', (data) => { serverLog += data }); vite.stderr.on('data', (data) => { serverLog += data })
-  const address = `http://127.0.0.1:${port}`
+  const address = `http://127.0.0.1:${port}`+(releaseArtifact?'/roam-travel-planning':'')
   let ready = false
-  for (let i = 0; i < 100; i++) { try { if ((await fetch(address)).ok) { ready = true; break } } catch {} await pause(100) }
+  for (let i = 0; i < 100; i++) { try { if ((await fetch(address+'/')).ok) { ready = true; break } } catch {} await pause(100) }
   if (!ready) throw new Error('Vite indisponible: ' + serverLog)
   const chrome = spawn(process.env.ROAM_CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe', ['--headless=new', '--disable-gpu', '--no-first-run', '--no-default-browser-check', '--disable-background-networking', '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank'], { stdio: 'ignore', windowsHide: true })
   children.push(chrome)
@@ -98,6 +99,39 @@ try {
   await wait(`Boolean(document.querySelector('.program-empty'))`, 'Suppression persistée offline')
   console.log('PASS : suppression et cascade persistées après une deuxième réouverture hors ligne.')
 
+  await wait(`Boolean([...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Nouveau déplacement'&&!b.disabled))`, 'Déplacement autonome disponible hors ligne')
+  await click('Nouveau déplacement');await wait(`Boolean(document.querySelector('#journey-form-title'))`,'Formulaire autonome offline')
+  const setJourneyField=async(label,value)=>checked(`(()=>{const l=[...document.querySelectorAll('dialog label')].find(l=>(l.textContent?.trim()===${JSON.stringify(label)}||l.firstChild?.textContent?.trim()===${JSON.stringify(label)}));const i=l.querySelector('input,textarea');Object.getOwnPropertyDescriptor(i instanceof HTMLTextAreaElement?HTMLTextAreaElement.prototype:HTMLInputElement.prototype,'value').set.call(i,${JSON.stringify(value)});i.dispatchEvent(new Event('input',{bubbles:true}))})()`)
+  await setJourneyField('Lieu de départ','Maison offline');await setJourneyField('Lieu d’arrivée','Gare offline');await setJourneyField('Coût estimé','7');await click('Ajouter une étape');await setJourneyField('Lieu étape 1','Station offline');await setJourneyField('Durée segment 1 (minutes)','15')
+  await click('Créer le déplacement');await wait(`document.querySelector('#journey-detail-title')?.textContent==='Maison offline → Gare offline'`,'Création autonome offline')
+  await click('Modifier le déplacement');await wait(`Boolean(document.querySelector('#journey-form-title'))`,'Édition autonome offline');await setJourneyField('Notes','Note offline persistée');await click('Enregistrer les modifications')
+  await wait(`Boolean(document.querySelector('#journey-detail-title'))`,'Modification autonome offline');await click('Fermer')
+  await command('Page.navigate',{url:'about:blank'});await command('Page.navigate',{url:address+'/'})
+  await wait(`Boolean(document.querySelector('[aria-label="Ouvrir le voyage Londres"]'))`,'Redémarrage déplacement offline')
+  await checked(`document.querySelector('[aria-label="Ouvrir le voyage Londres"]').click()`);await click('Programme')
+  await wait(`Boolean(document.querySelector('[aria-label="Consulter le déplacement Maison offline → Gare offline"]')&&!document.querySelector('[aria-label="Consulter le déplacement Maison offline → Gare offline"]').disabled)`,'Persistance autonome offline')
+  await checked(`document.querySelector('[aria-label="Consulter le déplacement Maison offline → Gare offline"]').click()`)
+  await wait(`Boolean(document.querySelector('#journey-detail-title'))`,'Fiche autonome après redémarrage')
+  if(!await checked(`document.body.textContent.includes('Note offline persistée')&&document.body.textContent.includes('Station offline')&&document.querySelectorAll('.journey-segments li').length===2`))throw Error('Notes autonomes perdues offline')
+  await click('Supprimer le déplacement');await wait(`Boolean([...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Confirmer la suppression du déplacement'))`,'Confirmation autonome offline')
+  await click('Confirmer la suppression du déplacement');await wait(`!document.querySelector('dialog')&&!document.querySelector('[aria-label="Consulter le déplacement Maison offline → Gare offline"]')`,'Suppression autonome offline')
+  console.log('PASS : création, édition, réouverture et suppression d’un déplacement autonome multi-étapes via UI, réseau réellement coupé.')
+
+  await click('Accueil');await checked(`([...document.querySelectorAll('button')].find(b=>b.querySelector('strong')?.textContent==='Hébergements')).click()`);await wait(`Boolean([...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Nouvel hébergement'))`,'Accès Hébergements offline')
+  await click('Nouvel hébergement');await wait(`Boolean(document.querySelector('.accommodation-form'))`,'Formulaire séjour offline')
+  await setJourneyField('Nom de l’hébergement','Hôtel offline');await setJourneyField('Coût estimé','80');
+  await wait(`Boolean(document.querySelector('.accommodation-form input[type=file]')&&!document.querySelector('.accommodation-form input[type=file]').disabled)`,'Document séjour prêt')
+  await checked(`(()=>{const dt=new DataTransfer();const bytes=Uint8Array.from(atob('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWQ0AAAAASUVORK5CYII='),c=>c.charCodeAt(0));dt.items.add(new File([bytes],'hotel-offline.png',{type:'image/png'}));const f=document.querySelector('.accommodation-form input[type=file]');f.files=dt.files;f.dispatchEvent(new Event('change',{bubbles:true}))})()`)
+  await wait(`document.body.textContent.includes('En attente d’enregistrement')&&!document.querySelector('.accommodation-form button[type=submit]').disabled`,'Validation document séjour offline')
+  await click('Enregistrer l’hébergement');await wait(`Boolean(document.querySelector('.stay-detail'))`,'Création séjour offline')
+  await click('Modifier l’hébergement');await wait(`Boolean(document.querySelector('.accommodation-form'))`,'Édition séjour offline');await setJourneyField('Notes','Note séjour offline');await click('Enregistrer l’hébergement');await wait(`Boolean(document.querySelector('.stay-detail'))`,'Modification séjour offline');await click('Fermer')
+  await command('Page.navigate',{url:'about:blank'});await command('Page.navigate',{url:address+'/'})
+  await wait(`Boolean(document.querySelector('[aria-label="Ouvrir le voyage Londres"]'))`,'Redémarrage séjour offline');await checked(`document.querySelector('[aria-label="Ouvrir le voyage Londres"]').click()`);await checked(`([...document.querySelectorAll('button')].find(b=>b.querySelector('strong')?.textContent==='Hébergements')).click()`)
+  await wait(`Boolean(document.querySelector('[aria-label="Consulter l’hébergement Hôtel offline"]'))`,'Séjour conservé offline');await checked(`document.querySelector('[aria-label="Consulter l’hébergement Hôtel offline"]').click()`);await wait(`Boolean(document.querySelector('.stay-detail'))`,'Fiche séjour offline')
+  if(!await checked(`document.body.textContent.includes('Note séjour offline')`))throw Error('Notes hébergement perdues offline')
+  await wait(`Boolean(document.querySelector('[aria-label="Consulter hotel-offline.png"]'))`,'Document séjour après redémarrage offline');await checked(`document.querySelector('[aria-label="Consulter hotel-offline.png"]').click()`);await wait(`Boolean(document.querySelector('.document-viewer img')?.naturalWidth)`,'Image séjour locale offline');await checked(`document.querySelector('.document-viewer-header button').click()`);await wait(`!document.querySelector('.document-viewer')`,'Retour fiche séjour offline')
+  await click('Supprimer l’hébergement');await wait(`Boolean([...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Confirmer la suppression de l’hébergement'))`,'Confirmation séjour offline');await click('Confirmer la suppression de l’hébergement');await wait(`!document.querySelector('dialog')&&!document.querySelector('[aria-label="Consulter l’hébergement Hôtel offline"]')`,'Suppression séjour offline')
+  console.log('PASS : Accueil → Hébergements, création, édition, réouverture, image IndexedDB locale et suppression via vrais formulaires du build production hors connexion.')
   console.log('Profil temporaire uniquement ; aucune donnée utilisateur consultée ou modifiée.')
 
 } finally {

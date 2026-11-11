@@ -3,7 +3,10 @@ export const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024
 export type DocumentMime = 'application/pdf' | 'image/jpeg' | 'image/png' | 'image/webp'
 export type ActivityDocument = {
   id: string
+  // Legacy UI facade: non-activity owners are accessed through the V6 repository.
   activityId: string
+  tripId?: string
+  owner?: import('../evolution/v21/contracts').Owner
   name: string
   mime: DocumentMime
   size: number

@@ -33,7 +33,7 @@ async function inspectZip(blob: Blob) {
   assert(view.getUint32(end + 16, true) === offset && view.getUint32(end + 12, true) === end - offset, 'Offsets ZIP invalides.')
   const json = (path: string) => JSON.parse(new TextDecoder().decode(files.get(path)!))
   const manifest = json('manifest.json')
-  assert(manifest.format === 'roam-v2-backup' && manifest.formatVersion === 1 && manifest.encrypted === false, 'Manifeste invalide.')
+  assert(manifest.format === 'roam-v2-backup' && manifest.formatVersion === 2 && manifest.encrypted === false, 'Manifeste invalide.')
   for (const entry of manifest.inventory) {
     const data = files.get(entry.path)
     assert(data && data.length === entry.size, 'Inventaire incomplet.')
@@ -99,7 +99,7 @@ export async function testBackups(report: (message: string) => void) {
     await exportBackup({ mode: 'full' }, undefined, database)
     await database.transaction('rw', database.tables, async () => { for (const table of database.tables) await table.clear() })
     const empty = await inspectZip((await exportBackup({ mode: 'full' }, undefined, database)).blob)
-    assert(empty.manifest.counts.trips === 0 && empty.manifest.counts.documents === 0 && empty.files.size === 5, 'Base vide incorrecte.')
+    assert(empty.manifest.counts.trips === 0 && empty.manifest.counts.documents === 0 && empty.files.size === 7 && empty.manifest.counts.journeys === 0 && empty.manifest.counts.accommodations === 0, 'Base vide incorrecte.')
     report('Sauvegarde : snapshot immuable, incohérences refusées, erreur puis nouvelle tentative et base vide.')
   } finally { database.close(); await database.delete() }
 }

@@ -1,5 +1,7 @@
 # Roam V2.1a — contrats et préparation de migration
 
+> État historique V2.1a. La réalisation V2.1b et les adaptations de compatibilité sont décrites dans [v21-v6-zip2.md](v21-v6-zip2.md).
+
 Décisions du 10 novembre 2026. **Aucune V6 enregistrée, aucun nouveau format ZIP lu/écrit par l’application.** La base reste V5 et l’export reste au format 1. Les modules `src/evolution/v21/` ne sont importés par aucun écran/repository de production. Leur simulateur ne contient aucun accès Dexie, réseau, horloge ou génération d’ID.
 
 ## Contrats

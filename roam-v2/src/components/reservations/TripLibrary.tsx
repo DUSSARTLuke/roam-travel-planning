@@ -1,3 +1,5 @@
+import { AccommodationSpace } from '../accommodations/AccommodationSpace'
+import { programJourneyRepository } from '../../db/journeys'
 import { useActivityEditSnapshot } from '../program/useActivityEditSnapshot'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
@@ -16,8 +18,8 @@ import { DocumentViewer } from '../program/DocumentViewer'
 import './trip-library.css'
 
 type Panel = { kind: 'activity' | 'edit'; activityId: string; returnToActivity?: boolean } | { kind: 'document'; document: ActivityDocument }
-export function TripLibrary({ trip, onClose, backLabel = 'Retour au tableau de bord', readLibrary = readTripLibrary, readDocument = getDocument }: {
-  trip: Trip; onClose: () => void; backLabel?: string; readLibrary?: typeof readTripLibrary; readDocument?: typeof getDocument
+export function TripLibrary({ trip, onClose, backLabel = 'Retour au tableau de bord', readLibrary = readTripLibrary, readDocument = getDocument, repository = programJourneyRepository }: {
+  trip: Trip; onClose: () => void; backLabel?: string; readLibrary?: typeof readTripLibrary; repository?: typeof programJourneyRepository; readDocument?: typeof getDocument
 }) {
   const [filters, setFilters] = useState(initialLibraryFilters), [attempt, retry] = useState(0), [panel, setPanel] = useState<Panel | null>(null), [notice, setNotice] = useState('')
   const fallback = useRef<HTMLButtonElement>(null), origin = useRef<HTMLButtonElement>(null), heading = useRef<HTMLHeadingElement>(null)
@@ -40,7 +42,7 @@ export function TripLibrary({ trip, onClose, backLabel = 'Retour au tableau de b
   return <section className="trip-library" aria-labelledby="trip-library-title">
     <button type="button" className="back-button" onClick={onClose}>{backLabel}</button>
     <h2 id="trip-library-title" ref={heading} tabIndex={-1}>Réservations et documents</h2>
-    <p>Les informations et pièces jointes de tes activités, réunies ici sans créer de copies.</p>
+    <p>Les réservations et pièces jointes des activités et hébergements, réunies sans créer de copies.</p>
     {!result || result.tripId !== trip.id ? <p role="status">Chargement des réservations et documents…</p> : result.error ? <div role="alert"><p>{result.error}</p><button type="button" className="secondary-button" onClick={() => retry((value) => value + 1)}>Réessayer cet espace</button></div> : <>
       <div className="library-filters"><label>Rechercher<input type="search" value={filters.query} placeholder="Lieu, référence, fichier…" onChange={(event) => change('query', event.target.value)} /></label>
         <label>Type<select value={filters.type} onChange={(event) => change('type', event.target.value as LibraryFilters['type'])}><option value="all">Tous les types</option>{Object.entries(reservationTypeLabels).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
@@ -50,7 +52,7 @@ export function TripLibrary({ trip, onClose, backLabel = 'Retour au tableau de b
       <button ref={fallback} type="button" className="secondary-button" onClick={() => setFilters(initialLibraryFilters)}>Réinitialiser la recherche et les filtres</button>
       <p role="status">{visible.length} activité(s) affichée(s) · {visible.reduce((sum, entry) => sum + entry.documents.length, 0)} document(s) associé(s).</p>
       <p className="activity-meta">Un document n’implique pas une réservation confirmée. Le type suit le classement renseigné, sinon la catégorie de l’activité. Tu peux notamment choisir Hébergement dans sa section Réservation.</p>
-      {!entries.length ? <p className="library-empty">Aucune réservation renseignée ni pièce jointe pour ce voyage. Ajoute-les depuis les activités du Programme.</p> : !visible.length ? <p className="library-empty">Aucun résultat ne correspond à cette recherche ou à ces filtres.</p> : Object.entries(reservationTypeLabels).map(([type, label]) => {
+      {!entries.length ? (snapshot?.accommodations?.length?null:<p className="library-empty">Aucune réservation renseignée ni pièce jointe pour ce voyage. Ajoute-les depuis les activités du Programme ou les Hébergements.</p>) : !visible.length ? <p className="library-empty">{snapshot?.accommodations?.length?'Aucune activité ne correspond à cette recherche ou à ces filtres. Consulte les hébergements ci-dessous.':'Aucun résultat ne correspond à cette recherche ou à ces filtres.'}</p> : Object.entries(reservationTypeLabels).map(([type, label]) => {
         const group = visible.filter((entry) => entry.type === type)
         return group.length > 0 && <section key={type} className="library-group" aria-label={label}><h3>{label} ({group.length})</h3><ul className="library-entries">{group.map(({ activity, documents, reservation }) => <li key={activity.id} className="library-entry" data-library-activity={activity.id}>
           <h4>{activity.title}</h4><p>{activity.date === null ? 'Idée à planifier · sans date' : <time dateTime={activity.date}>{date(activity.date)}</time>} · {activityScheduleLabel(activity)}</p>
@@ -63,6 +65,7 @@ export function TripLibrary({ trip, onClose, backLabel = 'Retour au tableau de b
         </li>)}</ul></section>
       })}
     </>}
+    {ready&&snapshot&&<AccommodationSpace trip={trip} repository={repository} filters={filters} readStays={async()=>snapshot.accommodations??[]} libraryDocuments={snapshot.accommodationDocuments??[]}/>}
     {notice && <p role="status">{notice}</p>}
     {ready && selectedDocument && <DocumentViewer key={`${trip.id}:${selectedDocument.id}`} tripId={trip.id} activityId={selectedDocument.activityId} document={selectedDocument} readDocument={readDocument} fallbackFocusRef={fallback} onClose={() => setPanel(null)} />}
     {ready && selectedActivity && panel?.kind === 'activity' && <ActivityDetailPanel trip={trip} activity={selectedActivity} returnFocusRef={origin} fallbackFocusRef={fallback} onClose={() => setPanel(null)} onEdit={() => setPanel({ kind: 'edit', activityId: selectedActivity.id, returnToActivity: true })} closeLabel="Fermer la fiche et revenir aux réservations et documents" />}

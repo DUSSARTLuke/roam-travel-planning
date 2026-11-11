@@ -21,7 +21,7 @@ export async function restoreLineage(database: RoamDatabase, states: readonly En
       installation = { ...installation, sequence: (installation.sequence ?? 0) + 1 }
       await database.syncMeta.put(installation)
       await database.syncOutbox.add({ id: `${installation.installationId}:${installation.sequence}`, groupId, installationId: installation.installationId,
-        entityKey: state.key, identity: state.identity, revision, previousRevision: state.revision, kind: 'delete', createdAt: now, status: 'pending' })
+        entityKey: state.key, identity: state.identity, revision, previousRevision: state.revision, kind: 'delete', createdAt: now, status: 'pending', protocolVersion: 2 })
     }
   }
 }

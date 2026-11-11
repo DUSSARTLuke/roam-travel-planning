@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import { deleteDocument } from '../../db/documents'
 import type { ActivityDocument } from '../../db/documentModel'
 
-type Props = { tripId: string; activityId: string; document: ActivityDocument; fallbackFocusRef: RefObject<HTMLElement | null>; onClose: () => void; onDeleted: () => void }
-export function DocumentDeleteConfirmation({ tripId, activityId, document, fallbackFocusRef, onClose, onDeleted }: Props) {
+type Props = { tripId: string; activityId: string; document: ActivityDocument; fallbackFocusRef: RefObject<HTMLElement | null>; onClose: () => void; onDeleted: () => void; removeDocument?: (tripId:string,activityId:string,id:string,expected?:string)=>Promise<void> }
+export function DocumentDeleteConfirmation({ tripId, activityId, document, fallbackFocusRef, onClose, onDeleted, removeDocument = deleteDocument }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const lock = useRef(false)
   const [busy, setBusy] = useState(false)
@@ -23,7 +23,7 @@ export function DocumentDeleteConfirmation({ tripId, activityId, document, fallb
     lock.current = true
     setBusy(true)
     setError('')
-    try { await deleteDocument(tripId, activityId, document.id); onDeleted() }
+    try { await removeDocument(tripId, activityId, document.id, JSON.stringify(document)); onDeleted() }
     catch (caught) { setError(caught instanceof Error ? caught.message : 'Impossible de supprimer ce document. Réessaie.') }
     finally { lock.current = false; setBusy(false) }
   }

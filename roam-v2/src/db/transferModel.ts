@@ -10,7 +10,7 @@ export type TransferInput = {
   fromActivityId: string; toActivityId: string; mode: TransferMode
   durationMinutes?: number; paidAmount?: number; estimatedCost?: number; currency: string; notes?: string
 }
-export type ManualTransfer = TransferInput & { id: string; createdAt: string; updatedAt: string }
+export type ManualTransfer = TransferInput & { id: string; createdAt: string; updatedAt: string; _journeyVersion?: { identity: string; revision: number } }
 function object(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Déplacement invalide.')
   return value as Record<string, unknown>

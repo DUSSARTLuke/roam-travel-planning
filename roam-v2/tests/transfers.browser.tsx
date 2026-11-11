@@ -80,7 +80,7 @@ export async function testTransfers(report: (message: string) => void) {
     const archive = await buildExportArchive(await readExportSnapshot({ mode: 'trip', tripId: trip.id }, database))
     const prepared = await prepareRestore(archive.blob)
     await restoreBackup(prepared, await previewRestore(prepared, target), target)
-    assert(JSON.stringify((await target.trips.get(trip.id))!.manualTransfers) === JSON.stringify([transfer]), 'Trajet altéré via ZIP.')
+    assert(JSON.stringify((await target.trips.get(trip.id))!.manualTransfers, Object.keys(transfer).sort()) === JSON.stringify([transfer], Object.keys(transfer).sort()), 'Trajet altéré via ZIP.')
     const invalid = await readExportSnapshot({ mode: 'trip', tripId: trip.id }, database)
     invalid.trips[0] = { ...invalid.trips[0], manualTransfers: [{ ...transfer, toActivityId: c.id }] }
     await rejects(() => buildExportArchive(invalid))

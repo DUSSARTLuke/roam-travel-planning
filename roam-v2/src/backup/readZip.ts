@@ -10,7 +10,8 @@ export const RESTORE_LIMITS = {
 } as const
 
 const jsonPaths = new Set(['manifest.json', 'data/trips.json', 'data/activities.json', 'data/documents.json', 'data/metadata.json'])
-function fail(): never { throw new Error('ZIP malformé ou non compatible avec les sauvegardes Roam V2 au format 1.') }
+const extraJsonPaths = new Set(['data/journeys.json', 'data/accommodations.json'])
+function fail(): never { throw new Error('ZIP malformé ou non compatible avec les sauvegardes Roam V2 aux formats 1 et 2.') }
 
 // Deliberately accepts only the ZIP STORE subset written by createStoredZip.
 // No decompression, ZIP64, comments, symlinks, descriptors or extra fields.
@@ -40,7 +41,7 @@ export async function readBackupZip(archive: Blob, progress: (message: string) =
       central.getUint16(cursor + 34, true) !== 0 || central.getUint16(cursor + 36, true) !== 0 || central.getUint32(cursor + 38, true) !== 0 ||
       nameSize === 0 || cursor + 46 + nameSize > directory.length || localOffset !== expectedOffset) fail()
     const name = decoder.decode(directory.slice(cursor + 46, cursor + 46 + nameSize))
-    const isJson = jsonPaths.has(name)
+    const isJson = jsonPaths.has(name) || extraJsonPaths.has(name)
     if ((!isJson && !/^documents\/\d{6}\.(pdf|jpg|png|webp)$/.test(name)) || entries.has(name) || (index === 0 && name !== 'manifest.json')) {
       throw new Error('Chemin ZIP dangereux, inattendu ou dupliqué. Aucun import effectué.')
     }

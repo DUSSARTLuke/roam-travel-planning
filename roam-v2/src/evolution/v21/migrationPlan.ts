@@ -24,7 +24,7 @@ function snapshotPlace(activity: TripActivity): Place {
 }
 // Simulation only. Input is cloned; no Dexie open, write, random ID or clock.
 // Returns a proposed V6 payload, NOT a runnable migration or restore operation.
-export function planV6(snapshot: LegacySnapshot) {
+export function planV6(snapshot: LegacySnapshot, allocateJourneyId = legacyJourneyId) {
   if (![4, 5].includes(snapshot.databaseVersion)) throw new Error('Schéma source incompatible.')
   const source = structuredClone(snapshot)
   const trips = unique(source.trips, 'Voyages'), activities = unique(source.activities, 'Activités')
@@ -38,7 +38,7 @@ export function planV6(snapshot: LegacySnapshot) {
     const transfers = validateTripTransfers(trip.manualTransfers, trip.id, activities)
     for (const transfer of transfers) {
       const from = activities.get(transfer.fromActivityId)!, to = activities.get(transfer.toActivityId)!
-      const id = legacyJourneyId(trip.id, transfer.id)
+      const id = allocateJourneyId(trip.id, transfer.id)
       const journey: Journey = {
         id, tripId: trip.id, title: `${from.title} → ${to.title}`,
         stops: [from, to].map((activity, index) => ({ id: `${id}:stop:${index}`, kind: 'activity', place: snapshotPlace(activity), link: { kind: 'activity', id: activity.id, state: 'linked' } })),

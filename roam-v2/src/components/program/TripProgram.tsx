@@ -1,3 +1,11 @@
+import { AccommodationDetail, AccommodationForm } from '../accommodations/AccommodationSpace'
+import type { Accommodation } from '../../evolution/v21/contracts'
+import type { Revision } from '../../evolution/v21/repository'
+import { AccommodationSpace } from '../accommodations/AccommodationSpace'
+import { listMapAccommodations } from '../../db/journeys'
+import { stayPhase } from '../../accommodations/model'
+import { JourneyProgram } from './JourneyProgram'
+import { listProgramJourneys, programJourneyRepository } from '../../db/journeys'
 import { MultiDayProgram } from './MultiDayProgram'
 import { initialProgramNavigation, normalizeProgramNavigation, type ProgramNavigation } from './programNavigation'
 import { TransferFormPanel } from './TransferFormPanel'
@@ -57,9 +65,14 @@ function DayStrip({ days, selectedDate, onSelect }: { days: string[]; selectedDa
   )
 }
 
-export function TripProgram({ trip, initialNavigation, onNavigationChange, readActivities = listActivities }: {
-  trip: Trip; readActivities?: typeof listActivities; initialNavigation?: ProgramNavigation; onNavigationChange?: (state: ProgramNavigation) => void
+export function TripProgram({ trip, initialNavigation, onNavigationChange, readActivities = listActivities, readAccommodations = listMapAccommodations, readJourneys = listProgramJourneys, journeyRepository = programJourneyRepository }: {
+  trip: Trip; readAccommodations?: typeof listMapAccommodations; readJourneys?: typeof listProgramJourneys; journeyRepository?: typeof programJourneyRepository; readActivities?: typeof listActivities; initialNavigation?: ProgramNavigation; onNavigationChange?: (state: ProgramNavigation) => void
 }) {
+  const accommodationResult=useLiveQuery(()=>readAccommodations(trip.id).then(rows=>({rows,error:''}),()=>({rows:[],error:'Impossible de charger les hébergements.'})),[trip.id,readAccommodations])
+  const stays=accommodationResult?.rows??[]
+  const [stayPanel,setStayPanel]=useState<{id:string;trigger:HTMLButtonElement;edit?:{row:Accommodation;revision:Revision}}|null>(null)
+  const currentStay=stays.find(stay=>stay.id===stayPanel?.id)
+  if(stayPanel&&accommodationResult&&!accommodationResult.error&&!currentStay)setStayPanel(null)
   const days = useMemo(() => getTripDays(trip.startDate, trip.endDate), [trip.startDate, trip.endDate])
   const months = useMemo(() => getTripMonths(trip.startDate, trip.endDate), [trip.startDate, trip.endDate])
   const [navigation, setNavigation] = useState(() => initialNavigation ?? initialProgramNavigation(trip.startDate))
@@ -182,12 +195,17 @@ export function TripProgram({ trip, initialNavigation, onNavigationChange, readA
           <DayStrip days={days} selectedDate={selectedDate} onSelect={selectDay} />
           {result && !result.error && <DayDetails transfers={transfers} date={selectedDate} activities={dayActivities} afterActivity={afterActivity} onAdd={ready ? addActivity : undefined} onEdit={editActivity} onOpen={openActivity} />}
         </> : mode === 'multi' ? (result && !result.error && <MultiDayProgram transfers={transfers} days={days} selectedDate={selectedDate} activities={activities} onSelect={selectDay}
-          onAdd={ready ? addForDay : undefined} onAddTransfer={ready ? (date, trigger) => setTransferEditor({ transfer: null, trigger, date }) : undefined} onEdit={editActivity} onOpen={openActivity} afterActivity={afterActivity} />) : mode === 'ideas' ? <section className="program-day-detail" aria-labelledby="program-ideas-title">
+          onAdd={ready ? addForDay : undefined} onAddTransfer={ready ? (date, trigger) => setTransferEditor({ transfer: null, trigger, date }) : undefined} onEdit={editActivity} onOpen={openActivity} afterActivity={afterActivity} renderDayExtra={day=><AccommodationSpace trip={trip} date={day} repository={journeyRepository} readStays={async()=>stays}/>} />) : mode === 'ideas' ? <section className="program-day-detail" aria-labelledby="program-ideas-title">
           <h2 id="program-ideas-title">Idées à planifier</h2>
           {result && !result.error && <ActivityList activities={ideas} ideas onAdd={ready ? addActivity : undefined} onEdit={editActivity} onOpen={openActivity} />}
         </section> : <TripCalendar months={months} month={month} startDate={trip.startDate} endDate={trip.endDate}
-          selectedDate={selectedDate} activityCounts={counts} onMonthChange={(value) => navigate({ month: value })} onSelect={(date) => selectDay(date, true)} />}
+          selectedDate={selectedDate} accommodations={stays} onAccommodationOpen={(stay,trigger)=>setStayPanel({id:stay.id,trigger})} accommodationCounts={Object.fromEntries(days.map(day=>[day,stays.filter(stay=>stayPhase(stay,day)).length]))} activityCounts={counts} onMonthChange={(value) => navigate({ month: value })} onSelect={(date) => selectDay(date, true)} />}
       </>}
+      {accommodationResult?.error&&<p role="alert">{accommodationResult.error}</p>}
+      {mode!=='multi'&&<AccommodationSpace key={`stay-${trip.id}`} trip={trip} date={selectedDate} repository={journeyRepository} readStays={async()=>stays}/>}
+      {currentStay&&stayPanel&&!stayPanel.edit&&<AccommodationDetail trip={trip} stay={currentStay} repository={journeyRepository} trigger={stayPanel.trigger} onClose={()=>setStayPanel(null)} onEdit={(row,revision)=>setStayPanel({...stayPanel,edit:{row,revision}})}/>}
+      {stayPanel?.edit&&<AccommodationForm trip={trip} baseline={stayPanel.edit.row} revision={stayPanel.edit.revision} repository={journeyRepository} trigger={stayPanel.trigger} onClose={()=>setStayPanel({...stayPanel,edit:undefined})} onSaved={()=>setStayPanel({...stayPanel,edit:undefined})}/>}
+      <JourneyProgram key={trip.id} trip={trip} activities={activities} date={selectedDate} repository={journeyRepository} readJourneys={readJourneys} blocked={!ready||!!editor||!!organization||!!transferEditor||!!detailActivity} onDate={date=>{if(days.includes(date))navigate({selectedDate:date,month:date.slice(0,7)})}} />
       {outsideDays.length > 0 && <section className="program-day-detail" aria-labelledby="program-outside-title">
         <h2 id="program-outside-title">Autres dates ({outsideDays.length})</h2>
         <p className="subtitle">Ces activités sont en dehors des dates actuelles du séjour. Tu peux modifier leur date pour les replanifier.</p>

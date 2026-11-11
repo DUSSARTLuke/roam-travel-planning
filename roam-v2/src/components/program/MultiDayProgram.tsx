@@ -7,6 +7,7 @@ import { formatDate } from './dates'
 import { multiDayGroup } from './programNavigation'
 
 type Props = {
+  renderDayExtra?: (day:string)=>ReactNode
   transfers?: readonly ManualTransfer[]
   days: string[]; selectedDate: string; activities: TripActivity[]; onSelect: (day: string) => void
   onAddTransfer?: (day: string, trigger: HTMLButtonElement) => void
@@ -14,7 +15,7 @@ type Props = {
   onOpen: (activity: TripActivity, trigger: HTMLButtonElement) => void
   afterActivity?: (activity: TripActivity) => ReactNode
 }
-export function MultiDayProgram({ days, selectedDate, activities, onSelect, onAdd, onAddTransfer, onEdit, onOpen, afterActivity, transfers }: Props) {
+export function MultiDayProgram({ days, selectedDate, activities, onSelect, onAdd, onAddTransfer, onEdit, onOpen, afterActivity, transfers, renderDayExtra }: Props) {
   const id = useId()
   const selectedRef = useRef<HTMLElement>(null)
   const selectionTriggerRef = useRef<HTMLButtonElement | null>(null)
@@ -58,6 +59,7 @@ export function MultiDayProgram({ days, selectedDate, activities, onSelect, onAd
             aria-label={`Ajouter un déplacement le ${formatDate(day, { day: 'numeric', month: 'long', year: 'numeric' })}`}
             onClick={(event) => onAddTransfer(day, event.currentTarget)}><Route size={16} aria-hidden="true" />Ajouter un déplacement</button>}
         </header>
+        {renderDayExtra?.(day)}
         <DayTimeline transfers={transfers} activities={byDay.get(day) ?? []} onAdd={onAdd ? () => onAdd(day) : undefined} onEdit={onEdit} onOpen={onOpen} afterActivity={afterActivity} />
       </section>)}
     </div>

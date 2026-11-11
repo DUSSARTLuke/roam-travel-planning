@@ -1,3 +1,6 @@
+import { refreshLegacyProjections } from '../evolution/v21/projection'
+import { migrateV6 } from '../evolution/v21/persistence'
+import type { Journey, Accommodation } from '../evolution/v21/contracts'
 import { installLocalJournal, seedLocalJournal } from '../sync/journal'
 import type { EntityState, LocalOperation, Installation, LocalCommand, SyncConflict } from '../sync/model'
 import type { PracticalRecord } from '../practical/model'
@@ -58,6 +61,8 @@ const exampleTrip: Trip = {
 }
 
 export class RoamDatabase extends Dexie {
+  journeys!: EntityTable<Journey, 'id'>
+  accommodations!: EntityTable<Accommodation, 'id'>
   trips!: EntityTable<Trip, 'id'>
   metadata!: EntityTable<DatabaseMetadata, 'key'>
   activities!: EntityTable<TripActivity, 'id'>
@@ -110,7 +115,13 @@ export class RoamDatabase extends Dexie {
       syncOutbox: 'id, groupId, entityKey, [entityKey+revision], status',
       syncCommands: 'id', syncConflicts: 'id, entityKey, status',
     }).upgrade(seedLocalJournal)
+    this.version(6).stores({
+      journeys: 'id, tripId, [tripId+departure.date]',
+      accommodations: 'id, tripId, [tripId+arrivalDate], [tripId+departureDate]',
+      activityDocuments: 'id, activityId, tripId, [owner.kind+owner.id]',
+    }).upgrade(migrateV6)
     installLocalJournal(this)
+    this.on('ready', () => refreshLegacyProjections(this), true)
 
     // populate runs only for a brand-new database, in its exclusive creation
     // transaction. Both writes commit together or are rolled back together.
@@ -138,7 +149,7 @@ export async function updateTripTrash(
   confirmedDeletedAt?: string,
   database: RoamDatabase = db,
 ): Promise<void> {
-  await database.transaction('rw', [database.trips, database.activities, database.activityDocuments, database.activityDocumentBlobs], async () => {
+  await database.transaction('rw', database.tables, async () => {
     const trip = await database.trips.get(id)
     if (!trip) throw new Error('Ce voyage est introuvable. Actualise la liste.')
 
@@ -147,7 +158,9 @@ export async function updateTripTrash(
         throw new Error('Le voyage a changé ou a été restauré. Aucune suppression effectuée.')
       }
       const activityIds = await database.activities.where('tripId').equals(id).primaryKeys()
-      const documentIds = await database.activityDocuments.where('activityId').anyOf(activityIds).primaryKeys()
+      const documentIds = await database.activityDocuments.filter(document => document.tripId === id || activityIds.includes(document.activityId!)).primaryKeys()
+      await database.journeys.where('tripId').equals(id).delete()
+      await database.accommodations.where('tripId').equals(id).delete()
       await database.activityDocumentBlobs.bulkDelete(documentIds)
       await database.activityDocuments.bulkDelete(documentIds)
       await database.activities.where('tripId').equals(id).delete()

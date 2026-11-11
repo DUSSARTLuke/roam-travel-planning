@@ -46,7 +46,9 @@ export function createDocumentRepository(database: RoamDatabase = db) {
     const count = await database.activityDocuments.where('activityId').equals(activityId).count()
     if (count + prepared.length > MAX_ACTIVITY_DOCUMENTS) throw new Error('Maximum 5 documents par activité. Aucun document importé ; tes saisies sont conservées.')
     const importedAt = new Date().toISOString()
-    const metadata = prepared.map(({ name, mime, size }) => ({ id: createId(), activityId, name, mime, size, importedAt }))
+    const activity = await database.activities.get(activityId)
+    if (!activity) throw new Error('Activité absente.')
+    const metadata = prepared.map(({ name, mime, size }) => ({ id: createId(), activityId, tripId: activity.tripId, owner: { kind: 'activity' as const, id: activityId }, name, mime, size, importedAt }))
     await database.activityDocuments.bulkAdd(metadata)
     await database.activityDocumentBlobs.bulkAdd(metadata.map((document, index) => ({ id: document.id, blob: prepared[index].blob })))
     return metadata

@@ -1,4 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { matchingActivityReservations } from '../../accommodations/model'
+import type { Journey, Accommodation } from '../../evolution/v21/contracts'
+import type { SharingSource } from '../../money/expenseSharing'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Trip } from '../../db/database'
 import type { TripActivity } from '../../db/activityModel'
 import { expenseSharingRepository, type createExpenseSharingRepository } from '../../db/expenseSharing'
@@ -7,7 +10,7 @@ import { useReloadBlocker } from '../../pwa/useReloadBlocker'
 import './expense-sharing.css'
 
 type Repository = ReturnType<typeof createExpenseSharingRepository>
-type Source = ReturnType<typeof sharingSources>[number]
+type Source = SharingSource
 export function SharingDialog({ title, onClose, dirty = false, busy, children, reloadReason = 'Un formulaire budgétaire est en cours.', fallbackFocusRef, returnFocusRef }: { title: string; onClose: () => void; dirty?: boolean; busy: boolean; children: (close: () => void) => ReactNode; reloadReason?: string; fallbackFocusRef?: { current: HTMLElement | null }; returnFocusRef?: { current: HTMLElement | null } }) {
   const ref = useRef<HTMLDialogElement>(null), backdrop = useRef(false)
   const [discard, setDiscard] = useState(false)
@@ -17,6 +20,7 @@ export function SharingDialog({ title, onClose, dirty = false, busy, children, r
     document.body.style.overflow = 'hidden'; dialog.showModal()
     return () => { dialog.close(); document.body.style.overflow = overflow; if (previous instanceof HTMLElement && previous.isConnected) previous.focus({ preventScroll: true }); else fallback?.focus({ preventScroll: true }) }
   }, [fallbackFocusRef, returnFocusRef])
+  useEffect(()=>{if(!dirty&&!busy)return;const prevent=(event:BeforeUnloadEvent)=>{event.preventDefault();event.returnValue=''};window.addEventListener('beforeunload',prevent);return()=>window.removeEventListener('beforeunload',prevent)},[dirty,busy])
   function close() { if (!busy) { if (dirty) setDiscard(true); else onClose() } }
   return <dialog ref={ref} className="activity-panel expense-sharing-dialog" aria-labelledby="sharing-dialog-title" onCancel={(event) => { event.preventDefault(); close() }}
     onPointerDown={(event) => { const box = event.currentTarget.getBoundingClientRect(); backdrop.current = event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom }}
@@ -58,9 +62,12 @@ function ShareEditor({ source, existing, participants, busy, error, save, onClos
     <footer><button type="button" className="secondary-button" disabled={busy} onClick={close}>Annuler</button><button className="primary-button" disabled={busy}>{busy ? 'Enregistrement…' : 'Enregistrer le partage'}</button></footer>
   </form>}</SharingDialog>
 }
-export function ExpenseSharing({ trip, activities, repository = expenseSharingRepository, chosenExpense, onChosenExpenseChange }: { trip: Trip; activities: readonly TripActivity[]; repository?: Repository; chosenExpense?: string; onChosenExpenseChange?: (value: string) => void }) {
-  const result = useMemo(() => calculateExpenseSharing(trip, activities), [trip, activities])
-  const sources = sharingSources(trip, activities), participants = trip.participants ?? [], shares = trip.expenseShares ?? []
+export function ExpenseSharing({ trip, activities, journeys=[], accommodations=[], repository = expenseSharingRepository, chosenExpense, onChosenExpenseChange }: { trip: Trip; activities: readonly TripActivity[];journeys?:readonly Journey[];accommodations?:readonly Accommodation[]; repository?: Repository; chosenExpense?: string; onChosenExpenseChange?: (value: string) => void }) {
+  const sources:SharingSource[]=sharingSources(trip,activities)
+  for(const journey of journeys)if(journey.tripId===trip.id&&!sources.some(source=>source.kind==='transfer'&&source.expenseId===journey.legacy?.id))sources.push({kind:journey.legacy&&trip.expenseShares?.some(share=>share.kind==='transfer'&&share.expenseId===journey.legacy?.id)?'transfer':'journey',expenseId:journey.legacy&&trip.expenseShares?.some(share=>share.kind==='transfer'&&share.expenseId===journey.legacy?.id)?journey.legacy.id:journey.id,label:journey.title,paidAmount:journey.paidAmount,currency:journey.currency})
+  for(const stay of accommodations)if(stay.tripId===trip.id&&!stay.budgetExcluded&&!matchingActivityReservations(stay,activities).length)sources.push({kind:'accommodation',expenseId:stay.id,label:stay.place.name,paidAmount:stay.paidAmount,currency:stay.currency})
+  const result = calculateExpenseSharing(trip,activities,sources)
+  const participants = trip.participants ?? [], shares = trip.expenseShares ?? []
   const [localChosen, setChosen] = useState(''), [busy, setBusy] = useState(false), [error, setError] = useState(''), [message, setMessage] = useState('')
   const chosen = chosenExpense ?? localChosen
   const lock = useRef(false)
@@ -81,7 +88,7 @@ export function ExpenseSharing({ trip, activities, repository = expenseSharingRe
       <button type="button" className="secondary-button" disabled={busy} onClick={() => { setError(''); setDialog({ kind: 'participant', participant }) }}>Modifier {participant.name}</button>
       <button type="button" className="secondary-button" disabled={busy} onClick={() => { setError(''); setDialog({ kind: 'delete', participant }) }}>Supprimer {participant.name}</button></div></li>)}</ul>
     <button type="button" className="secondary-button" disabled={busy} onClick={() => { setError(''); setDialog({ kind: 'participant' }) }}>Ajouter un participant</button>
-    {participants.length > 0 && <div className="sharing-source-picker"><label>Dépense à partager<select value={sources.some((item) => expenseReferenceKey(item) === chosen) ? chosen : ''} onChange={(event) => { setChosen(event.target.value); onChosenExpenseChange?.(event.target.value) }}><option value="">Choisir une activité ou un déplacement</option>{sources.map((source) => <option key={expenseReferenceKey(source)} value={expenseReferenceKey(source)}>{source.kind === 'activity' ? 'Activité' : 'Déplacement'} · {source.label}</option>)}</select></label>
+    {participants.length > 0 && <div className="sharing-source-picker"><label>Dépense à partager<select value={sources.some((item) => expenseReferenceKey(item) === chosen) ? chosen : ''} onChange={(event) => { setChosen(event.target.value); onChosenExpenseChange?.(event.target.value) }}><option value="">Choisir une activité, un déplacement ou un hébergement</option>{sources.map((source) => <option key={expenseReferenceKey(source)} value={expenseReferenceKey(source)}>{source.kind === 'activity' ? 'Activité' : source.kind==='accommodation'?'Hébergement':'Déplacement'} · {source.label}</option>)}</select></label>
       <button type="button" className="secondary-button" disabled={busy || !sources.some((item) => expenseReferenceKey(item) === chosen)} onClick={() => { const source = sources.find((item) => expenseReferenceKey(item) === chosen); if (source) openExpense(source) }}>Configurer le partage</button></div>}
     {result.status === 'invalid' ? <p role="alert" className="budget-warning">{result.reason}</p> : <>
       <p className="budget-meta">{result.included} partage(s) calculable(s) · {result.unshared} dépense(s) non activée(s) · soldes en {result.currency}. Les paiements partiels partagent uniquement la somme déjà payée.</p>

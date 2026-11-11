@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { LocateFixed, Maximize2, Minimize2 } from 'lucide-react'
-import type { MapTransfer } from '../../maps/tripMapTransfers'
+import type { MapLink } from '../../maps/tripMapTransfers'
 import type { TripMapPoint } from '../../maps/tripMapModel'
 import { startTripMap, type TripMapHandle, type TripMapLoader, type TripMapState } from '../../maps/tripMapSession'
 import type { TripMapCamera } from '../../maps/tripMapView'
 
 export function TripMapCanvas({ points, load, selected, onSelect, filterRevision, transfers, selectedTransfer, onTransferSelect, expanded, onExpandedChange, camera, filterKey, onCameraChange }: {
   points: readonly TripMapPoint[]; load: TripMapLoader; selected: string | null; onSelect: (ids: string[]) => void; filterRevision: number
-  transfers: readonly MapTransfer[]; selectedTransfer: string | null; onTransferSelect: (ids: string[]) => void
+  transfers: readonly MapLink[]; selectedTransfer: string | null; onTransferSelect: (ids: string[]) => void
   expanded: boolean; onExpandedChange: (expanded: boolean) => void; camera?: TripMapCamera; filterKey: string; onCameraChange: (camera: TripMapCamera, key: string) => void
 }) {
   const container = useRef<HTMLDivElement>(null), surface = useRef<HTMLDivElement>(null), expandButton = useRef<HTMLButtonElement>(null)
@@ -48,7 +48,7 @@ export function TripMapCanvas({ points, load, selected, onSelect, filterRevision
       <button ref={expandButton} type="button" className="secondary-button" aria-pressed={expanded} aria-label={expanded ? 'Réduire la carte' : 'Agrandir la carte'} onClick={() => onExpandedChange(!expanded)}>
         {expanded ? <Minimize2 size={18} aria-hidden="true" /> : <Maximize2 size={18} aria-hidden="true" />}{expanded ? 'Réduire' : 'Agrandir'}</button></div>
     <p id="trip-map-gestures" className="trip-map-gestures">Un doigt pour faire défiler la page ; deux doigts pour déplacer ou zoomer la carte. Les boutons + et − permettent aussi de zoomer.</p>
-    <div className="trip-map-stage"><div ref={container} className="trip-map-canvas" role="region" aria-label="Carte des activités du voyage" aria-describedby="trip-map-gestures" />
+    <div className="trip-map-stage"><div ref={container} className="trip-map-canvas" role="region" aria-label="Carte des lieux du voyage" aria-describedby="trip-map-gestures" />
       <a className="trip-map-canvas-attribution" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">© contributeurs OpenStreetMap</a></div>
     <p role="status" className={state.phase === 'error' ? 'trip-map-status trip-map-error' : 'trip-map-status'}>{state.message}</p>
     {state.phase === 'error' && <button type="button" className="secondary-button" aria-label="Réessayer la carte" onClick={() => retry((value) => value + 1)}>Réessayer la carte</button>}

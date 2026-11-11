@@ -1,3 +1,4 @@
+const noStays=async()=>[]
 import appStyles from '../src/App.css?inline'
 import { StrictMode, useState } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -125,7 +126,7 @@ export async function testMultiDay(report: (message: string) => void) {
       const [remembered, remember] = useState<ProgramNavigation>({ mode: 'multi', selectedDate: days[1], month: '2026-12' })
       return <div className="app-shell" data-geometry><main className="main-content">
         <button type="button" data-empty-tab onClick={() => show((value) => !value)}>Autre onglet</button>
-        {visible && <TripProgram trip={trip} readActivities={emptyRead} initialNavigation={remembered} onNavigationChange={remember} />}
+        {visible && <TripProgram readAccommodations={noStays} readJourneys={async()=>[]} trip={trip} readActivities={emptyRead} initialNavigation={remembered} onNavigationChange={remember} />}
       </main></div>
     }
     flushSync(() => root.render(<StrictMode><EmptyTabs /></StrictMode>))
@@ -196,7 +197,7 @@ export async function testMultiDay(report: (message: string) => void) {
       const [visible, setVisible] = useState(true)
       const [remembered, remember] = useState<ProgramNavigation | undefined>()
       return <><button type="button" data-test-tab onClick={() => setVisible((value) => !value)}>Autre onglet</button>
-        {visible && <TripProgram trip={{ ...trip, manualTransfers: [transfer] }} initialNavigation={remembered} onNavigationChange={remember} readActivities={read} />}</>
+        {visible && <TripProgram readAccommodations={noStays} readJourneys={async()=>[]} trip={{ ...trip, manualTransfers: [transfer] }} initialNavigation={remembered} onNavigationChange={remember} readActivities={read} />}</>
     }
     flushSync(() => root.render(<Tabs />))
     await waitFor(() => host.querySelectorAll('.day-timeline-item').length === 2)

@@ -76,7 +76,7 @@ export async function testExpenseSharing(report: (message: string) => void) {
   const root = createRoot(host)
   const offline = connection.getSnapshot().offline
   async function fingerprint() { return JSON.stringify(await Promise.all(database.tables.map((table) => table.toArray()))) }
-  const wait = async (condition: () => boolean) => { const end = performance.now() + 5000; while (!condition() && performance.now() < end) await new Promise((ready) => setTimeout(ready, 20)); assert(condition(), 'Interface de partage non actualisée.') }
+  const wait = async (condition: () => boolean) => { const end = performance.now() + 5000; while (!condition() && performance.now() < end) await new Promise((ready) => setTimeout(ready, 20)); assert(condition(), 'Interface de partage non actualisée : ' + condition.toString() + ' / ' + host.textContent?.slice(-1200)) }
   try {
     await database.trips.add({ ...trip, participants: undefined })
     await second.open()
@@ -127,7 +127,7 @@ export async function testExpenseSharing(report: (message: string) => void) {
     liveTrip = (await database.trips.get(trip.id))!
     const archive = await buildExportArchive(await readExportSnapshot({ mode: 'trip', tripId: trip.id }, database))
     const validated = await validateRestoreArchive(archive.blob)
-    assert(validated.trips[0].expenseShares?.length === 2 && validated.trips[0].manualTransfers?.[0].paidAmount === 10 && archive.manifest.formatVersion === 1 && database.verno === 5, 'ZIP perd participants/parts/paiement ou migration inutile.')
+    assert(validated.trips[0].expenseShares?.length === 2 && validated.journeys.find(j => j.legacy?.id === transfer.id)?.paidAmount === 10 && archive.manifest.formatVersion === 2 && database.verno === 6, 'ZIP perd participants/parts/paiement ou migration inutile.')
     const prepared = await prepareRestore(archive.blob), preview = await previewRestore(prepared, target)
     await restoreBackup(prepared, preview, target)
     const restored = (await target.trips.get(trip.id))!
@@ -166,7 +166,7 @@ export async function testExpenseSharing(report: (message: string) => void) {
     const uiActivity = await activities.createActivity(uiTrip.id, { ...activity, paidAmount: undefined })
     function Harness() {
       const current = useLiveQuery(() => database.trips.get(uiTrip.id), []), rows = useLiveQuery(() => activities.listActivities(uiTrip.id), [])
-      return current && rows ? <ExpenseSharing trip={current} activities={rows} repository={repo} /> : null
+      return current && rows ? <div data-rendered-payment={rows.find(row=>row.id===uiActivity.id)?.paidAmount}><ExpenseSharing trip={current} activities={rows} repository={repo} /></div> : null
     }
     window.dispatchEvent(new Event('offline'))
     flushSync(() => root.render(<Harness />))
@@ -188,6 +188,7 @@ export async function testExpenseSharing(report: (message: string) => void) {
     await wait(() => !host.querySelector('dialog[open]'))
     const uiSaved = (await database.trips.get(uiTrip.id))!
     assert(uiSaved.expenseShares?.length === 1 && uiSaved.expenseShares[0].shares.length === 3 && (await database.activities.get(uiActivity.id))!.paidAmount === 0.01, 'Double soumission ou valeurs de partage perdues.')
+    await wait(() => Boolean(host.querySelector('[data-rendered-payment="0.01"]')))
     flushSync(() => button('Modifier le partage').click())
     setValue(host.querySelector('dialog input[inputmode="decimal"]')!, 'test')
     flushSync(() => host.querySelector('dialog form')!.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })))

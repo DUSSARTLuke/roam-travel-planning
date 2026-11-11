@@ -1,3 +1,5 @@
+import { refreshLegacyProjection } from '../evolution/v21/projection'
+import { readLegacyTransfers } from './transfers'
 import { db, type RoamDatabase } from './database'
 import { createId } from '../utils/createId'
 import { withSensitiveOperation } from '../pwa/reloadSafety'
@@ -32,12 +34,18 @@ export function createExpenseSharingRepository(database: RoamDatabase = db) {
       }))
     },
     async saveShare(tripId: string, reference: ExpenseReference, input: Pick<ExpenseShare, 'amount' | 'payerId' | 'shares'>, expected: string) {
-      return withSensitiveOperation('Enregistrement du paiement et de son partage.', () => database.transaction('rw', database.trips, database.activities, async () => {
+      return withSensitiveOperation('Enregistrement du paiement et de son partage.', () => database.transaction('rw', database.tables, async () => {
         const trip = await parent(tripId), participants = validateParticipants(trip.participants), expenses = validateExpenseShares(trip.expenseShares, participants)
         const key = expenseReferenceKey(reference), old = expenses.find((item) => expenseReferenceKey(item) === key)
         const activity = reference.kind === 'activity' ? await database.activities.get(reference.expenseId) : undefined
-        const transfer = reference.kind === 'transfer' ? trip.manualTransfers?.find((item) => item.id === reference.expenseId) : undefined
-        const source = activity?.tripId === tripId ? activity : transfer
+        const canonical = reference.kind === 'transfer' ? await readLegacyTransfers(database,tripId) : undefined
+        const transfer = canonical?.projection.find(item => item.id === reference.expenseId)
+        const nativeTable = reference.kind === 'journey' ? 'journeys' : reference.kind === 'accommodation' ? 'accommodations' : undefined
+        const nativeEntity = nativeTable ? await database.table(nativeTable).get(reference.expenseId) : undefined
+        const source = nativeTable ? (nativeEntity?.tripId === tripId ? nativeEntity : undefined) : activity?.tripId === tripId ? activity : transfer
+        const journey = reference.kind === 'journey' ? nativeEntity : transfer ? canonical!.rows.find(row=>row.legacy?.id===transfer.id) : undefined
+        if (journey && expenses.some(share => reference.kind === 'journey' ? share.kind === 'transfer' && share.expenseId === journey.legacy?.id : share.kind === 'journey' && share.expenseId === journey.id)) throw new Error('Ce trajet possède déjà un partage via un autre identifiant.')
+        if(reference.kind==='accommodation'&&nativeEntity?.budgetExcluded)throw new Error('Cet hébergement est exclu du budget : ses montants sont suivis ailleurs.')
         if (!source) throw new Error('La dépense est introuvable dans ce voyage.')
         if (transfer) {
           const from = await database.activities.get(transfer.fromActivityId), to = await database.activities.get(transfer.toActivityId)
@@ -48,8 +56,15 @@ export function createExpenseSharingRepository(database: RoamDatabase = db) {
         const share = validateExpenseShares([candidate], participants)[0]
         const next = [...expenses.filter((item) => expenseReferenceKey(item) !== key), share]
         if (activity && source.paidAmount !== share.amount) await database.activities.update(activity.id, { paidAmount: share.amount, updatedAt: share.updatedAt })
-        await database.trips.update(tripId, { expenseShares: next,
-          ...(transfer ? { manualTransfers: trip.manualTransfers!.map((item) => item.id === transfer.id ? { ...item, paidAmount: share.amount, updatedAt: share.updatedAt } : item) } : {}) })
+        if (transfer) {
+          const journey=canonical!.rows.find(row=>row.legacy?.id===transfer.id)!
+          if (journey.paidAmount !== share.amount) { await database.journeys.update(journey.id,{paidAmount:share.amount,updatedAt:share.updatedAt}); await refreshLegacyProjection(database,tripId) }
+        }
+        if (nativeTable && source.paidAmount !== share.amount) {
+          await database.table(nativeTable).update(nativeEntity.id,{paidAmount:share.amount,updatedAt:share.updatedAt})
+          if (nativeTable === 'journeys') await refreshLegacyProjection(database,tripId)
+        }
+        await database.trips.update(tripId,{expenseShares:next})
         return share
       }))
     },

@@ -12,7 +12,7 @@ export type ActivityMoneyRow = {
   conversion?: { text: string; provenance: string; date?: string; stale: boolean; future: boolean }
 }
 // Presentation-only: explicit reference date keeps this function pure and testable.
-export function activityMoneyRows(activity: TripActivity, trip: Trip, today: string): ActivityMoneyRow[] {
+export function activityMoneyRows(activity: Pick<TripActivity,'tripId'|'estimatedCost'|'paidAmount'|'currency'>, trip: Trip, today: string): ActivityMoneyRow[] {
   const resolve = createTripRateResolver(trip)
   const target = tripReferenceCurrency(trip)
   function money(amount: number, code: string | undefined): string {

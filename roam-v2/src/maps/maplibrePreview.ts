@@ -137,8 +137,9 @@ export function mountTripMap(container: HTMLElement, initial: readonly TripMapPo
             entry = { button, click, marker: new Marker({ element: button, anchor: 'center' }).setLngLat([displayedLongitude(point, west), point.latitude]).addTo(map) }; markers.set(point.id, entry)
           }
           const count = counts.get(coordinateKey(point))!
-          entry.button.textContent = count > 1 ? String(count) : '●'
-          entry.button.setAttribute('aria-label', `${point.title}${point.name ? ` — ${point.name}` : ''}${count > 1 ? ` ; ${count} activités au même point` : ''}`)
+          entry.button.textContent = count > 1 ? String(count) : ({home:'⌂',station:'▤',airport:'✈',accommodation:'▣',free:'◆',activity:'●'}[point.kind??'activity'])
+          entry.button.setAttribute('aria-label', `${point.title}${point.name ? ` — ${point.name}` : ''}${count > 1 ? ` ; ${count} lieux au même point` : ''}`)
+          entry.button.dataset.kind=point.kind??'activity'
           entry.button.title = entry.button.getAttribute('aria-label')!
           entry.marker.setLngLat([displayedLongitude(point, west), point.latitude])
         })
