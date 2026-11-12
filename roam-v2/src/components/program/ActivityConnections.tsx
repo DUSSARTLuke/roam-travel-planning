@@ -4,7 +4,7 @@ import { ConnectionContext, useConnectionContext } from './connectionContext'
 import { Route } from 'lucide-react'
 import type { Trip } from '../../db/database'
 import type { TripActivity } from '../../db/activityModel'
-import type { Journey } from '../../evolution/v21/contracts'
+import type { Journey, JourneySegment } from '../../evolution/v21/contracts'
 import type { Revision } from '../../evolution/v21/repository'
 import { listProgramJourneys, programJourneyRepository } from '../../db/journeys'
 import { transferModes, type TransferMode } from '../../db/transferModel'
@@ -14,9 +14,14 @@ import { buildConnectionPlan, connectionPlace, externalConnectionUrl, type Activ
 import { JourneyDetail } from './JourneyProgram'
 import { JourneyFormPanel } from './JourneyFormPanel'
 import './activity-connections.css'
+import { RoutingEstimator, RoutingAttribution } from './RoutingEstimator'
+import { activityRoutingRequest, estimatedMinutes, routingInputKey, type RoutingEstimate } from '../../routing/estimateModel'
 
 type Repository = typeof programJourneyRepository
 type Session = { pair?: ActivityConnection; row?: Journey; revision?: Revision; trigger: HTMLButtonElement; kind: 'edit' | 'delete' | 'detail' | 'full-edit' }
+function estimateMatches(segment: JourneySegment, pair?: ActivityConnection) {
+  try { return !!pair && segment.routingEstimate?.inputKey === routingInputKey(activityRoutingRequest(pair.from, pair.to, segment.mode)) } catch { return false }
+}
 export function ActivityConnectionRows({ activity }: { activity: TripActivity }) { return useConnectionContext()?.render(activity) ?? null }
 export function UnmanagedTransfer({ id, children }: { id: string; children: ReactNode }) { return useConnectionContext()?.hiddenLegacyIds.has(id) ? null : children }
 
@@ -28,16 +33,18 @@ function optionalNumber(value: string, label: string): number | undefined {
   return result
 }
 
-function ConnectionEditor({ trip, session, repository, onClose }: { trip: Trip; session: Session; repository: Repository; onClose: () => void }) {
+function ConnectionEditor({ trip, session, currentPair, repository, onClose }: { trip: Trip; session: Session; currentPair?: ActivityConnection; repository: Repository; onClose: () => void }) {
   const row = session.row, segment = row?.segments[0], pair = session.pair
   const [mode, setMode] = useState<TransferMode>(segment?.mode ?? 'walk')
   const [duration, setDuration] = useState(segment?.durationMinutes?.toString() ?? '')
+  const [source, setSource] = useState(segment?.durationSource ?? 'manual')
+  const [estimate, setEstimate] = useState<RoutingEstimate | undefined>(segment?.routingEstimate)
   const [margin, setMargin] = useState(segment?.safetyMarginMinutes?.toString() ?? '')
   const [distance, setDistance] = useState(segment?.distanceMeters === undefined ? '' : String(segment.distanceMeters / 1000))
   const choices = pair?.participantIds ?? []
   const [selected, setSelected] = useState<string[] | undefined>(row ? row.participantIds?.filter(id => choices.includes(id)) ?? pair?.participantIds?.slice() : pair?.participantIds?.slice())
-  const [initial] = useState(() => JSON.stringify([mode, duration, margin, distance, selected]))
-  const dirty = JSON.stringify([mode, duration, margin, distance, selected]) !== initial
+  const [initial] = useState(() => JSON.stringify([mode, duration, margin, distance, selected, estimate, source]))
+  const dirty = JSON.stringify([mode, duration, margin, distance, selected, estimate, source]) !== initial
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [discard, setDiscard] = useState(false)
   const ref = useRef<HTMLDialogElement>(null), lock = useRef(false), cancelRef = useRef<HTMLButtonElement>(null)
   useReloadBlocker(dirty || busy, 'Enregistre ou abandonne la liaison avant la mise à jour.')
@@ -69,7 +76,7 @@ function ConnectionEditor({ trip, session, repository, onClose }: { trip: Trip; 
         const stops = row && row.purpose !== 'activity-connection' ? row.stops : [stop(pair.from, 0), stop(pair.to, 1)]
         const next: Journey = { ...row, id, tripId: trip.id, title: row?.title ?? `${pair.from.title} → ${pair.to.title}`, stops,
           participantIds: selected, ...(!row || row.purpose === 'activity-connection' ? { purpose: 'activity-connection' as const, departure: { date: pair.from.date! }, arrival: { date: pair.to.date! } } : {}),
-          segments: [{ ...segment, id: segment?.id ?? createId(), fromStopId: stops[0].id, toStopId: stops[1].id, mode, durationMinutes, durationSource: 'manual', safetyMarginMinutes: optionalNumber(margin, 'La marge'), distanceMeters: distance.trim() ? optionalNumber(distance, 'La distance')! * 1000 : undefined }],
+          segments: [{ ...segment, id: segment?.id ?? createId(), fromStopId: stops[0].id, toStopId: stops[1].id, mode, durationMinutes, durationSource: source, routingEstimate: estimate, safetyMarginMinutes: optionalNumber(margin, 'La marge'), distanceMeters: distance.trim() ? optionalNumber(distance, 'La distance')! * 1000 : undefined }],
           createdAt: row?.createdAt ?? now, updatedAt: now }
         await repository.saveJourney(trip.id, next, session.revision)
       }
@@ -82,9 +89,11 @@ function ConnectionEditor({ trip, session, repository, onClose }: { trip: Trip; 
     <form className="activity-panel-form" onSubmit={save} inert={discard}>
       <p className="connection-endpoints">{pair ? `${pair.from.title} → ${pair.to.title}` : row?.title}</p>
       {session.kind === 'delete' ? <p>Le déplacement sera supprimé pour ses voyageurs, avec ses éventuels documents et partages. Les activités sont conservées.</p> : <fieldset disabled={busy}>
-        <label>Moyen de transport<select autoFocus value={mode} onChange={event => setMode(event.target.value as TransferMode)}>{Object.entries(transferModes).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
-        <label>Durée manuelle (min) *<input required inputMode="decimal" value={duration} onChange={event => setDuration(event.target.value)} /></label>
+        <label>Moyen de transport<select autoFocus value={mode} onChange={event => { setMode(event.target.value as TransferMode); if (source === 'automatic') { setDuration(''); setSource('manual') } }}>{Object.entries(transferModes).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+        <label>{source === 'automatic' ? 'Durée calculée (min) *' : 'Durée manuelle (min) *'}<input required inputMode="decimal" value={duration} onChange={event => { setDuration(event.target.value); setSource('manual') }} /></label>
         <div className="form-row"><label>Marge de sécurité (min)<input inputMode="decimal" value={margin} onChange={event => setMargin(event.target.value)} /></label><label>Distance (km)<input inputMode="decimal" value={distance} onChange={event => setDistance(event.target.value)} /></label></div>
+        <RoutingEstimator tripId={trip.id} pair={currentPair} mode={mode} manual={source !== 'automatic' && !!duration.trim()} onAccept={(value, useDuration) => { setEstimate(value); if (useDuration) { setDuration(String(estimatedMinutes(value))); setSource('automatic'); if (!distance.trim()) setDistance(String(value.distanceMeters / 1000)) } }} />
+        {estimate && <p className="activity-meta">Estimation enregistrable : {estimatedMinutes(estimate)} min · OpenRouteService · {new Date(estimate.calculatedAt).toLocaleDateString('fr-FR')} · CC-BY-SA 4.0. La durée saisie reste prioritaire.</p>}
         {!!choices.length && <fieldset className="connection-participants"><legend>Voyageurs concernés</legend>{choices.map(id => <label key={id} className="activity-checkbox"><input type="checkbox" checked={selected?.includes(id) ?? false} onChange={event => setSelected(event.target.checked ? [...(selected ?? []), id] : selected?.filter(value => value !== id))} />{trip.participants?.find(person => person.id === id)?.name ?? 'Voyageur indisponible'}</label>)}</fieldset>}
         {!choices.length && <p className="activity-meta">{pair ? 'Voyage collectif sans voyageurs nommés.' : 'Liaison à vérifier : ces activités ne se suivent plus.'}</p>}
         {pair?.uncertain && <p className="activity-meta">Ordre à confirmer : les horaires ne permettent pas de déterminer une succession certaine.</p>}
@@ -124,6 +133,7 @@ export function ActivityConnections({ trip, activities, filter, disabled, readJo
       <Route size={16} aria-hidden="true" /><div className="connection-content"><strong>{item.pair ? `Vers ${item.pair.to.title}` : row.title}</strong>
       <span>{row.segments.map(part => transferModes[part.mode]).join(' · ')} · {row.segments.length === 1 && segment.durationMinutes !== undefined ? `${segment.durationMinutes} min · ${segment.durationSource === 'automatic' ? 'Durée calculée' : 'Durée manuelle'}` : 'Déplacement existant à consulter'}{segment.safetyMarginMinutes !== undefined && ` · Marge ${segment.safetyMarginMinutes} min`}{segment.distanceMeters !== undefined && ` · ${segment.distanceMeters / 1000} km`}</span>
       <span>{names(item.stale ? row.participantIds : item.participantIds)}</span>
+      {segment.routingEstimate && <span>Estimation {estimatedMinutes(segment.routingEstimate)} min · calcul du {new Date(segment.routingEstimate.calculatedAt).toLocaleDateString('fr-FR')} · cache valable jusqu’au {new Date(segment.routingEstimate.expiresAt).toLocaleDateString('fr-FR')}{!estimateMatches(segment, item.pair) && ' · À recalculer : lieux ou mode modifiés'} · <RoutingAttribution /></span>}
       {item.stale ? <span>À vérifier : programme ou voyageurs modifiés. Durée conservée.</span> : item.pair?.uncertain && <span>Ordre à confirmer</span>}
       <div className="connection-actions"><button type="button" className="connection-link" disabled={blocked} onClick={event => void open(item, event.currentTarget, 'edit')}>{row.stops.length === 2 ? 'Modifier' : 'Consulter'}</button><button type="button" className="connection-link" disabled={blocked} onClick={event => void open(item, event.currentTarget, 'delete')}>Supprimer</button>{row.purpose !== 'activity-connection' && row.stops.length === 2 && <button type="button" className="connection-link" disabled={blocked} onClick={event => void open(item, event.currentTarget, 'detail')}>Fiche complète</button>}{url && <a href={url} target="_blank" rel="noopener noreferrer">Itinéraire externe</a>}</div></div>
     </div>
@@ -137,7 +147,7 @@ export function ActivityConnections({ trip, activities, filter, disabled, readJo
     {result?.error && <p role="alert">{result.error} <button type="button" className="secondary-button" onClick={() => setAttempt(value => value + 1)}>Réessayer les liaisons</button></p>}
     {error && <p role="alert">{error}</p>}
     {plan.saved.some(item => item.stale && relevant(item)) && <section className="connection-corrections" aria-label="Liaisons à vérifier"><h2>Liaisons à vérifier</h2>{plan.saved.filter(item => item.stale && relevant(item)).map(card)}</section>}
-    {session && (session.kind === 'edit' || session.kind === 'delete') && <ConnectionEditor key={`${session.kind}-${session.row?.id ?? session.pair?.key}`} trip={trip} session={session} repository={repository} onClose={() => setSession(null)} />}
+    {session && (session.kind === 'edit' || session.kind === 'delete') && <ConnectionEditor key={`${session.kind}-${session.row?.id ?? session.pair?.key}`} trip={trip} session={session} currentPair={plan.pairs.find(pair => pair.key === session.pair?.key)} repository={repository} onClose={() => setSession(null)} />}
     {session?.kind === 'detail' && <JourneyDetail journey={session.row!} trip={trip} repository={repository} trigger={session.trigger} onClose={() => setSession(null)} onEdit={(row, revision) => setSession({ ...session, row, revision, kind: 'full-edit' })} />}
     {session?.kind === 'full-edit' && <JourneyFormPanel trip={trip} activities={activities} initialDate={session.row!.departure?.date ?? trip.startDate} baseline={session.row} version={session.revision} repository={repository} trigger={session.trigger} onClose={() => setSession(null)} onSaved={() => setSession(null)} />}
   </ConnectionContext>

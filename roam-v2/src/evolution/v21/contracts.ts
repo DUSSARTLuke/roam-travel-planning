@@ -6,6 +6,7 @@ import { validateCoordinates } from '../../db/activityLocation'
 import { isActivityDate } from '../../db/activityModel'
 import { validateCurrency } from '../../db/currency'
 import { transferModes, type TransferMode } from '../../db/transferModel'
+import { estimatedMinutes, profileForMode, routingInputKey, validateRoutingEstimate, type RoutingEstimate } from '../../routing/estimateModel'
 
 export type Owner = { kind: 'activity' | 'journey' | 'accommodation'; id: string }
 export type Place = { name: string; address?: string; latitude?: number; longitude?: number }
@@ -17,7 +18,7 @@ export type Reservation = {
   deadline?: string; notes?: string
 }
 export type JourneyStop = { id: string; place: Place; kind: 'home' | 'station' | 'airport' | 'accommodation' | 'activity' | 'free'; link?: PlaceLink }
-export type JourneySegment = { id: string; fromStopId: string; toStopId: string; mode: TransferMode; durationMinutes?: number; distanceMeters?: number; safetyMarginMinutes?: number; durationSource?: 'manual' | 'automatic' }
+export type JourneySegment = { id: string; fromStopId: string; toStopId: string; mode: TransferMode; durationMinutes?: number; distanceMeters?: number; safetyMarginMinutes?: number; durationSource?: 'manual' | 'automatic'; routingEstimate?: RoutingEstimate }
 export type Journey = Money & {
   participantIds?: string[]
   purpose?: 'activity-connection'
@@ -85,6 +86,13 @@ export function assertJourney(journey: Journey): void {
     if (!Object.hasOwn(transferModes, segment.mode)) throw new Error('Mode de transport invalide.')
     if (!segment.id || segments.has(segment.id)) throw new Error('Segment dupliqué ou vide.')
     segments.add(segment.id)
+    if (segment.routingEstimate !== undefined) {
+      const estimate = validateRoutingEstimate(segment.routingEstimate)
+      if (segment.durationSource === 'automatic') {
+        const a = journey.stops[i].place, b = journey.stops[i + 1].place, profile = profileForMode(segment.mode)
+        if (!profile || segment.durationMinutes !== estimatedMinutes(estimate) || estimate.inputKey !== routingInputKey({ version: 1, profile, coordinates: [[a.longitude!, a.latitude!], [b.longitude!, b.latitude!]] })) throw new Error('Estimation incompatible avec les lieux ou le mode de transport.')
+      }
+    }
     const from = journey.stops[i].link, to = journey.stops[i+1].link
     if (from && to && from.kind === to.kind && from.id === to.id) throw new Error('Un segment ne peut pas relier une cible à elle-même.')
     if (segment.fromStopId !== journey.stops[i].id || segment.toStopId !== journey.stops[i + 1].id) throw new Error('Segment non consécutif.')

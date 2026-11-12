@@ -12,3 +12,6 @@
 .connection-participants label { min-height: 44px; overflow-wrap: anywhere; }
 .connection-endpoints { overflow-wrap: anywhere; }
 .connection-corrections { margin-block: 1rem; }
+.routing-estimator { display: grid; gap: .6rem; padding: .8rem; border: 1px solid var(--border-color, #394150); border-radius: .75rem; min-width: 0; }
+.routing-estimator p { margin: 0; overflow-wrap: anywhere; }
+.routing-estimator button { white-space: normal; }

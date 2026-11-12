@@ -16,6 +16,8 @@ import '../src/App.css'
 import '../src/components/program/program.css'
 import { createRoot } from 'react-dom/client'
 import { RoamDatabase } from '../src/db/database'
+import { createRoutingService, RoutingCache } from '../src/routing/routingService'
+import { makeRoutingEstimate, validateRoutingRequest } from '../src/routing/estimateModel'
 import { createActivityRepository } from '../src/db/activities'
 import type { TripActivity } from '../src/db/activityModel'
 // Only temporary databases explicitly named by the isolated browser runner.
@@ -35,7 +37,15 @@ const bridge = createTransferRepository(database)
 let bridgeSnapshot: ManualTransfer
 const v6 = createV21Repository(database)
 let v6Snapshot: {entity: Accommodation; revision: Revision}
+const routingCache = new RoutingCache(name + '-routing'), routingRequest = validateRoutingRequest({ version: 1, profile: 'foot-walking', coordinates: [[2, 48], [2.1, 48.1]] })
+const routing = createRoutingService({ namespace: 'temporary-mock', route: async input => { await database.transaction('rw', database.metadata, async () => { await database.metadata.put({ key: 'routing-provider-calls', value: (((await database.metadata.get('routing-provider-calls')) as {value?: number})?.value ?? 0) + 1 } as never) }); await new Promise(resolve => setTimeout(resolve, 150)); return makeRoutingEstimate(input, 601, 1234, Date.now()) } }, routingCache, { online: () => true, spacingMs: 0 })
+let routingSnapshot: Awaited<ReturnType<typeof v6.read>> | undefined
 const api = {
+  async routingCompute() { return routing.calculate('trip', routingRequest) },
+  async routingCalls() { return (await database.metadata.get('routing-provider-calls') as {value?: number})?.value },
+  async routingOpen() { routingSnapshot = await v6.read('journeys', 'trip', 'journey-ui') },
+  async routingManual() { const latest = await v6.read('journeys', 'trip', 'journey-ui'), row = latest.entity as Journey; await v6.saveJourney('trip', { ...row, segments: row.segments.map((part, i) => i ? part : { ...part, durationMinutes: 91, durationSource: 'manual' }) }, latest.revision) },
+  async routingStaleSave() { const estimate = await routing.calculate('trip', routingRequest), row = routingSnapshot!.entity as Journey; try { await v6.saveJourney('trip', { ...row, segments: row.segments.map((part, i) => i ? part : { ...part, routingEstimate: estimate }) }, routingSnapshot!.revision); return true } catch { return false } },
   async openStayUI(){const snapshot=await v6.read('accommodations','trip','hotel'),trip=(await database.trips.get('trip'))!;const trigger=document.createElement('button');document.body.append(trigger);flushSync(()=>root.render(<AccommodationForm key={++editorKey} trip={trip} baseline={snapshot.entity as Accommodation} revision={snapshot.revision} repository={v6} trigger={trigger} onClose={()=>root.render(null)} onSaved={()=>root.render(null)}/>))},
   async stayUIState(){return {row:await database.accommodations.get('hotel'),operations:await database.syncOutbox.count(),notes:[...document.querySelectorAll('dialog label')].find(label=>label.firstChild?.textContent==='Notes')?.querySelector('textarea')?.value}},
   async deleteStay(){const latest=await v6.read('accommodations','trip','hotel');await v6.remove('accommodations','trip','hotel',latest.revision)},
@@ -88,7 +98,7 @@ const api = {
   submit(double = false) { const button = document.querySelector<HTMLButtonElement>('dialog button[type=submit]')!; flushSync(() => { button.click(); if (double) button.click() }) },
   reload() { flushSync(() => [...document.querySelectorAll<HTMLButtonElement>('button')].find((button) => button.textContent === 'Recharger les données récentes')!.click()) },
   editorState() { const title = document.querySelector<HTMLInputElement>('dialog input:not([type])'), notes = [...document.querySelectorAll('dialog label')].find((label) => label.firstChild?.textContent === 'Notes')?.querySelector<HTMLTextAreaElement>('textarea'); return { title: title?.value, notes: notes?.value, ready: Boolean(document.querySelector<HTMLButtonElement>('dialog button[type=submit]') && !document.querySelector<HTMLButtonElement>('dialog button[type=submit]')!.disabled), error: document.querySelector('.activity-panel-form > [role=alert]')?.textContent, recoveries: [...document.querySelectorAll<HTMLTextAreaElement>('textarea[readonly]')].map((input) => input.value), pending: document.body.textContent?.includes('pending.pdf'), saved } },
-  async cleanup() { root.unmount(); database.close() },
+  async cleanup() { root.unmount(); routingCache.close(); database.close() },
 }
 Object.assign(window, { roamConcurrentTest: api })
 document.getElementById('status')!.textContent = 'Prêt'

@@ -1,0 +1,4 @@
+# Handler validates tokens with Supabase Auth and checks the private user allowlist.
+# Public preflight must reach it; never remove handler authentication.
+[functions.routing]
+verify_jwt = false

@@ -141,9 +141,18 @@ try {
     console.log('PASS : formulaires Hébergement réels, deux onglets hors réseau, double clic, révision atomique, saisie conservée et suppression concurrente sans résurrection.')
 
 
+    await checked('roamConcurrentTest.routingOpen()')
+    const routingResults = await Promise.all([checked('roamConcurrentTest.routingCompute()'), checkedB('roamConcurrentTest.routingCompute()')])
+    if(routingResults[0].inputKey!==routingResults[1].inputKey||await checked('roamConcurrentTest.routingCalls()')!==1)throw Error('B2 cache inter-onglets duplique le calcul')
+    await checkedB('roamConcurrentTest.routingManual()'); const routingBefore=await checked('roamConcurrentTest.journeyUIState()')
+    if(await checked('roamConcurrentTest.routingStaleSave()'))throw Error('B2 estimation ecrase duree manuelle concurrente')
+    const routingAfter=await checked('roamConcurrentTest.journeyUIState()')
+    if(routingAfter.row.segments[0].durationMinutes!==91||routingAfter.operations!==routingBefore.operations)throw Error('B2 duree manuelle ou journal perdu')
+    console.log('PASS : B2 fournisseur simule hors reseau, deux onglets reels, un seul calcul ; estimation obsolete refusee, duree manuelle concurrente et journal preserves.')
   } finally {
     await checkedB('roamConcurrentTest.cleanup()');socketB.close();await command('Target.closeTarget',{targetId:created.targetId})
     await checked(`(async()=>{await roamConcurrentTest.cleanup();await new Promise((resolve,reject)=>{const r=indexedDB.deleteDatabase(${JSON.stringify(database)});r.onsuccess=resolve;r.onerror=reject})})()`)
+    await checked(`new Promise((resolve,reject)=>{const r=indexedDB.deleteDatabase(${JSON.stringify(database + '-routing')});r.onsuccess=resolve;r.onerror=reject})`)
   }
 
 } finally {

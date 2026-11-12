@@ -16,3 +16,4 @@ registerHooks({
   },
 })
 await import('./v21-models.core.ts')
+await import('./routing.core.ts')
