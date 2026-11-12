@@ -14,6 +14,7 @@ import { ActivityAdvancedFields } from './ActivityAdvancedFields'
 import { categoryLabels, periodLabels } from './activityPresentation'
 
 type Props = {
+  participants?: readonly import('../../money/expenseSharing').TripParticipant[]
   referenceCurrency: string
   tripId: string
   initialDate: string | null
@@ -44,7 +45,7 @@ function DiscardPrompt({ onContinue, onDiscard }: { onContinue: () => void; onDi
   )
 }
 
-export function ActivityFormPanel({ referenceCurrency, tripId, initialDate, fallbackDate, activity, fallbackFocusRef, onClose, onSaved, readActivity = getActivity, persistActivity = saveActivityWithDocuments, readDocuments = listDocuments }: Props) {
+export function ActivityFormPanel({ participants = [], referenceCurrency, tripId, initialDate, fallbackDate, activity, fallbackFocusRef, onClose, onSaved, readActivity = getActivity, persistActivity = saveActivityWithDocuments, readDocuments = listDocuments }: Props) {
   const [openingActivity] = useState(activity)
   const [baseline, setBaseline] = useState(activity)
   const [ready, setReady] = useState(activity === null)
@@ -199,6 +200,15 @@ export function ActivityFormPanel({ referenceCurrency, tripId, initialDate, fall
           {form.scheduleType === 'period' && <label>Moment<select value={form.period} onChange={(event) => setField('period', event.target.value as ActivityPeriod)}>
             {Object.entries(periodLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select></label>}
+          <fieldset className="activity-participants"><legend>Participants</legend>
+            <label className="activity-checkbox"><input type="checkbox" checked={form.participantIds === undefined} onChange={event => setField('participantIds', event.target.checked ? undefined : [])} />Tous les voyageurs (activité collective)</label>
+            {participants.map(person => <label className="activity-checkbox" key={person.id}><input type="checkbox" checked={form.participantIds === undefined || form.participantIds.includes(person.id)} onChange={event => {
+              const selected = form.participantIds ?? participants.map(item => item.id)
+              setField('participantIds', event.target.checked ? [...selected, person.id] : selected.filter(id => id !== person.id))
+            }} />{person.name}</label>)}
+            {!participants.length && <p className="activity-meta">Ajoute les voyageurs dans le partage entre voyageurs du Budget pour les sélectionner ici.</p>}
+            {form.participantIds?.length === 0 && <p className="activity-meta">Aucun participant sélectionné.</p>}
+          </fieldset>
           <details className="activity-extra">
             <summary>Informations complémentaires</summary>
             <ActivityLocationFields form={form} onChange={setForm} />

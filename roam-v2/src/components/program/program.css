@@ -885,3 +885,9 @@
 .transfer-time-available { color: var(--text); }
 .transfer-time-conflict { color: var(--accent); }
 .transfer-time-occupied, .transfer-time-unknown { color: var(--muted); }
+
+.activity-participants { min-width: 0; }
+.activity-participants .activity-checkbox { min-height: 44px; overflow-wrap: anywhere; }
+.activity-participant-names { overflow-wrap: anywhere; }
+.program-participant-filter { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem; margin-block: 1rem; }
+.program-participant-filter select { min-height: 44px; max-width: 100%; }

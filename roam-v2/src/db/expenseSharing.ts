@@ -26,10 +26,13 @@ export function createExpenseSharingRepository(database: RoamDatabase = db) {
       }))
     },
     async deleteParticipant(tripId: string, id: string, expectedName: string) {
-      return withSensitiveOperation('Suppression d’un participant.', () => database.transaction('rw', database.trips, async () => {
+      return withSensitiveOperation('Suppression d’un participant.', () => database.transaction('rw', database.trips, database.activities, async () => {
         const trip = await parent(tripId), participants = validateParticipants(trip.participants), expenses = validateExpenseShares(trip.expenseShares, participants)
         if (participants.find((item) => item.id === id)?.name !== expectedName) throw new Error('Ce participant a changé. Actualise la liste.')
         if (expenses.some((expense) => expense.payerId === id || expense.shares.some((share) => share.participantId === id))) throw new Error('Ce participant est utilisé par un partage. Modifie ou retire ces partages avant de le supprimer ; aucun historique n’a été effacé.')
+        for (const activity of await database.activities.where('tripId').equals(tripId).toArray()) {
+          if (activity.participantIds?.includes(id)) await database.activities.update(activity.id, { participantIds: activity.participantIds.filter(personId => personId !== id), updatedAt: new Date().toISOString() })
+        }
         await database.trips.update(tripId, { participants: participants.filter((item) => item.id !== id) })
       }))
     },

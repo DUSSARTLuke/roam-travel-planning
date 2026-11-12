@@ -1,3 +1,5 @@
+import { validateActivityParticipants } from '../db/activityParticipants'
+import { validateParticipants } from '../money/expenseSharing'
 import { validateV6Graph } from '../evolution/v21/graph'
 import { validateSyncLineage } from '../sync/backup'
 import { validatePracticalRecords } from '../practical/model'
@@ -61,7 +63,10 @@ export async function buildExportArchive(snapshot: ExportSnapshot, onProgress: (
   if (activities.some((activity) => !tripIds.has(activity.tripId)) || documents.some((document) => document.owner.kind === 'activity' && !activityIds.has(document.owner.id))) {
     throw new Error('Des données n’ont plus de parent. Export interrompu pour éviter une sauvegarde incomplète.')
   }
-  for (const activity of activities) validateReservationType(activity.reservationType)
+  for (const activity of activities) {
+    validateReservationType(activity.reservationType)
+    validateActivityParticipants(activity.participantIds, validateParticipants(trips.find(trip => trip.id === activity.tripId)?.participants))
+  }
   const transferActivities = new Map(activities.map((activity) => [activity.id, activity]))
   for (const trip of trips) { if (!isV6) { validateTripTransfers(trip.manualTransfers, trip.id, transferActivities); validateTripSharing(trip, transferActivities) }; validatePlannedBudget(trip.plannedBudget); validatePreparationTasks(trip.preparationTasks); validatePracticalRecords(trip.practicalRecords) }
   const blobs = new Map<string, Blob>()

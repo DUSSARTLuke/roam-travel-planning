@@ -1,3 +1,4 @@
+import { validateActivityParticipants } from './activityParticipants'
 import { detachLinkedJourneys } from '../evolution/v21/repository'
 import { stampActivity, checkActivityRevision, activityVersion, ActivityEditConflict, type ActivityRevision } from './activityRevision'
 import { createId } from '../utils/createId'
@@ -29,6 +30,7 @@ export function createActivityRepository(database: RoamDatabase = db) {
       const fields = validateActivity(input)
       return database.transaction('rw', database.trips, database.activities, async () => {
         await requireParent(tripId, true)
+        validateActivityParticipants(fields.participantIds, (await database.trips.get(tripId))?.participants ?? [])
         const timestamp = new Date().toISOString()
         const activity: TripActivity = { ...fields, id: createId(), tripId, createdAt: timestamp, updatedAt: timestamp }
         await database.activities.add(activity)
@@ -69,6 +71,7 @@ export function createActivityRepository(database: RoamDatabase = db) {
         const preserved = Object.fromEntries(advancedActivityKeys
           .filter((key) => !Object.hasOwn(input, key)).map((key) => [key, existing[key]]))
         const fields = validateActivity({ ...preserved, ...input }, existing)
+        validateActivityParticipants(fields.participantIds, (await database.trips.get(tripId))?.participants ?? [])
         const activity: TripActivity = { ...fields, id: existing.id, tripId: existing.tripId,
           createdAt: existing.createdAt, updatedAt: new Date().toISOString() }
         await database.activities.put(activity)

@@ -1,3 +1,5 @@
+import { validateActivityParticipants } from '../db/activityParticipants'
+import { validateParticipants } from '../money/expenseSharing'
 import { validateV6Graph } from '../evolution/v21/graph'
 import { planV6 } from '../evolution/v21/migrationPlan'
 import type { Journey, Accommodation } from '../evolution/v21/contracts'
@@ -114,6 +116,7 @@ export async function validateRestoreArchive(archive: Blob, progress: (message: 
     // Validate without normalizing the saved record. Existing three-letter legacy
     // currencies remain accepted, just as during an unchanged activity edit.
     validateActivity(activity as unknown as TripActivity, activity as unknown as TripActivity)
+    validateActivityParticipants(activity.participantIds, validateParticipants(tripRows.find(trip => trip.id === activity.tripId)?.participants))
   }
   const transferActivities = new Map(activityRows.map((activity) => [activity.id as string, activity as unknown as TripActivity]))
   for (const trip of tripRows) { if (!isV6) { validateTripTransfers(trip.manualTransfers, trip.id as string, transferActivities); validateTripSharing(trip as unknown as Trip, transferActivities) }; if (isV6 && trip.manualTransfers !== undefined) throw new Error('Projection de transferts interdite dans ZIP2.'); validatePlannedBudget(trip.plannedBudget); validatePreparationTasks(trip.preparationTasks); validatePracticalRecords(trip.practicalRecords) }

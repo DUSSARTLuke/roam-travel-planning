@@ -3,6 +3,7 @@ import { coordinateFormValue, coordinateInput } from '../../db/activityLocation'
 import type { ActivityCategory, ActivityLink, ReservationType, ReservationStatus, ActivityPeriod, ActivitySchedule, TripActivity, TripActivityInput } from '../../db/activityModel'
 
 export type ActivityFormValues = {
+  participantIds?: string[]
   title: string
   category: ActivityCategory
   date: string
@@ -32,6 +33,7 @@ export type ActivityFormValues = {
 
 export function initialActivityValues(activity: TripActivity | null, date: string | null, fallback: string, referenceCurrency = 'EUR'): ActivityFormValues {
   return {
+    participantIds: activity?.participantIds?.slice(),
     title: activity?.title ?? '', category: activity?.category ?? 'visit',
     date: activity?.date ?? date ?? fallback, idea: activity ? activity.date === null : date === null,
     scheduleType: activity?.scheduleType ?? 'unscheduled', startTime: activity?.startTime ?? '',
@@ -64,6 +66,7 @@ export function activityFormInput(form: ActivityFormValues, existing: TripActivi
   }
   return {
     ...(activityVersion(existing) ? { [activityRevision]: activityVersion(existing) } : {}),
+    participantIds: form.participantIds?.slice(),
     ...schedule, title: form.title, category: form.category, date: form.idea ? null : form.date,
     address: form.address, latitude: coordinateInput(form.latitude, 'La latitude'), longitude: coordinateInput(form.longitude, 'La longitude'),
     location: form.location, notes: form.notes, sortOrder: existing?.sortOrder ?? 0,

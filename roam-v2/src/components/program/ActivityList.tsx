@@ -1,4 +1,5 @@
-import { Fragment, type ReactNode } from 'react'
+import { ParticipantContext } from './participantContext'
+import { useContext, Fragment, type ReactNode } from 'react'
 import { OrganizationActions } from './ActivityOrganization'
 import { MapPin, Pencil, Plus } from 'lucide-react'
 import type { TripActivity } from '../../db/activityModel'
@@ -18,6 +19,8 @@ type Props = {
 export function ActivityCard({ activity, onEdit, onOpen, showDate = false, showSchedule = true }: {
   activity: TripActivity; onEdit: Props['onEdit']; onOpen: Props['onOpen']; showDate?: boolean; showSchedule?: boolean
 }) {
+  const participants = useContext(ParticipantContext)
+  const names = activity.participantIds === undefined ? 'Tous les voyageurs' : activity.participantIds.length ? activity.participantIds.map(id => participants.find(person => person.id === id)?.name ?? 'Voyageur indisponible').join(', ') : 'Aucun participant'
   return (
     <article className="activity-card">
       <div className="activity-card-content">
@@ -25,6 +28,7 @@ export function ActivityCard({ activity, onEdit, onOpen, showDate = false, showS
         <h3><button type="button" className="activity-card-open" aria-haspopup="dialog" aria-label={`Consulter l’activité ${activity.title}`}
           onClick={(event) => onOpen(activity, event.currentTarget)}>{activity.title}</button></h3>
         {showDate && activity.date && <p className="activity-meta">{formatDate(activity.date, { day: 'numeric', month: 'long', year: 'numeric' })}</p>}
+        <p className="activity-meta activity-participant-names">Participants : {names}</p>
         {activity.location && <p className="activity-location"><MapPin size={16} aria-hidden="true" />{activity.location}</p>}
       </div>
       <div className="activity-card-actions"><OrganizationActions activity={activity} />

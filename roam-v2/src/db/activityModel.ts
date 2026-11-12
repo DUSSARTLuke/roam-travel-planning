@@ -1,3 +1,4 @@
+import { validateActivityParticipants } from './activityParticipants'
 import { validateCoordinates } from './activityLocation'
 import { validateCurrency } from './currency'
 
@@ -14,7 +15,7 @@ export type ReservationStatus = 'not_required' | 'to_book' | 'pending' | 'confir
 export type ActivityLink = { id: string; title: string; url: string }
 
 export const advancedActivityKeys = [
-  'location', 'address', 'latitude', 'longitude',
+  'participantIds', 'location', 'address', 'latitude', 'longitude',
   'estimatedCost', 'paidAmount', 'currency', 'reservationType', 'reservationStatus', 'reservationReference',
   'reservationProvider', 'reservationPeople', 'reservationDeadline', 'reservationNotes', 'url', 'links',
 ] as const
@@ -30,6 +31,7 @@ export type ActivitySchedule =
 
 export type TripActivityInput = ActivitySchedule & {
   title: string
+  participantIds?: string[]
   category: ActivityCategory
   // A local calendar date, never converted to the browser's time zone.
   date: string | null
@@ -160,6 +162,7 @@ export function validateActivity(input: TripActivityInput, existing?: TripActivi
   }
 
   return {
+    participantIds: validateActivityParticipants(input.participantIds),
     ...schedule, title, category: input.category, date: input.date, sortOrder: input.sortOrder,
     ...coordinates, address: optionalText(input.address, 'L’adresse'),
     location: optionalText(input.location, 'Le lieu'), notes: optionalText(input.notes, 'Les notes'),

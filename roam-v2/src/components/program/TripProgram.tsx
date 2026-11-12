@@ -1,3 +1,5 @@
+import { ParticipantContext } from './participantContext'
+import { activityIncludesParticipant } from '../../db/activityParticipants'
 import { AccommodationDetail, AccommodationForm } from '../accommodations/AccommodationSpace'
 import type { Accommodation } from '../../evolution/v21/contracts'
 import type { Revision } from '../../evolution/v21/repository'
@@ -98,6 +100,9 @@ export function TripProgram({ trip, initialNavigation, onNavigationChange, readA
     () => ({ activities: [] as TripActivity[], error: 'Impossible de charger les activités de ce voyage.' }),
   ), [trip.id, reload, readActivities])
   const activities = result?.activities ?? []
+  const [participantFilter, setParticipantFilter] = useState('')
+  const activeFilter = trip.participants?.some(person => person.id === participantFilter) ? participantFilter : ''
+  const visibleActivities = activeFilter ? activities.filter(activity => activityIncludesParticipant(activity, activeFilter)) : activities
   const detailActivity = activities.find((activity) => activity.id === detailId && activity.tripId === trip.id) ?? null
   // Invalidate the selection before rendering if the live query loses access
   // or the activity disappears (including changes made in another tab).
@@ -116,11 +121,11 @@ export function TripProgram({ trip, initialNavigation, onNavigationChange, readA
     return transfers.filter((item) => item.fromActivityId === activity.id && transferPlacements.get(item.id)?.day !== null)
       .map((item) => <TransferCard key={item.id} transfer={item} transfers={transfers} activities={activities} onEdit={editTransfer} disabled={!ready} />)
   }
-  const dayActivities = activities.filter((activity) => activity.date === selectedDate)
-  const ideas = activities.filter((activity) => activity.date === null)
-  const outsideDays = activities.filter((activity) => activity.date !== null && (activity.date < trip.startDate || activity.date > trip.endDate))
+  const dayActivities = visibleActivities.filter((activity) => activity.date === selectedDate)
+  const ideas = visibleActivities.filter((activity) => activity.date === null)
+  const outsideDays = visibleActivities.filter((activity) => activity.date !== null && (activity.date < trip.startDate || activity.date > trip.endDate))
   const counts: Record<string, number> = {}
-  for (const activity of activities) {
+  for (const activity of visibleActivities) {
     if (activity.date !== null) counts[activity.date] = (counts[activity.date] ?? 0) + 1
   }
 
@@ -165,7 +170,7 @@ export function TripProgram({ trip, initialNavigation, onNavigationChange, readA
   }
 
   return (
-    <OrganizationContext value={{ activities, busy: !ready || ordering, reorder, open: (activity, mode, trigger) => {
+    <ParticipantContext value={trip.participants ?? []}><OrganizationContext value={{ activities, busy: !ready || ordering, reorder, open: (activity, mode, trigger) => {
       if (ready && !orderingLock.current) setOrganization({ activity, mode, trigger })
     } }}>
     <section className="trip-program">
@@ -176,6 +181,7 @@ export function TripProgram({ trip, initialNavigation, onNavigationChange, readA
         <h1>Programme</h1>
         <p className="subtitle">{days.length} journée{days.length > 1 ? 's' : ''} pour profiter du voyage.</p>
       </header>
+      <label className="program-participant-filter">Participants<select value={activeFilter} onChange={event => setParticipantFilter(event.target.value)}><option value="">Tous</option>{(trip.participants ?? []).map(person => <option key={person.id} value={person.id}>{person.name}</option>)}</select></label>
       {result === undefined && <p role="status">Chargement des activités…</p>}
       {result?.error && <div role="alert"><p>{result.error}</p><button type="button" className="secondary-button" onClick={() => setReload((value) => value + 1)}>Réessayer</button></div>}
       {days.length === 0 ? <p className="empty-state" role="status">Les dates de ce voyage ne permettent pas d’afficher le programme. Vérifie les dates de départ et de retour.</p> : <>
@@ -194,7 +200,7 @@ export function TripProgram({ trip, initialNavigation, onNavigationChange, readA
         {mode === 'day' ? <>
           <DayStrip days={days} selectedDate={selectedDate} onSelect={selectDay} />
           {result && !result.error && <DayDetails transfers={transfers} date={selectedDate} activities={dayActivities} afterActivity={afterActivity} onAdd={ready ? addActivity : undefined} onEdit={editActivity} onOpen={openActivity} />}
-        </> : mode === 'multi' ? (result && !result.error && <MultiDayProgram transfers={transfers} days={days} selectedDate={selectedDate} activities={activities} onSelect={selectDay}
+        </> : mode === 'multi' ? (result && !result.error && <MultiDayProgram transfers={transfers} days={days} selectedDate={selectedDate} activities={visibleActivities} onSelect={selectDay}
           onAdd={ready ? addForDay : undefined} onAddTransfer={ready ? (date, trigger) => setTransferEditor({ transfer: null, trigger, date }) : undefined} onEdit={editActivity} onOpen={openActivity} afterActivity={afterActivity} renderDayExtra={day=><AccommodationSpace trip={trip} date={day} repository={journeyRepository} readStays={async()=>stays}/>} />) : mode === 'ideas' ? <section className="program-day-detail" aria-labelledby="program-ideas-title">
           <h2 id="program-ideas-title">Idées à planifier</h2>
           {result && !result.error && <ActivityList activities={ideas} ideas onAdd={ready ? addActivity : undefined} onEdit={editActivity} onOpen={openActivity} />}
@@ -222,8 +228,8 @@ export function TripProgram({ trip, initialNavigation, onNavigationChange, readA
       {!transferEditor && !organization && !editor && ready && detailActivity && <ActivityDetailPanel trip={trip} activity={detailActivity}
         returnFocusRef={detailOriginRef} fallbackFocusRef={programFocusRef}
         onClose={() => setDetailId(null)} onEdit={() => editActivity(detailActivity)} />}
-      {editor && <ActivityFormPanel referenceCurrency={tripReferenceCurrency(trip)} tripId={trip.id} activity={editor.activity} initialDate={editor.date}
+      {editor && <ActivityFormPanel participants={trip.participants} referenceCurrency={tripReferenceCurrency(trip)} tripId={trip.id} activity={editor.activity} initialDate={editor.date}
         fallbackDate={selectedDate} fallbackFocusRef={programFocusRef} onClose={() => setEditor(null)} onSaved={activitySaved} />}
-    </section></OrganizationContext>
+    </section></OrganizationContext></ParticipantContext>
   )
 }

@@ -1,3 +1,4 @@
+import { activitiesShareParticipants } from '../../db/activityParticipants'
 import { compareActivities, type TripActivity } from '../../db/activityModel'
 
 export type PlanningConflict = { activity: TripActivity; kind: 'overlap' | 'same-start' }
@@ -43,6 +44,7 @@ export function buildDayPlanning(activities: readonly TripActivity[]): DayPlanni
       else if (a.end === undefined || b.start >= a.end) break
       else if (b.end === b.start) continue // Explicit zero-length interval has no occupied duration.
       else kind = 'overlap'
+      if (!activitiesShareParticipants(a.activity, b.activity)) continue
       a.conflicts.push({ activity: b.activity, kind })
       b.conflicts.push({ activity: a.activity, kind })
     }
