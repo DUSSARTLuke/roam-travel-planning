@@ -152,6 +152,6 @@ export async function testTransfers(report: (message: string) => void) {
     await database.trips.update(trip.id, { archived: false })
     await updateTripTrash(trip.id, 'trash', undefined, database)
     await rejects(() => repository.saveTransfer(trip.id, fields))
-    report('Déplacements : 11 modes, CRUD, facultatifs/zéro/devises, validation, isolation, concurrence, dates/ordre, réactivité, réouverture, ZIP, formulaire/clavier/mobile et cascade atomique validés sans réseau.')
+    report('Déplacements : 12 modes, CRUD, facultatifs/zéro/devises, validation, isolation, concurrence, dates/ordre, réactivité, réouverture, ZIP, formulaire/clavier/mobile et cascade atomique validés sans réseau.')
   } finally { flushSync(() => root.unmount()); host.remove(); trigger.remove(); second.close(); await database.delete(); await target.delete() }
 }

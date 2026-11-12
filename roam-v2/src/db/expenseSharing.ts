@@ -26,12 +26,15 @@ export function createExpenseSharingRepository(database: RoamDatabase = db) {
       }))
     },
     async deleteParticipant(tripId: string, id: string, expectedName: string) {
-      return withSensitiveOperation('Suppression d’un participant.', () => database.transaction('rw', database.trips, database.activities, async () => {
+      return withSensitiveOperation('Suppression d’un participant.', () => database.transaction('rw', database.trips, database.activities, database.journeys, async () => {
         const trip = await parent(tripId), participants = validateParticipants(trip.participants), expenses = validateExpenseShares(trip.expenseShares, participants)
         if (participants.find((item) => item.id === id)?.name !== expectedName) throw new Error('Ce participant a changé. Actualise la liste.')
         if (expenses.some((expense) => expense.payerId === id || expense.shares.some((share) => share.participantId === id))) throw new Error('Ce participant est utilisé par un partage. Modifie ou retire ces partages avant de le supprimer ; aucun historique n’a été effacé.')
         for (const activity of await database.activities.where('tripId').equals(tripId).toArray()) {
           if (activity.participantIds?.includes(id)) await database.activities.update(activity.id, { participantIds: activity.participantIds.filter(personId => personId !== id), updatedAt: new Date().toISOString() })
+        }
+        for (const journey of await database.journeys.where('tripId').equals(tripId).toArray()) {
+          if (journey.participantIds?.includes(id)) await database.journeys.update(journey.id, { participantIds: journey.participantIds.filter(personId => personId !== id), updatedAt: new Date().toISOString() })
         }
         await database.trips.update(tripId, { participants: participants.filter((item) => item.id !== id) })
       }))
@@ -50,6 +53,7 @@ export function createExpenseSharingRepository(database: RoamDatabase = db) {
         if (journey && expenses.some(share => reference.kind === 'journey' ? share.kind === 'transfer' && share.expenseId === journey.legacy?.id : share.kind === 'journey' && share.expenseId === journey.id)) throw new Error('Ce trajet possède déjà un partage via un autre identifiant.')
         if(reference.kind==='accommodation'&&nativeEntity?.budgetExcluded)throw new Error('Cet hébergement est exclu du budget : ses montants sont suivis ailleurs.')
         if (!source) throw new Error('La dépense est introuvable dans ce voyage.')
+        if (nativeEntity?.purpose === 'activity-connection') throw new Error('Une liaison du Programme ne constitue pas une dépense.')
         if (transfer) {
           const from = await database.activities.get(transfer.fromActivityId), to = await database.activities.get(transfer.toActivityId)
           if (from?.tripId !== tripId || to?.tripId !== tripId) throw new Error('Déplacement sans activités du voyage.')

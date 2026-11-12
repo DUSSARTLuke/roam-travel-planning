@@ -1,3 +1,4 @@
+import { testActivityConnections } from './activityConnections.browser'
 import { testActivityParticipants } from './activityParticipants.browser'
 import { testFinalBackup } from './finalBackup.browser'
 import { testV21Stabilization } from './v21Stabilization.browser'
@@ -214,6 +215,7 @@ button.addEventListener('click', async () => {
   button.disabled = true
   results.textContent = ''
   try {
+    await testActivityConnections((message) => { results.textContent += `✓ ${message}\n` })
     await testActivityParticipants((message) => { results.textContent += `✓ ${message}\n` })
     await testFinalBackup((message) => { results.textContent += `✓ ${message}\n` })
     await testV21Stabilization((message) => { results.textContent += `✓ ${message}\n` })

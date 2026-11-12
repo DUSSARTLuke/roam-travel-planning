@@ -1,3 +1,4 @@
+import { validateActivityParticipants } from '../../db/activityParticipants'
 import { MAX_ACTIVITY_DOCUMENTS, MAX_DOCUMENT_BYTES } from '../../db/documentModel'
 import type { Trip } from '../../db/database'
 import type { TripActivity } from '../../db/activityModel'
@@ -11,6 +12,7 @@ export function validateV6Graph(trips: readonly Trip[], activities: readonly Tri
   const legacy = new Set<string>()
   for (const journey of journeys) {
     assertJourney(journey)
+    validateActivityParticipants(journey.participantIds, trips.find(trip => trip.id === journey.tripId)?.participants ?? [])
     if (!tripIds.has(journey.tripId)) throw new Error('Déplacement sans voyage.')
     if (journey.legacy) {
       if (journey.legacy.kind !== 'manualTransfer' || journey.legacy.tripId !== journey.tripId || typeof journey.legacy.id !== 'string' || !journey.legacy.id || journey.legacy.id.length > 512) throw new Error('Provenance du déplacement invalide.')
@@ -31,6 +33,7 @@ export function validateV6Graph(trips: readonly Trip[], activities: readonly Tri
     for (const share of validateExpenseShares(trip.expenseShares, participants)) {
       const parent = share.kind === 'activity' ? acts.get(share.expenseId) : share.kind === 'accommodation' ? stays.get(share.expenseId) : share.kind === 'journey' ? routes.get(share.expenseId) : journeys.find(j=>j.tripId===trip.id && j.legacy?.id===share.expenseId)
       if (!parent || parent.tripId !== trip.id) throw new Error('Partage sans dépense du voyage.')
+      if ((parent as Journey).purpose === 'activity-connection') throw new Error('Une liaison du Programme ne peut pas être partagée comme dépense.')
       if(share.kind==='accommodation'&&(parent as Accommodation).budgetExcluded)throw new Error('Partage sur un hébergement exclu du budget.')
       const key=JSON.stringify([share.kind==='transfer'?'journey':share.kind,parent.id])
       if (shared.has(key)) throw new Error('Une même dépense possède plusieurs partages via ses alias.')

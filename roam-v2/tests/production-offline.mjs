@@ -117,6 +117,30 @@ try {
   await click('Confirmer la suppression du déplacement');await wait(`!document.querySelector('dialog')&&!document.querySelector('[aria-label="Consulter le déplacement Maison offline → Gare offline"]')`,'Suppression autonome offline')
   console.log('PASS : création, édition, réouverture et suppression d’un déplacement autonome multi-étapes via UI, réseau réellement coupé.')
 
+  // B1 must also work from the production service worker, with the network off.
+  for (const title of ['B1 départ offline', 'B1 arrivée offline']) {
+    await click('Ajouter une activité'); await wait(`Boolean(document.querySelector('#activity-panel-title'))`, 'Activité B1 offline')
+    await setJourneyField('Nom de l’activité *', title); await click('Ajouter l’activité')
+    await wait(`!document.querySelector('dialog')`, 'Activité B1 enregistrée offline')
+  }
+  await wait(`Boolean(document.querySelector('.connection-suggestion button:not(:disabled)'))`, 'Proposition B1 offline')
+  await checked(`document.querySelector('.connection-suggestion button').click()`)
+  await wait(`Boolean(document.querySelector('.connection-panel'))`, 'Formulaire liaison B1 offline')
+  await setJourneyField('Durée manuelle (min) *', '17'); await setJourneyField('Marge de sécurité (min)', '3'); await click('Enregistrer la liaison')
+  await wait(`Boolean(document.querySelector('[data-connection-id]'))&&!document.querySelector('dialog')`, 'Liaison B1 enregistrée offline')
+  await checked(`document.querySelector('[data-connection-id] button').click()`)
+  await wait(`Boolean(document.querySelector('.connection-panel'))`, 'Édition liaison B1 offline')
+  await setJourneyField('Durée manuelle (min) *', '21'); await click('Enregistrer la liaison')
+  await wait(`!document.querySelector('dialog')&&document.querySelector('[data-connection-id]')?.textContent.includes('21 min')`, 'Durée B1 modifiée offline')
+  await command('Page.navigate', {url:'about:blank'}); await command('Page.navigate', {url:address+'/'})
+  await wait(`Boolean(document.querySelector('[aria-label="Ouvrir le voyage Londres"]'))`, 'Redémarrage B1 offline')
+  await checked(`document.querySelector('[aria-label="Ouvrir le voyage Londres"]').click()`); await click('Programme')
+  await wait(`document.querySelector('[data-connection-id]')?.textContent.includes('21 min')`, 'Durée B1 conservée après redémarrage offline')
+  await checked(`([...document.querySelector('[data-connection-id]').querySelectorAll('button')].find(b=>b.textContent==='Supprimer')).click()`)
+  await wait(`Boolean(document.querySelector('.connection-panel'))`, 'Suppression B1 offline'); await click('Confirmer la suppression')
+  await wait(`!document.querySelector('dialog')&&!document.querySelector('[data-connection-id]')`, 'Liaison B1 supprimée offline')
+  console.log('PASS : B1 production, deux activités collectives sans lieu/horaire, liaison manuelle et marge, édition, redémarrage SW et suppression via UI ; réseau réellement coupé.')
+
   await click('Accueil');await checked(`([...document.querySelectorAll('button')].find(b=>b.querySelector('strong')?.textContent==='Hébergements')).click()`);await wait(`Boolean([...document.querySelectorAll('button')].find(b=>b.textContent.trim()==='Nouvel hébergement'))`,'Accès Hébergements offline')
   await click('Nouvel hébergement');await wait(`Boolean(document.querySelector('.accommodation-form'))`,'Formulaire séjour offline')
   await setJourneyField('Nom de l’hébergement','Hôtel offline');await setJourneyField('Coût estimé','80');

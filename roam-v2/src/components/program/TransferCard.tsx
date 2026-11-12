@@ -6,7 +6,7 @@ import type { TripActivity } from '../../db/activityModel'
 import { transferModes, type ManualTransfer } from '../../db/transferModel'
 import { transferPlacement } from './transferPlanning'
 
-const icons = { walk: Footprints, bicycle: Bike, bus: Bus, metro: TrainFront, tram: TramFront, train: TrainFront, car: Car, taxi: CarTaxiFront, plane: Plane, boat: Ship, other: Route }
+const icons = { transit: Bus, walk: Footprints, bicycle: Bike, bus: Bus, metro: TrainFront, tram: TramFront, train: TrainFront, car: Car, taxi: CarTaxiFront, plane: Plane, boat: Ship, other: Route }
 export function TransferCard({ transfer, activities, onEdit, disabled = false, transfers }: {
   transfer: ManualTransfer; activities: TripActivity[]; onEdit: (transfer: ManualTransfer, trigger: HTMLButtonElement) => void; disabled?: boolean; transfers?: readonly ManualTransfer[]
 }) {

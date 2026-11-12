@@ -65,7 +65,7 @@ export function buildTripBudget(trip: Trip, activities: readonly TripActivity[],
     } catch (error) { issues.push({ label: `Déplacement ${raw.id}`, reason: error instanceof Error ? error.message : 'Données du déplacement invalides.' }) }
   }
   const projectedIds = new Set(transfers.map(transfer=>transfer.id))
-  const autonomous = unique(journeys.filter(journey=>journey.tripId===trip.id && (!journey.legacy || !projectedIds.has(journey.legacy.id))),sameMoney,issues)
+  const autonomous = unique(journeys.filter(journey=>journey.tripId===trip.id && journey.purpose !== 'activity-connection' && (!journey.legacy || !projectedIds.has(journey.legacy.id))),sameMoney,issues)
   for (const journey of autonomous) entries.push({id:`journey:${journey.id}`,kind:'transfer',category:'transport',label:journey.title,estimatedCost:journey.estimatedCost,paidAmount:journey.paidAmount,currency:journey.currency,date:journey.departure?.date??null})
   const stays=unique(accommodations.filter(stay=>stay.tripId===trip.id),(a,b)=>sameMoney(a,b)&&a.budgetExcluded===b.budgetExcluded,issues)
   for(const stay of stays){if(stay.budgetExcluded){issues.push({label:stay.place.name,reason:'Montants de cet hébergement exclus volontairement : déjà suivis ailleurs.'});continue}if(matchingActivityReservations(stay,local).length){issues.push({label:stay.place.name,reason:'Référence déjà présente dans une activité : hébergement non intégré, doublon à vérifier. Les montants sont conservés.'});continue}entries.push({id:`accommodation:${stay.id}`,kind:'accommodation',category:'accommodation',label:stay.place.name,estimatedCost:stay.estimatedCost,paidAmount:stay.paidAmount,currency:stay.currency,date:null,dateIssue:'Coût global du séjour, sans répartition artificielle par nuit.'})}

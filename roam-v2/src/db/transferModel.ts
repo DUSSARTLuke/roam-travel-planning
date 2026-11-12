@@ -2,7 +2,7 @@ import { isActivityDate, type TripActivity } from './activityModel'
 import { validateCurrency } from './currency'
 
 export const transferModes = {
-  walk: 'À pied', bicycle: 'Vélo', bus: 'Bus', metro: 'Métro', tram: 'Tramway',
+  transit: 'Transports en commun', walk: 'À pied', bicycle: 'Vélo', bus: 'Bus', metro: 'Métro', tram: 'Tramway',
   train: 'Train', car: 'Voiture', taxi: 'Taxi / VTC', plane: 'Avion', boat: 'Bateau', other: 'Autre',
 } as const
 export type TransferMode = keyof typeof transferModes

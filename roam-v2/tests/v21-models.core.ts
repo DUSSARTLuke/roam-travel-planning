@@ -1,3 +1,4 @@
+import { testActivityConnectionsCore } from './activityConnections.core'
 import assert from 'node:assert/strict'
 import { planV6, planZip1To2 } from '../src/evolution/v21/migrationPlan'
 import { assertJourney, assertAccommodation, detachJourneyPlace } from '../src/evolution/v21/contracts'
@@ -85,3 +86,5 @@ assert.throws(() => planV6({ ...source, activities: [{ ...activities[0], tripId:
 assert.throws(() => planV6({ ...source, blobIds: ['d', 'orphan'] }))
 assert.deepEqual(source, before)
 console.log('PASS métadonnées, voyage sans transfert, orphelins et doublons refusés sans mutation')
+
+testActivityConnectionsCore(console.log)

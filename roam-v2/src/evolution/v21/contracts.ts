@@ -1,4 +1,5 @@
 // V2.1 contracts only. Not registered with Dexie or consumed by the UI.
+import { validateActivityParticipants } from '../../db/activityParticipants'
 import type { ReservationStatus } from '../../db/activityModel'
 import type { DocumentMime } from '../../db/documentModel'
 import { validateCoordinates } from '../../db/activityLocation'
@@ -16,8 +17,10 @@ export type Reservation = {
   deadline?: string; notes?: string
 }
 export type JourneyStop = { id: string; place: Place; kind: 'home' | 'station' | 'airport' | 'accommodation' | 'activity' | 'free'; link?: PlaceLink }
-export type JourneySegment = { id: string; fromStopId: string; toStopId: string; mode: TransferMode; durationMinutes?: number }
+export type JourneySegment = { id: string; fromStopId: string; toStopId: string; mode: TransferMode; durationMinutes?: number; distanceMeters?: number; safetyMarginMinutes?: number; durationSource?: 'manual' | 'automatic' }
 export type Journey = Money & {
+  participantIds?: string[]
+  purpose?: 'activity-connection'
   id: string; tripId: string; title: string; stops: JourneyStop[]; segments: JourneySegment[]
   departure?: LocalMoment; arrival?: LocalMoment; reservation?: Reservation; notes?: string
   createdAt: string; updatedAt: string
@@ -62,6 +65,9 @@ function assertEntity(entity: { id: string; tripId: string; createdAt: string; u
 }
 export function assertJourney(journey: Journey): void {
   if (journey.notes !== undefined && typeof journey.notes !== 'string') throw new Error('Notes invalides.')
+  validateActivityParticipants(journey.participantIds)
+  if (journey.purpose !== undefined && journey.purpose !== 'activity-connection') throw new Error('Usage du déplacement invalide.')
+  if (journey.purpose === 'activity-connection' && (journey.legacy || journey.estimatedCost !== undefined || journey.paidAmount !== undefined || journey.reservation !== undefined || journey.stops.length !== 2 || journey.stops.some(stop => stop.link?.kind !== 'activity'))) throw new Error('Une liaison du Programme ne doit pas créer de budget ni de réservation et relie deux activités.')
   assertEntity(journey); assertReservation(journey.reservation)
   if (typeof journey.title !== 'string' || !journey.title.trim()) throw new Error('Titre du déplacement obligatoire.')
   assertMoney(journey)
@@ -82,6 +88,9 @@ export function assertJourney(journey: Journey): void {
     const from = journey.stops[i].link, to = journey.stops[i+1].link
     if (from && to && from.kind === to.kind && from.id === to.id) throw new Error('Un segment ne peut pas relier une cible à elle-même.')
     if (segment.fromStopId !== journey.stops[i].id || segment.toStopId !== journey.stops[i + 1].id) throw new Error('Segment non consécutif.')
+    for (const value of [segment.distanceMeters, segment.safetyMarginMinutes]) if (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value) || value < 0)) throw new Error('Distance ou marge invalide.')
+    if (segment.durationSource !== undefined && !['manual', 'automatic'].includes(segment.durationSource)) throw new Error('Origine de durée invalide.')
+    if (segment.durationSource !== undefined && segment.durationMinutes === undefined) throw new Error('Une origine de durée nécessite une durée.')
     if (segment.durationMinutes !== undefined && (!Number.isFinite(segment.durationMinutes) || segment.durationMinutes < 0)) throw new Error('Durée invalide.')
   })
   if (journey.departure) assertMoment(journey.departure)

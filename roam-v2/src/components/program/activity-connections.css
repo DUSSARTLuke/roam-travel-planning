@@ -1,0 +1,14 @@
+.activity-connection { display: flex; gap: .65rem; margin: .6rem 0 .9rem; padding: .75rem; border: 1px solid var(--border); border-left: 2px solid var(--accent); border-radius: 12px; background: var(--surface); min-width: 0; }
+.activity-connection > svg { flex-shrink: 0; margin-top: .15rem; color: var(--accent); }
+.connection-content { display: grid; gap: .3rem; min-width: 0; overflow-wrap: anywhere; font-size: .82rem; color: var(--muted); }
+.connection-content strong { color: var(--text); font-size: .88rem; }
+.connection-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem 1rem; }
+.connection-link { display: inline-flex; gap: .35rem; align-items: center; border: 0; background: transparent; color: var(--accent); padding: .25rem 0; font: inherit; cursor: pointer; text-align: left; min-height: 44px; overflow-wrap: anywhere; }
+.connection-link:disabled { opacity: .45; cursor: default; }
+.connection-actions a { color: var(--accent); min-height: 44px; display: inline-flex; align-items: center; }
+.connection-suggestion { display: grid; padding: .2rem .6rem .6rem; }
+.connection-suggestion .activity-meta { font-size: .75rem; }
+.connection-panel .connection-participants { min-width: 0; }
+.connection-participants label { min-height: 44px; overflow-wrap: anywhere; }
+.connection-endpoints { overflow-wrap: anywhere; }
+.connection-corrections { margin-block: 1rem; }

@@ -1,3 +1,5 @@
+import { activitiesShareParticipants } from './activityParticipants'
+import { connectionEndpoints, connectionKey } from '../routing/activityConnections'
 import { refreshLegacyProjection } from '../evolution/v21/projection'
 import { createId } from '../utils/createId'
 import { db, type RoamDatabase } from './database'
@@ -34,6 +36,8 @@ export function createTransferRepository(database: RoamDatabase = db) {
         if (!existing && rows.length>=10000) throw new Error('Limite de déplacements atteinte.')
         const from=await database.activities.get(fields.fromActivityId), to=await database.activities.get(fields.toActivityId)
         if (!from || !to || from.tripId!==tripId || to.tripId!==tripId || from.date===null || from.date!==to.date) throw new Error('Choisis deux activités de la même journée dans ce voyage.')
+        if (!existing && !activitiesShareParticipants(from, to)) throw new Error('Ces activités n’ont aucun participant commun.')
+        if (!existing && rows.some(row => { const endpoints = connectionEndpoints(row); return row.purpose === 'activity-connection' && endpoints && connectionKey(...endpoints) === connectionKey(from.id, to.id) })) throw new Error('Une liaison existe déjà dans le Programme. Modifie-la directement.')
         const before=id===undefined?undefined:rows.find(row=>row.legacy?.id===id)
         const now=new Date().toISOString()
         const transfer={...fields,...(!Object.hasOwn(input,'paidAmount') && existing?.paidAmount!==undefined?{paidAmount:existing.paidAmount}:{}),id:existing?.id??createId(),createdAt:existing?.createdAt??now,updatedAt:now}
@@ -41,7 +45,7 @@ export function createTransferRepository(database: RoamDatabase = db) {
         const sameLinks=before?.stops[0].link?.id===from.id && before?.stops[1].link?.id===to.id
         // Patch only fields exposed by V2. Reservations, title and other native fields survive.
         const row=before?{...before,estimatedCost:proposed.estimatedCost,paidAmount:proposed.paidAmount,currency:proposed.currency,notes:proposed.notes,updatedAt:now,
-          stops:sameLinks?before.stops:proposed.stops.map((stop,i)=>({...before.stops[i],...stop,id:before.stops[i].id})),segments:[{...before.segments[0],mode:proposed.segments[0].mode,durationMinutes:proposed.segments[0].durationMinutes,fromStopId:before.stops[0].id,toStopId:before.stops[1].id}],
+          stops:sameLinks?before.stops:proposed.stops.map((stop,i)=>({...before.stops[i],...stop,id:before.stops[i].id})),segments:[{...before.segments[0],mode:proposed.segments[0].mode,durationMinutes:proposed.segments[0].durationMinutes,...(before.segments[0].durationSource !== undefined ? {durationSource:proposed.segments[0].durationMinutes === undefined ? undefined : 'manual' as const} : {}),fromStopId:before.stops[0].id,toStopId:before.stops[1].id}],
           ...(sameLinks?{}:{departure:proposed.departure,arrival:proposed.arrival})}:proposed
         if (before) await database.journeys.put(row); else await database.journeys.add(row)
         await refreshLegacyProjection(database,tripId)

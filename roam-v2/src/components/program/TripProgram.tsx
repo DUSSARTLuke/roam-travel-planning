@@ -1,3 +1,4 @@
+import { ActivityConnections, ActivityConnectionRows, UnmanagedTransfer } from './ActivityConnections'
 import { ParticipantContext } from './participantContext'
 import { activityIncludesParticipant } from '../../db/activityParticipants'
 import { AccommodationDetail, AccommodationForm } from '../accommodations/AccommodationSpace'
@@ -115,11 +116,12 @@ export function TripProgram({ trip, initialNavigation, onNavigationChange, readA
   const transfers = trip.manualTransfers ?? []
   if (transferEditor && !ready) setTransferEditor(null)
   const transferPlacements = new Map(transfers.map((item) => [item.id, transferPlacement(item, activities)]))
-  const invalidTransfers = transfers.filter((item) => transferPlacements.get(item.id)?.day === null)
+  const relevantTransfer = (item: ManualTransfer) => !activeFilter || [item.fromActivityId, item.toActivityId].every(id => { const activity = activities.find(row => row.id === id); return activity && activityIncludesParticipant(activity, activeFilter) })
+  const invalidTransfers = transfers.filter((item) => relevantTransfer(item) && transferPlacements.get(item.id)?.day === null)
   function editTransfer(transfer: ManualTransfer, trigger: HTMLButtonElement) { if (ready) setTransferEditor({ transfer, trigger, date: activities.find((item) => item.id === transfer.fromActivityId)?.date ?? selectedDate }) }
   function afterActivity(activity: TripActivity) {
-    return transfers.filter((item) => item.fromActivityId === activity.id && transferPlacements.get(item.id)?.day !== null)
-      .map((item) => <TransferCard key={item.id} transfer={item} transfers={transfers} activities={activities} onEdit={editTransfer} disabled={!ready} />)
+    return <><ActivityConnectionRows activity={activity} />{transfers.filter((item) => relevantTransfer(item) && item.fromActivityId === activity.id && transferPlacements.get(item.id)?.day !== null)
+      .map((item) => <UnmanagedTransfer key={item.id} id={item.id}><TransferCard transfer={item} transfers={transfers} activities={activities} onEdit={editTransfer} disabled={!ready} /></UnmanagedTransfer>)}</>
   }
   const dayActivities = visibleActivities.filter((activity) => activity.date === selectedDate)
   const ideas = visibleActivities.filter((activity) => activity.date === null)
@@ -170,6 +172,7 @@ export function TripProgram({ trip, initialNavigation, onNavigationChange, readA
   }
 
   return (
+    <ActivityConnections trip={trip} activities={activities} filter={activeFilter} readJourneys={readJourneys} repository={journeyRepository} disabled={!ready || !!editor || !!organization || !!transferEditor || !!detailActivity}>
     <ParticipantContext value={trip.participants ?? []}><OrganizationContext value={{ activities, busy: !ready || ordering, reorder, open: (activity, mode, trigger) => {
       if (ready && !orderingLock.current) setOrganization({ activity, mode, trigger })
     } }}>
@@ -230,6 +233,6 @@ export function TripProgram({ trip, initialNavigation, onNavigationChange, readA
         onClose={() => setDetailId(null)} onEdit={() => editActivity(detailActivity)} />}
       {editor && <ActivityFormPanel participants={trip.participants} referenceCurrency={tripReferenceCurrency(trip)} tripId={trip.id} activity={editor.activity} initialDate={editor.date}
         fallbackDate={selectedDate} fallbackFocusRef={programFocusRef} onClose={() => setEditor(null)} onSaved={activitySaved} />}
-    </section></OrganizationContext></ParticipantContext>
+    </section></OrganizationContext></ParticipantContext></ActivityConnections>
   )
 }

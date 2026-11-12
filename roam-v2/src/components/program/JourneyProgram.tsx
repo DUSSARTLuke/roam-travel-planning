@@ -1,3 +1,6 @@
+import { activityIncludesParticipant } from '../../db/activityParticipants'
+import { connectionEndpoints } from '../../routing/activityConnections'
+import { useConnectionContext } from './connectionContext'
 import { useEffect, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Plus, Route, Pencil, Trash2 } from 'lucide-react'
@@ -58,8 +61,10 @@ export function JourneyProgram({trip,activities,date,blocked=false,readJourneys=
   const [session,setSession]=useState<Session|null>(null)
   const editing=session?.kind==='create'||session?.kind==='edit'
   const accommodations=useLiveQuery(()=>editing?repository.listAccommodations(trip.id).then(rows=>({rows,error:''}),()=>({rows:[],error:'Impossible de charger les hébergements. Les lieux libres restent disponibles.'})):Promise.resolve({rows:[],error:''}),[repository,trip.id,editing])
+  const connections = useConnectionContext()
   const raw=result?.rows??[],old=new Set(trip.manualTransfers?.map(t=>t.id)??[])
-  const rows=raw.filter(row=>!row.legacy||!old.has(row.legacy.id)).sort((a,b)=>(a.departure?.date??'9999').localeCompare(b.departure?.date??'9999')||(a.departure?.time??'99').localeCompare(b.departure?.time??'99')||a.id.localeCompare(b.id))
+  const relevantToFilter = (row: Journey) => { if (!connections?.filter) return true; if (row.participantIds !== undefined) return row.participantIds.includes(connections.filter); const endpoints = connectionEndpoints(row); return !endpoints || endpoints.every(id => { const activity = activities.find(item => item.id === id); return activity && activityIncludesParticipant(activity, connections.filter) }) }
+  const rows=raw.filter(row=>row.purpose!=='activity-connection'&&!connections?.hiddenIds.has(row.id)&&relevantToFilter(row)&&(!row.legacy||!old.has(row.legacy.id))).sort((a,b)=>(a.departure?.date??'9999').localeCompare(b.departure?.date??'9999')||(a.departure?.time??'99').localeCompare(b.departure?.time??'99')||a.id.localeCompare(b.id))
   const selected=session?.row?raw.find(row=>row.id===session.row!.id):undefined
   if(session?.kind==='detail'&&result&&!result.error){if(selected&&!session.seen)setSession({...session,seen:true});else if(!selected&&session.seen)setSession(null)}
   const disabled=blocked||trip.archived===true||trip.deletedAt!==undefined

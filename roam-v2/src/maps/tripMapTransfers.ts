@@ -6,7 +6,7 @@ import { activityMapPoint } from './mapPoint'
 import { coordinateKey, MERCATOR_LIMIT, type TripMapPoint } from './tripMapModel'
 
 export const transferColors: Record<TransferMode, string> = {
-  walk: '#86efac', bicycle: '#22d3ee', bus: '#fbbf24', metro: '#c084fc', tram: '#f472b6',
+  transit: '#a78bfa', walk: '#86efac', bicycle: '#22d3ee', bus: '#fbbf24', metro: '#c084fc', tram: '#f472b6',
   train: '#60a5fa', car: '#fb923c', taxi: '#fde047', plane: '#e2e8f0', boat: '#2dd4bf', other: '#a1a1aa',
 }
 export type TransferGeometry = MultiLineString | Point

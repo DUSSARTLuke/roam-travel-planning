@@ -1,3 +1,5 @@
+import { activitiesShareParticipants, activityIncludesParticipant, validateActivityParticipants } from '../../db/activityParticipants'
+import { individualConnections, connectionEndpoints, connectionKey, connectionPlacesCurrent } from '../../routing/activityConnections'
 import { matchingActivityReservations } from '../../accommodations/model'
 import { refreshLegacyProjection } from './projection'
 import { db, type RoamDatabase } from '../../db/database'
@@ -44,13 +46,35 @@ export function createV21Repository(database: RoamDatabase = db) {
     if (table === 'journeys') assertJourney(input as Journey); else assertAccommodation(input as Accommodation)
     return database.transaction('rw', database.tables, async () => {
       const trip=await writable(database, tripId)
+      if (table === 'journeys') {
+        const journey = input as Journey
+        validateActivityParticipants(journey.participantIds, trip.participants ?? [])
+        if (journey.purpose === 'activity-connection') {
+          const endpoints = connectionEndpoints(journey)
+          const pair = endpoints && individualConnections(trip, await database.activities.where('tripId').equals(tripId).toArray()).find(pair => pair.key === connectionKey(...endpoints))
+          if (!pair || !connectionPlacesCurrent(journey, pair) || journey.departure?.date !== pair.from.date || journey.arrival?.date !== pair.to.date || journey.participantIds?.length === 0 || journey.participantIds?.some(id => !pair.participantIds?.includes(id)) || pair.participantIds !== undefined && journey.participantIds === undefined) throw new Error('Le programme, les lieux ou les participants ont changé. Recharge cette liaison avant de l’enregistrer.')
+          for (const other of await database.journeys.where('tripId').equals(tripId).toArray()) {
+            const edge = connectionEndpoints(other)
+            if (other.id !== journey.id && edge && connectionKey(...edge) === pair.key && (other.participantIds === undefined || journey.participantIds === undefined || other.participantIds.some(id => journey.participantIds!.includes(id)))) throw new Error('Un déplacement existe déjà pour ces activités et ces voyageurs. Modifie-le plutôt que le dupliquer.')
+          }
+        }
+      }
       if(table==='journeys'){const journey=input as Journey;const share=trip.expenseShares?.find(share=>share.kind==='journey'&&share.expenseId===journey.id||share.kind==='transfer'&&share.expenseId===journey.legacy?.id);if(share&&(journey.paidAmount!==share.amount||journey.currency!==share.currency))throw new Error('Ce paiement est partagé : modifie son montant ou son partage dans le Budget. Aucun changement enregistré.')}
       if(table==='accommodations'){const stay=input as Accommodation;const share=trip.expenseShares?.find(share=>share.kind==='accommodation'&&share.expenseId===stay.id);if(share&&(stay.paidAmount!==share.amount||stay.currency!==share.currency))throw new Error('Ce paiement est partagé : modifie son montant ou son partage dans le Budget. Les autres données sont conservées.');if(stay.budgetExcluded&&trip.expenseShares?.some(share=>share.kind==='accommodation'&&share.expenseId===stay.id))throw new Error('Retire le partage de cet hébergement avant de l’exclure du budget. Aucun montant n’a été modifié.');if(!stay.budgetExcluded&&matchingActivityReservations(stay,await database.activities.where('tripId').equals(tripId).toArray()).length)throw new Error('Cette référence est déjà suivie dans une activité avec des montants. Coche « Montants déjà suivis ailleurs » pour éviter un double comptage.')}
       const existing = await database.table(table).get(input.id)
       if (existing && existing.tripId !== tripId) throw new Error('Identifiant utilisé dans un autre voyage.')
+      if (table === 'journeys') {
+        const journey = input as Journey, endpoints = connectionEndpoints(journey)
+        const previousEndpoints = existing ? connectionEndpoints(existing) : undefined
+        if (endpoints && (!existing || JSON.stringify(endpoints) !== JSON.stringify(previousEndpoints) || journey.participantIds !== undefined)) {
+          const from = await database.activities.get(endpoints[0]), to = await database.activities.get(endpoints[1])
+          if (!from || !to || !activitiesShareParticipants(from, to) || journey.participantIds?.some(id => !activityIncludesParticipant(from, id) || !activityIncludesParticipant(to, id))) throw new Error('Ces activités ne partagent pas les voyageurs sélectionnés. Recharge le programme.')
+        }
+      }
       if (existing || expected) await requireV21Revision(database, table, input.id, expected)
       else if (await database.syncEntities.get(entityKey(table, input.id))) throw new Error('Identifiant déjà utilisé ou supprimé.')
       if (!existing && (input as Journey).legacy) throw new Error('La provenance de migration ne peut pas être créée manuellement.')
+      if (table === 'journeys' && existing && existing.purpose !== (input as Journey).purpose) throw new Error('La nature de la liaison ne peut pas être modifiée.')
       if (existing && JSON.stringify(existing.legacy) !== JSON.stringify((input as Journey).legacy)) throw new Error('Provenance de migration immuable.')
       if (table === 'journeys') for (const stop of (input as Journey).stops) if (stop.link) {
         if (stop.link.state === 'deleted') {
